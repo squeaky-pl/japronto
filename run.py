@@ -24,6 +24,16 @@ request2 = "GET / HTTP/1.0\r\n" \
 request2 = request2.encode('ascii')
 
 
+http11_content_length = "POST /login HTTP/1.1\r\n" \
+    "Content-Length: 5\r\n" \
+    "\r\n" \
+    "Hello" \
+    "POST /logout HTTP/1.1\r\n" \
+    "Content-Length: 3\r\n" \
+    "\r\n" \
+    "Bye"
+http11_content_length = http11_content_length.encode('ascii')
+
 def setup_cffi(dump=True):
     if dump:
         def on_headers(request):
@@ -65,6 +75,9 @@ def main():
     cffi_parser.feed(b"\r\n")
     cffi_parser.feed(b"Hell")
     cffi_parser.feed(b"o World!")
+    cffi_parser.feed_disconnect()
+    print('---- http 11 content length')
+    cffi_parser.feed(http11_content_length)
     cffi_parser.feed_disconnect()
 
 

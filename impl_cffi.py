@@ -29,12 +29,14 @@ class HttpRequestParser(object):
         self._reset()
 
     def _reset(self):
+        self._reset_state()
+        self._reset_buffer()
+
+    def _reset_state(self):
         self.request = None
         self.state = 'headers'
         self.connection = None
         self.content_length = None
-
-        self._reset_buffer()
 
     def _reset_buffer(self):
         self.buffer = bytearray()
@@ -103,6 +105,28 @@ class HttpRequestParser(object):
         self.buffer_len = self.buffer_len - self.buffer_consumed
         self.buffer_consumed = 0
 
+        if self.connection == 'close':
+            return -2
+        elif self.connection == 'keep-alive':
+            if self.content_length == 0:
+                self._reset_state()
+                return 0
+
+            if self.content_length > self.buffer_len:
+                return -2
+
+            self.request.body = bytes(self.buffer[:self.content_length])
+            self.on_body(self.request)
+            self.buffer = self.buffer[self.content_length:]
+            self.buffer_len = self.buffer_len - self.content_length
+
+            result = self.content_length
+
+            self._reset_state()
+
+            return result
+
+
     def feed(self, data):
         # In C another condition, if we just start parsing then just move pointer
         if not self.c_buffer:
@@ -112,25 +136,32 @@ class HttpRequestParser(object):
             ffi.memmove(self.c_buffer + self.buffer_len, data, len(data))
         self.buffer_len += len(data)
 
-        if(self.state == 'headers'):
-            headers_result = self.parse_headers(data)
+        while 1:
+            if self.state == 'headers':
+                headers_result = self.parse_headers(data)
 
-            if(headers_result > 0):
-                if self.request.version == "1.0":
-                    self.connection = self.request.headers.get('Connection', 'close')
+                if headers_result > 0:
+                    if self.request.version == "1.0":
+                        self.connection = self.request.headers.get('Connection', 'close')
+                    else:
+                        self.connection = self.request.headers.get('Connection', 'keep-alive')
+                        self.content_length = self.request.headers.get('Content-Length')
+                        if self.content_length is not None:
+                            self.content_length = int(self.content_length)
+
+                    self.state = 'body'
                 else:
-                    self.connection = self.request.headers.get('Connection', 'keep-alive')
-                    self.content_length = self.request.headers.get('Content-Length')
+                    return None
 
-                self.state = 'body'
-            elif(headers_result == -1):
-                return None
+            if self.state == 'body':
+                body_result = self.parse_body()
 
-        if(self.state == 'body'):
-            self.parse_body()
+                if body_result == -2:
+                    return None
+
 
     def feed_disconnect(self):
-        if(self.request and self.buffer):
+        if self.request and self.buffer and self.connection == 'close':
             self.request.body = bytes(self.buffer)
             self.on_body(self.request)
 
