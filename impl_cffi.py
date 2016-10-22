@@ -37,6 +37,8 @@ class HttpRequestParser(object):
         self.state = 'headers'
         self.connection = None
         self.content_length = None
+        self.chunked_decoder = None
+        self.chunked_offset = None
 
     def _reset_buffer(self):
         self.buffer = bytearray()
@@ -108,11 +110,32 @@ class HttpRequestParser(object):
         if self.connection == 'close':
             return -2
         elif self.connection == 'keep-alive':
-            if self.content_length == 0:
+            if self.content_length is None:
+                if not self.chunked_decoder:
+                    self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
+                    self.chunked_offset = ffi.new('size_t*')
+
+                chunked_offset_start = self.chunked_offset[0]
+                self.chunked_offset[0] = self.buffer_len - self.chunked_offset[0]
+                result = lib.phr_decode_chunked(
+                    self.chunked_decoder,
+                    ffi.from_buffer(self.buffer) + chunked_offset_start,
+                    self.chunked_offset)
+
+                if result == -2:
+                    return -2
+                self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
+                self.on_body(self.request)
+                self.buffer = self.buffer[self.buffer_len - result:]
+                self.buffer_len = result
+
+                self._reset_state()
+
+                return result
+            elif self.content_length == 0:
                 self._reset_state()
                 return 0
-
-            if self.content_length > self.buffer_len:
+            elif self.content_length > self.buffer_len:
                 return -2
 
             self.request.body = bytes(self.buffer[:self.content_length])
@@ -130,6 +153,9 @@ class HttpRequestParser(object):
     def feed(self, data):
         # In C another condition, if we just start parsing then just move pointer
         if not self.c_buffer:
+            if self.chunked_offset:
+                self.buffer = self.buffer[:self.chunked_offset[0]]
+                self.buffer_len = self.chunked_offset[0]
             self.buffer += data
         # this in fact could be replaced by by above, what's faster?
         else:

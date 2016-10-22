@@ -34,6 +34,20 @@ http11_content_length = "POST /login HTTP/1.1\r\n" \
     "Bye"
 http11_content_length = http11_content_length.encode('ascii')
 
+http11_chunked = "POST /chunked HTTP/1.1\r\n" \
+    "\r\n" \
+    "4\r\n" \
+    "Wiki\r\n" \
+    "5\r\n" \
+    "pedia\r\n" \
+    "E\r\n" \
+    " in\r\n" \
+    "\r\n" \
+    "chunks.\r\n" \
+    "0\r\n" \
+    "\r\n"
+http11_chunked = http11_chunked.encode('ascii')
+
 def setup_cffi(dump=True):
     if dump:
         def on_headers(request):
@@ -79,7 +93,12 @@ def main():
     print('---- http 11 content length')
     cffi_parser.feed(http11_content_length)
     cffi_parser.feed_disconnect()
-
+    print('---- http 11 chunked')
+    cffi_parser.feed(http11_chunked)
+    cffi_parser.feed_disconnect()
+    print('---- short')
+    cffi_parser.feed(request2)
+    cffi_parser.feed_disconnect()
 
 if __name__ == '__main__':
     main()
