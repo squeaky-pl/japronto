@@ -3,7 +3,7 @@ import os.path
 from libpicohttpparser import ffi, lib
 
 
-class HttpRequest:
+class HttpRequest(object):
     def __init__(self, path, method, version, headers):
         self.path = path
         self.method = method
@@ -19,7 +19,7 @@ class HttpRequest:
             print(n, v)
 
 
-class HttpRequestParser:
+class HttpRequestParser(object):
     def __init__(self, on_headers, on_error, on_body):
         self.on_headers = on_headers
         self.on_error = on_error
@@ -31,18 +31,14 @@ class HttpRequestParser:
         self.state = 'headers'
         self.connection = None
         self.content_length = None
-        self.body_parts = []
 
         self._reset_buffer()
 
     def _reset_buffer(self):
-        self.buffer = None
-        self.buffer_len = 0
+        self.buffer = bytearray()
         self.buffer_consumed = 0
-        self.buffer_owned = False
-
-    def _finalize_buffer(self):
-        pass
+        self.buffer_len = 0
+        self.c_buffer = None
 
     def parse_headers(self, data):
         c_method = ffi.new('char **')
@@ -55,14 +51,14 @@ class HttpRequestParser:
         num_headers[0] = 10
 
         result = lib.phr_parse_request(
-            self.buffer, self.buffer_len, c_method, method_len, c_path, path_len,
+            self.c_buffer or ffi.from_buffer(self.buffer),
+            self.buffer_len, c_method, method_len, c_path, path_len,
             minor_version, c_headers, num_headers, 0)
 
         if result == -2:
-            if self.buffer == data:
-                self.buffer = ffi.new('char[8192]')
-                self.buffer_owned = True
-                ffi.memmove(self.buffer, data, len(data))
+            if not self.c_buffer:
+                self.c_buffer = ffi.new('char[8192]')
+                ffi.memmove(self.c_buffer, self.buffer, self.buffer_len)
 
             return result
         if result == -1:
@@ -105,16 +101,18 @@ class HttpRequestParser:
 
 
     def feed(self, data: bytes):
-        if(self.state == 'headers'):
-            if not self.buffer_owned:
-                self.buffer = data
-            else:
-                ffi.memmove(self.buffer + self.buffer_len, data, len(data))
-            self.buffer_len += len(data)
+        if not self.c_buffer:
+            self.buffer += data
+        else:
+            ffi.memmove(self.c_buffer + self.buffer_len, data, len(data))
+        self.buffer_len += len(data)
 
+        if(self.state == 'headers'):
             headers_result = self.parse_headers(data)
 
             if(headers_result > 0):
+                self._reset_buffer()
+
                 if self.request.version == "1.0":
                     self.connection = self.request.headers.get('Connection', 'close')
                 else:
