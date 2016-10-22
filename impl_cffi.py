@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os.path
 
 from libpicohttpparser import ffi, lib
@@ -61,7 +63,7 @@ class HttpRequestParser(object):
                 ffi.memmove(self.c_buffer, self.buffer, self.buffer_len)
 
             return result
-        if result == -1:
+        elif result == -1:
             self.on_error()
             self._reset()
 
@@ -86,23 +88,26 @@ class HttpRequestParser(object):
 
         return result
 
-    def parse_body(self, data):
-        if not self.body_parts and self.buffer_consumed < self.buffer_len:
-            if self.buffer_owned:
-                chunk = ffi.unpack(
-                    self.buffer + self.buffer_consumed,
-                    self.buffer_length - self.buffer_consumed)
+    def parse_body(self):
+        if self.c_buffer:
+            if self.buffer_consumed < self.buffer_len:
+                self.buffer = bytearray(ffi.unpack(
+                    self.c_buffer + self.buffer_consumed,
+                    self.buffer_len - self.buffer_consumed))
             else:
-               chunk = self.buffer[self.buffer_consumed:]
+                self.buffer = bytearray()
+            self.c_buffer = None
+        else:
+            self.buffer = self.buffer[self.buffer_consumed:]
 
-            self.body_parts.append(chunk)
+        self.buffer_len = self.buffer_len - self.buffer_consumed
+        self.buffer_consumed = 0
 
-        self.body_parts.append(data)
-
-
-    def feed(self, data: bytes):
+    def feed(self, data):
+        # In C another condition, if we just start parsing then just move pointer
         if not self.c_buffer:
             self.buffer += data
+        # this in fact could be replaced by by above, what's faster?
         else:
             ffi.memmove(self.c_buffer + self.buffer_len, data, len(data))
         self.buffer_len += len(data)
@@ -111,20 +116,22 @@ class HttpRequestParser(object):
             headers_result = self.parse_headers(data)
 
             if(headers_result > 0):
-                self._reset_buffer()
-
                 if self.request.version == "1.0":
                     self.connection = self.request.headers.get('Connection', 'close')
                 else:
                     self.connection = self.request.headers.get('Connection', 'keep-alive')
                     self.content_length = self.request.headers.get('Content-Length')
 
-                #self.state == 'body'
-        elif(self.state == 'body'):
+                self.state = 'body'
+            elif(headers_result == -1):
+                return None
+
+        if(self.state == 'body'):
             self.parse_body()
 
+    def feed_disconnect(self):
+        if(self.request and self.buffer):
+            self.request.body = bytes(self.buffer)
+            self.on_body(self.request)
 
-
-
-    def feed_disconnect():
-        pass
+        self._reset()

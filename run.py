@@ -49,14 +49,23 @@ def main():
 
     print('---- long')
     cffi_parser.feed(request)
+    cffi_parser.feed_disconnect()
     print('---- short')
     cffi_parser.feed(request2)
+    cffi_parser.feed_disconnect()
     print('---- error')
     cffi_parser.feed(b'GET / garbage')
     print('---- in parts')
     cffi_parser.feed(request2[:5])
     cffi_parser.feed(request2[5:10])
     cffi_parser.feed(request2[10:])
+    cffi_parser.feed_disconnect()
+    print('---- body in parts')
+    cffi_parser.feed(b"GET / HTTP/1.0\r\n")
+    cffi_parser.feed(b"\r\n")
+    cffi_parser.feed(b"Hell")
+    cffi_parser.feed(b"o World!")
+    cffi_parser.feed_disconnect()
 
 
 if __name__ == '__main__':
