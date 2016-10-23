@@ -67,7 +67,7 @@ class HttpRequestParser(object):
         headers = {}
         for idx in range(num_headers[0]):
            header = c_headers[idx]
-           name = ffi.string(header.name, header.name_len).decode('ascii')
+           name = ffi.string(header.name, header.name_len).decode('ascii').title()
            value = ffi.string(header.value, header.value_len).decode('latin1')
            headers[name] = value
 
