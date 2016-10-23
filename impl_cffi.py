@@ -4,9 +4,8 @@ import os.path
 
 from libpicohttpparser import ffi, lib
 
-
 class HttpRequest(object):
-    def __init__(self, path, method, version, headers):
+    def __init__(self, method, path, version, headers):
         self.path = path
         self.method = method
         self.version = version
