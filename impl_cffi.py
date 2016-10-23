@@ -26,11 +26,8 @@ class HttpRequestParser(object):
         self.on_headers = on_headers
         self.on_error = on_error
         self.on_body = on_body
-        self._reset()
-
-    def _reset(self):
         self._reset_state()
-        self._reset_buffer()
+        self.buffer = bytearray()
 
     def _reset_state(self):
         self.request = None
@@ -39,12 +36,6 @@ class HttpRequestParser(object):
         self.content_length = None
         self.chunked_decoder = None
         self.chunked_offset = None
-
-    def _reset_buffer(self):
-        self.buffer = bytearray()
-        self.buffer_consumed = 0
-        self.buffer_len = 0
-        self.c_buffer = None
 
     def parse_headers(self, data):
         c_method = ffi.new('char **')
@@ -57,23 +48,18 @@ class HttpRequestParser(object):
         num_headers[0] = 10
 
         result = lib.phr_parse_request(
-            self.c_buffer or ffi.from_buffer(self.buffer),
-            self.buffer_len, c_method, method_len, c_path, path_len,
+            ffi.from_buffer(self.buffer),
+            len(self.buffer), c_method, method_len, c_path, path_len,
             minor_version, c_headers, num_headers, 0)
 
         if result == -2:
-            if not self.c_buffer:
-                self.c_buffer = ffi.new('char[8192]')
-                ffi.memmove(self.c_buffer, self.buffer, self.buffer_len)
-
             return result
         elif result == -1:
             self.on_error()
-            self._reset()
+            self._reset_state()
+            self.buffer = bytearray()
 
             return result
-
-        self.buffer_consumed += result
 
         method = ffi.string(c_method[0], method_len[0]).decode('ascii')
         path = ffi.string(c_path[0], path_len[0]).decode('ascii')
@@ -86,6 +72,8 @@ class HttpRequestParser(object):
            value = ffi.string(header.value, header.value_len).decode('latin1')
            headers[name] = value
 
+        self.buffer = self.buffer[result:]
+
         self.request = HttpRequest(method, path, version, headers)
 
         self.on_headers(self.request)
@@ -93,20 +81,6 @@ class HttpRequestParser(object):
         return result
 
     def parse_body(self):
-        if self.c_buffer:
-            if self.buffer_consumed < self.buffer_len:
-                self.buffer = bytearray(ffi.unpack(
-                    self.c_buffer + self.buffer_consumed,
-                    self.buffer_len - self.buffer_consumed))
-            else:
-                self.buffer = bytearray()
-            self.c_buffer = None
-        else:
-            self.buffer = self.buffer[self.buffer_consumed:]
-
-        self.buffer_len = self.buffer_len - self.buffer_consumed
-        self.buffer_consumed = 0
-
         if self.connection == 'close':
             return -2
         elif self.connection == 'keep-alive':
@@ -116,19 +90,20 @@ class HttpRequestParser(object):
                     self.chunked_offset = ffi.new('size_t*')
 
                 chunked_offset_start = self.chunked_offset[0]
-                self.chunked_offset[0] = self.buffer_len - self.chunked_offset[0]
+                self.chunked_offset[0] = len(self.buffer) - self.chunked_offset[0]
                 result = lib.phr_decode_chunked(
                     self.chunked_decoder,
                     ffi.from_buffer(self.buffer) + chunked_offset_start,
                     self.chunked_offset)
                 self.chunked_offset[0] = self.chunked_offset[0] + chunked_offset_start
 
+                self.buffer = self.buffer[:self.chunked_offset[0]]
+
                 if result == -2:
                     return -2
                 self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
                 self.on_body(self.request)
-                self.buffer = self.buffer[self.buffer_len - result:]
-                self.buffer_len = result
+                self.buffer = self.buffer[len(self.buffer) - result:]
 
                 self._reset_state()
 
@@ -136,13 +111,12 @@ class HttpRequestParser(object):
             elif self.content_length == 0:
                 self._reset_state()
                 return 0
-            elif self.content_length > self.buffer_len:
+            elif self.content_length > len(self.buffer):
                 return -2
 
             self.request.body = bytes(self.buffer[:self.content_length])
             self.on_body(self.request)
             self.buffer = self.buffer[self.content_length:]
-            self.buffer_len = self.buffer_len - self.content_length
 
             result = self.content_length
 
@@ -152,16 +126,7 @@ class HttpRequestParser(object):
 
 
     def feed(self, data):
-        # In C another condition, if we just start parsing then just move pointer
-        if not self.c_buffer:
-            if self.chunked_offset:
-                self.buffer = self.buffer[:self.chunked_offset[0]]
-                self.buffer_len = self.chunked_offset[0]
-            self.buffer += data
-        # this in fact could be replaced by by above, what's faster?
-        else:
-            ffi.memmove(self.c_buffer + self.buffer_len, data, len(data))
-        self.buffer_len += len(data)
+        self.buffer += data
 
         while 1:
             if self.state == 'headers':
@@ -192,4 +157,5 @@ class HttpRequestParser(object):
             self.request.body = bytes(self.buffer)
             self.on_body(self.request)
 
-        self._reset()
+        self._reset_state()
+        self.buffer = bytearray()
