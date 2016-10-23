@@ -121,6 +121,7 @@ class HttpRequestParser(object):
                     self.chunked_decoder,
                     ffi.from_buffer(self.buffer) + chunked_offset_start,
                     self.chunked_offset)
+                self.chunked_offset[0] = self.chunked_offset[0] + chunked_offset_start
 
                 if result == -2:
                     return -2

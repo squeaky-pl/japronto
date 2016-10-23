@@ -99,6 +99,14 @@ def main():
     print('---- short')
     cffi_parser.feed(request2)
     cffi_parser.feed_disconnect()
+    print('---- http 11 chunked in parts')
+    cffi_parser.feed(http11_chunked[:5])
+    cffi_parser.feed(http11_chunked[5:10])
+    cffi_parser.feed(http11_chunked[10:15])
+    cffi_parser.feed(http11_chunked[15:20])
+    cffi_parser.feed(http11_chunked[20:30])
+    cffi_parser.feed(http11_chunked[30:35])
+    cffi_parser.feed(http11_chunked[35:])
 
 if __name__ == '__main__':
     main()
