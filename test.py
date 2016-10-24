@@ -70,6 +70,18 @@ Hello""",
 b"Hello"
 )
 
+http11_contentlength_zero = HttpTestCase(
+b"""POST /zero HTTP/1.1\r
+Content-Length: 0\r
+\r
+""",
+"POST",
+"/zero",
+"1.1",
+{"Content-Length": "0"},
+b""
+)
+
 http11_contentlength_close = HttpTestCase(
 b"""POST /logout HTTP/1.1\r
 Content-Length: 3\r
@@ -82,6 +94,16 @@ Bye""",
 {"Content-Length": "3", "Connection": "close"},
 b"Bye"
 )
+
+incomplete_body = ErrorTestCase(
+    b"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nI", "incomplete_body")
+extra_body = ErrorTestCase(
+    b"POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nehlollypapa", "incomplete_headers")
+extra_body2 = ErrorTestCase(
+    b"POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\nGET /", "incomplete_headers")
+
+
+
 
 def make_parts(value, get_size, dir=1):
     parts = []
@@ -231,7 +253,8 @@ def test_empty(parser):
 @pytest.mark.parametrize(testcase_fields,
 [
     http11_contentlength_keep,
-    http11_contentlength_close
+    http11_contentlength_close,
+    http11_contentlength_zero
 ])
 def test_http11_contentlength_one_request(
         parser, do_parts,
@@ -243,7 +266,7 @@ def test_http11_contentlength_one_request(
 
     assert parser.on_headers.called
     assert not parser.on_error.called
-    assert parser.on_body.called
+    assert parser.on_body.called == bool(body)
 
     request = parser.on_headers.call_args[0][0]
 
@@ -251,7 +274,7 @@ def test_http11_contentlength_one_request(
     assert request.path == path
     assert request.version == version
     assert request.headers == headers
-    assert request.body == body
+    assert request.body == (body or None)
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -262,7 +285,10 @@ def test_http11_contentlength_one_request(
     [http11_contentlength_close, http11_contentlength_keep],
     [http11_contentlength_close, http11_contentlength_close],
     [http11_contentlength_close, http11_contentlength_close, http11_contentlength_keep],
-    [http11_contentlength_keep, http11_contentlength_close, http11_contentlength_keep]
+    [http11_contentlength_keep, http11_contentlength_close, http11_contentlength_keep],
+    [http11_contentlength_close, http11_contentlength_zero, http11_contentlength_keep],
+    [http11_contentlength_zero, http11_contentlength_close, http11_contentlength_zero],
+    [http11_contentlength_zero, http11_contentlength_zero]
 ])
 def test_http11_contentlength_many_requests(parser, do_parts, cases):
     data = b''.join(c.data for c in cases)
@@ -274,7 +300,7 @@ def test_http11_contentlength_many_requests(parser, do_parts, cases):
 
     assert parser.on_headers.call_count == len(cases)
     assert not parser.on_error.called
-    assert parser.on_body.call_count == len(cases)
+    assert parser.on_body.call_count == sum(1 for c in cases if c.body)
 
     for i, case in enumerate(cases):
         request = parser.on_headers.call_args_list[i][0][0]
@@ -283,4 +309,16 @@ def test_http11_contentlength_many_requests(parser, do_parts, cases):
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
-        assert request.body == case.body
+        assert request.body == (case.body or None)
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize('data,error', [incomplete_body, extra_body, extra_body2])
+def test_http11_malformed(parser, do_parts, data, error):
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+    parser.feed_disconnect()
+
+    assert parser.on_error.call_args[0][0] == error
