@@ -31,7 +31,7 @@ class HttpRequestParser(object):
     def _reset_state(self):
         self.request = None
         self.state = 'headers'
-        self.connection = None
+        self.connection = 'close'
         self.content_length = None
         self.chunked_decoder = None
         self.chunked_offset = None
@@ -54,7 +54,7 @@ class HttpRequestParser(object):
         if result == -2:
             return result
         elif result == -1:
-            self.on_error()
+            self.on_error('malformed_headers')
             self._reset_state()
             self.buffer = bytearray()
 
@@ -152,9 +152,12 @@ class HttpRequestParser(object):
 
 
     def feed_disconnect(self):
-        if self.request and self.buffer and self.connection == 'close':
-            self.request.body = bytes(self.buffer)
-            self.on_body(self.request)
+        if self.connection == 'close':
+            if self.request and self.buffer:
+                self.request.body = bytes(self.buffer)
+                self.on_body(self.request)
+            elif not self.request and self.buffer:
+                self.on_error('incomplete_headers')
 
         self._reset_state()
         self.buffer = bytearray()

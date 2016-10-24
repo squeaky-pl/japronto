@@ -12,6 +12,7 @@ import impl_cffi
 testcase_fields = 'data,method,path,version,headers,body'
 
 HttpTestCase = namedtuple('HTTPTestCase', testcase_fields)
+ErrorTestCase = namedtuple('ErrorTestCase', 'data,error')
 
 http10long = HttpTestCase(
 b"""POST /wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg HTTP/1.0\r
@@ -52,6 +53,11 @@ Hi!""",
 {"Host": "www.example.com"},
 b"Hi!"
 )
+
+malformed_headers1 = ErrorTestCase(b"GET / HTTP 1.0", "malformed_headers")
+malformed_headers2 = ErrorTestCase(b"GET / HTTP/2", "malformed_headers")
+incomplete_headers = ErrorTestCase(b"GET / HTTP/1.0\r\nH", "incomplete_headers")
+
 
 def make_parts(value, get_size, dir=1):
     parts = []
@@ -139,3 +145,52 @@ def test_http10_one_request(do_parts, data, method, path, version, headers, body
     assert request.version == version
     assert request.headers == headers
     assert request.body == body
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize('cases',
+    [[http10long, http10short], [http10short, http10long]])
+def test_http10_many_requests(do_parts, cases):
+    on_headers = Mock()
+    on_error = Mock()
+    on_body = Mock()
+    parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
+
+    for case in cases:
+        parts = do_parts(case.data)
+
+        for part in parts:
+            parser.feed(part)
+        parser.feed_disconnect()
+
+        assert on_headers.called
+        assert not on_error.called
+        assert on_body.called
+
+        request = on_headers.call_args[0][0]
+
+        assert request.method == case.method
+        assert request.path == case.path
+        assert request.version == case.version
+        assert request.headers == case.headers
+        assert request.body == case.body
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize('data,error', [
+    malformed_headers2, malformed_headers1, incomplete_headers])
+def test_http10_malformed(do_parts, data, error):
+    on_headers = Mock()
+    on_error = Mock()
+    on_body = Mock()
+    parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
+
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+    parser.feed_disconnect()
+
+    assert not on_headers.called
+    assert on_error.call_args[0][0] == error
+    assert not on_body.called
