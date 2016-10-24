@@ -233,8 +233,9 @@ def test_empty(parser):
     http11_contentlength_keep,
     http11_contentlength_close
 ])
-def test_http11_contentlength(parser, do_parts,
-                              data, method, path, version, headers, body):
+def test_http11_contentlength_one_request(
+        parser, do_parts,
+        data, method, path, version, headers, body):
     parts = do_parts(data)
 
     for part in parts:
@@ -251,3 +252,35 @@ def test_http11_contentlength(parser, do_parts,
     assert request.version == version
     assert request.headers == headers
     assert request.body == body
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize('cases',
+[
+    [http11_contentlength_keep, http11_contentlength_close],
+    [http11_contentlength_keep, http11_contentlength_keep],
+    [http11_contentlength_close, http11_contentlength_keep],
+    [http11_contentlength_close, http11_contentlength_close],
+    [http11_contentlength_close, http11_contentlength_close, http11_contentlength_keep],
+    [http11_contentlength_keep, http11_contentlength_close, http11_contentlength_keep]
+])
+def test_http11_contentlength_many_requests(parser, do_parts, cases):
+    data = b''.join(c.data for c in cases)
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+    parser.feed_disconnect()
+
+    assert parser.on_headers.call_count == len(cases)
+    assert not parser.on_error.called
+    assert parser.on_body.call_count == len(cases)
+
+    for i, case in enumerate(cases):
+        request = parser.on_headers.call_args_list[i][0][0]
+
+        assert request.method == case.method
+        assert request.path == case.path
+        assert request.version == case.version
+        assert request.headers == case.headers
+        assert request.body == case.body
