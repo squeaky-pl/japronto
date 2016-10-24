@@ -120,25 +120,30 @@ def test_make_parts(data, get_size, dir, parts):
     assert make_parts(data, get_size, dir) == parts
 
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize(testcase_fields, [http10long, http10short])
-def test_http10_one_request(do_parts, data, method, path, version, headers, body):
+@pytest.fixture
+def parser():
     on_headers = Mock()
     on_error = Mock()
     on_body = Mock()
     parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
 
+    return parser
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize(testcase_fields, [http10long, http10short])
+def test_http10_one_request(parser, do_parts, data, method, path, version, headers, body):
     parts = do_parts(data)
 
     for part in parts:
         parser.feed(part)
     parser.feed_disconnect()
 
-    assert on_headers.called
-    assert not on_error.called
-    assert on_body.called
+    assert parser.on_headers.called
+    assert not parser.on_error.called
+    assert parser.on_body.called
 
-    request = on_headers.call_args[0][0]
+    request = parser.on_headers.call_args[0][0]
 
     assert request.method == method
     assert request.path == path
@@ -150,24 +155,19 @@ def test_http10_one_request(do_parts, data, method, path, version, headers, body
 @pytest.mark.parametrize('do_parts', make_part_functions())
 @pytest.mark.parametrize('cases',
     [[http10long, http10short], [http10short, http10long]])
-def test_http10_many_requests(do_parts, cases):
-    on_headers = Mock()
-    on_error = Mock()
-    on_body = Mock()
-    parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
-
-    for case in cases:
+def test_http10_many_requests(parser, do_parts, cases):
+    for i, case in enumerate(cases, 1):
         parts = do_parts(case.data)
 
         for part in parts:
             parser.feed(part)
         parser.feed_disconnect()
 
-        assert on_headers.called
-        assert not on_error.called
-        assert on_body.called
+        assert parser.on_headers.call_count == i
+        assert not parser.on_error.called
+        assert parser.on_body.call_count == i
 
-        request = on_headers.call_args[0][0]
+        request = parser.on_headers.call_args[0][0]
 
         assert request.method == case.method
         assert request.path == case.path
@@ -179,18 +179,26 @@ def test_http10_many_requests(do_parts, cases):
 @pytest.mark.parametrize('do_parts', make_part_functions())
 @pytest.mark.parametrize('data,error', [
     malformed_headers2, malformed_headers1, incomplete_headers])
-def test_http10_malformed(do_parts, data, error):
-    on_headers = Mock()
-    on_error = Mock()
-    on_body = Mock()
-    parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
-
+def test_http10_malformed(parser, do_parts, data, error):
     parts = do_parts(data)
 
     for part in parts:
         parser.feed(part)
     parser.feed_disconnect()
 
-    assert not on_headers.called
-    assert on_error.call_args[0][0] == error
-    assert not on_body.called
+    assert not parser.on_headers.called
+    assert parser.on_error.call_args[0][0] == error
+    assert not parser.on_body.called
+
+
+def test_empty(parser):
+    parser.feed_disconnect()
+    parser.feed(b'')
+    parser.feed(b'')
+    parser.feed_disconnect()
+    parser.feed_disconnect()
+    parser.feed(b'')
+
+    assert not parser.on_headers.called
+    assert not parser.on_error.called
+    assert not parser.on_body.called
