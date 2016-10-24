@@ -80,37 +80,11 @@ class HttpRequestParser(object):
         return result
 
     def parse_body(self):
-        if self.connection == 'close':
-            return -2
-        elif self.connection == 'keep-alive':
-            if self.content_length is None:
-                if not self.chunked_decoder:
-                    self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
-                    self.chunked_offset = ffi.new('size_t*')
-
-                chunked_offset_start = self.chunked_offset[0]
-                self.chunked_offset[0] = len(self.buffer) - self.chunked_offset[0]
-                result = lib.phr_decode_chunked(
-                    self.chunked_decoder,
-                    ffi.from_buffer(self.buffer) + chunked_offset_start,
-                    self.chunked_offset)
-                self.chunked_offset[0] = self.chunked_offset[0] + chunked_offset_start
-
-                self.buffer = self.buffer[:self.chunked_offset[0]]
-
-                if result == -2:
-                    return -2
-                self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
-                self.on_body(self.request)
-                self.buffer = self.buffer[len(self.buffer) - result:]
-
-                self._reset_state()
-
-                return result
-            elif self.content_length == 0:
-                self._reset_state()
-                return 0
-            elif self.content_length > len(self.buffer):
+        if self.content_length == 0:
+            self._reset_state()
+            return 0
+        elif self.content_length is not None:
+            if self.content_length > len(self.buffer):
                 return -2
 
             self.request.body = bytes(self.buffer[:self.content_length])
@@ -118,6 +92,33 @@ class HttpRequestParser(object):
             self.buffer = self.buffer[self.content_length:]
 
             result = self.content_length
+
+            self._reset_state()
+
+            return result
+        elif self.connection == 'close':
+            return -2
+        # if we get here it means chunked
+        elif self.connection == 'keep-alive':
+            if not self.chunked_decoder:
+                self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
+                self.chunked_offset = ffi.new('size_t*')
+
+            chunked_offset_start = self.chunked_offset[0]
+            self.chunked_offset[0] = len(self.buffer) - self.chunked_offset[0]
+            result = lib.phr_decode_chunked(
+                self.chunked_decoder,
+                ffi.from_buffer(self.buffer) + chunked_offset_start,
+                self.chunked_offset)
+            self.chunked_offset[0] = self.chunked_offset[0] + chunked_offset_start
+
+            self.buffer = self.buffer[:self.chunked_offset[0]]
+
+            if result == -2:
+                return -2
+            self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
+            self.on_body(self.request)
+            self.buffer = self.buffer[len(self.buffer) - result:]
 
             self._reset_state()
 

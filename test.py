@@ -73,13 +73,13 @@ b"Hello"
 http11_contentlength_close = HttpTestCase(
 b"""POST /logout HTTP/1.1\r
 Content-Length: 3\r
-Connection: close"\r
+Connection: close\r
 \r
 Bye""",
 "POST",
 "/logout",
 "1.1",
-{"Content-Length": "3"},
+{"Content-Length": "3", "Connection": "close"},
 b"Bye"
 )
 
