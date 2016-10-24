@@ -52,15 +52,15 @@ def setup_cffi(dump=True):
     if dump:
         def on_headers(request):
             request.dump_headers()
-        def on_error():
-            print('error')
+        def on_error(reason):
+            print('- error', reason)
         def on_body(request):
             print('- body -')
             print(request.body)
     else:
         def on_headers(request):
             pass
-        def on_error():
+        def on_error(reason):
             pass
         def on_body(request):
             pass
@@ -107,6 +107,7 @@ def main():
     cffi_parser.feed(http11_chunked[20:30])
     cffi_parser.feed(http11_chunked[30:35])
     cffi_parser.feed(http11_chunked[35:])
+    cffi_parser.feed_disconnect()
 
 if __name__ == '__main__':
     main()

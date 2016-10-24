@@ -118,7 +118,7 @@ class HttpRequestParser(object):
                 return -2
             self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
             self.on_body(self.request)
-            self.buffer = self.buffer[len(self.buffer) - result:]
+            self.buffer = self.buffer[len(self.buffer):]
 
             self._reset_state()
 
