@@ -59,6 +59,8 @@ class HttpRequestParser(object):
             self.buffer = bytearray()
 
             return result
+        else:
+            self._reset_state()
 
         method = ffi.string(c_method[0], method_len[0]).decode('ascii')
         path = ffi.string(c_path[0], path_len[0]).decode('ascii')
@@ -143,8 +145,8 @@ class HttpRequestParser(object):
             if self.state == 'body':
                 body_result = self.parse_body()
 
-                if body_result >= -1:
-                    self._reset_state()
+                if body_result >= 0:
+                    self.state = 'headers'
                 elif body_result == -2:
                     return None
 
