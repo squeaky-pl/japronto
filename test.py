@@ -58,6 +58,30 @@ malformed_headers1 = ErrorTestCase(b"GET / HTTP 1.0", "malformed_headers")
 malformed_headers2 = ErrorTestCase(b"GET / HTTP/2", "malformed_headers")
 incomplete_headers = ErrorTestCase(b"GET / HTTP/1.0\r\nH", "incomplete_headers")
 
+http11_contentlength_keep = HttpTestCase(
+b"""POST /login HTTP/1.1\r
+Content-Length: 5\r
+\r
+Hello""",
+"POST",
+"/login",
+"1.1",
+{"Content-Length": "5"},
+b"Hello"
+)
+
+http11_contentlength_close = HttpTestCase(
+b"""POST /logout HTTP/1.1\r
+Content-Length: 3\r
+Connection: close"\r
+\r
+Bye""",
+"POST",
+"/logout",
+"1.1",
+{"Content-Length": "3"},
+b"Bye"
+)
 
 def make_parts(value, get_size, dir=1):
     parts = []
@@ -202,3 +226,28 @@ def test_empty(parser):
     assert not parser.on_headers.called
     assert not parser.on_error.called
     assert not parser.on_body.called
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize(testcase_fields,
+[
+    http11_contentlength_keep,
+    http11_contentlength_close
+])
+def test_http11_contentlength(parser, do_parts,
+                              data, method, path, version, headers, body):
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+
+    assert parser.on_headers.called
+    assert not parser.on_error.called
+    assert parser.on_body.called
+
+    request = parser.on_headers.call_args[0][0]
+
+    assert request.method == method
+    assert request.path == path
+    assert request.version == version
+    assert request.headers == headers
+    assert request.body == body
