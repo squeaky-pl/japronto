@@ -81,7 +81,6 @@ class HttpRequestParser(object):
 
     def parse_body(self):
         if self.content_length == 0:
-            self._reset_state()
             return 0
         elif self.content_length is not None:
             if self.content_length > len(self.buffer):
@@ -92,8 +91,6 @@ class HttpRequestParser(object):
             self.buffer = self.buffer[self.content_length:]
 
             result = self.content_length
-
-            self._reset_state()
 
             return result
         elif self.connection == 'close':
@@ -119,8 +116,6 @@ class HttpRequestParser(object):
             self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
             self.on_body(self.request)
             self.buffer = self.buffer[len(self.buffer):]
-
-            self._reset_state()
 
             return result
 
@@ -148,7 +143,9 @@ class HttpRequestParser(object):
             if self.state == 'body':
                 body_result = self.parse_body()
 
-                if body_result == -2:
+                if body_result >= -1:
+                    self._reset_state()
+                elif body_result == -2:
                     return None
 
 
