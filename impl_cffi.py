@@ -28,6 +28,14 @@ class HttpRequestParser(object):
         self._reset_state()
         self.buffer = bytearray()
 
+        self.c_method = ffi.new('char **')
+        self.method_len = ffi.new('size_t *')
+        self.c_path = ffi.new('char **')
+        self.path_len = ffi.new('size_t *')
+        self.minor_version = ffi.new('int *')
+        self.c_headers = ffi.new('struct phr_header[10]')
+        self.num_headers = ffi.new('size_t *')
+
     def _reset_state(self):
         self.request = None
         self.state = 'headers'
@@ -37,19 +45,13 @@ class HttpRequestParser(object):
         self.chunked_offset = None
 
     def parse_headers(self):
-        c_method = ffi.new('char **')
-        method_len = ffi.new('size_t *')
-        c_path = ffi.new('char **')
-        path_len = ffi.new('size_t *')
-        minor_version = ffi.new('int *')
-        c_headers = ffi.new('struct phr_header[10]')
-        num_headers = ffi.new('size_t *')
-        num_headers[0] = 10
+        self.num_headers[0] = 10
 
         result = lib.phr_parse_request(
-            ffi.from_buffer(self.buffer),
-            len(self.buffer), c_method, method_len, c_path, path_len,
-            minor_version, c_headers, num_headers, 0)
+            ffi.from_buffer(self.buffer), len(self.buffer),
+            self.c_method, self.method_len,
+            self.c_path, self.path_len,
+            self.minor_version, self.c_headers, self.num_headers, 0)
 
         if result == -2:
             return result
@@ -62,19 +64,18 @@ class HttpRequestParser(object):
         else:
             self._reset_state()
 
-        method = ffi.string(c_method[0], method_len[0]).decode('ascii')
-        path = ffi.string(c_path[0], path_len[0]).decode('ascii')
-        version = "1." + str(minor_version[0])
+        method = ffi.string(self.c_method[0], self.method_len[0]).decode('ascii')
+        path = ffi.string(self.c_path[0], self.path_len[0]).decode('ascii')
+        version = "1." + str(self.minor_version[0])
 
         headers = {}
-        for idx in range(num_headers[0]):
-           header = c_headers[idx]
+        for idx in range(self.num_headers[0]):
+           header = self.c_headers[idx]
            name = ffi.string(header.name, header.name_len).decode('ascii').title()
            value = ffi.string(header.value, header.value_len).decode('latin1')
            headers[name] = value
 
         self.buffer = self.buffer[result:]
-
 
         self.request = HttpRequest(method, path, version, headers)
 
