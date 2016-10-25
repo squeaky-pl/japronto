@@ -25,6 +25,7 @@ class HttpRequestParser(object):
         self.on_headers = on_headers
         self.on_error = on_error
         self.on_body = on_body
+
         self._reset_state()
         self.buffer = bytearray()
 
@@ -36,7 +37,7 @@ class HttpRequestParser(object):
         self.chunked_decoder = None
         self.chunked_offset = None
 
-    def parse_headers(self, data):
+    def parse_headers(self):
         c_method = ffi.new('char **')
         method_len = ffi.new('size_t *')
         c_path = ffi.new('char **')
@@ -128,7 +129,7 @@ class HttpRequestParser(object):
 
         while 1:
             if self.state == 'headers':
-                headers_result = self.parse_headers(data)
+                headers_result = self.parse_headers()
 
                 if headers_result > 0:
                     if self.request.version == "1.0":
