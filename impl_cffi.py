@@ -1,8 +1,7 @@
 from __future__ import print_function
 
-import os.path
-
 from libpicohttpparser import ffi, lib
+
 
 class HttpRequest(object):
     def __init__(self, method, path, version, headers):
@@ -76,6 +75,7 @@ class HttpRequestParser(object):
 
         self.buffer = self.buffer[result:]
 
+
         self.request = HttpRequest(method, path, version, headers)
 
         self.on_headers(self.request)
@@ -114,7 +114,13 @@ class HttpRequestParser(object):
 
             if result == -2:
                 self.buffer = self.buffer[:self.chunked_offset[0]]
-                return -2
+                return result
+            elif result == -1:
+                self.on_error('malformed_body')
+                self._reset_state()
+                self.buffer = bytearray()
+
+                return result
 
             self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
             self.on_body(self.request)
@@ -122,7 +128,6 @@ class HttpRequestParser(object):
                 self.chunked_offset[0]:self.chunked_offset[0] + result]
 
             return result
-
 
     def feed(self, data):
         self.buffer += data
@@ -167,6 +172,8 @@ class HttpRequestParser(object):
                 elif self.content_length is None and self.buffer.strip() == b'':
                    # phr can leave whitespace at the end unparsed with chunked
                    pass
+                elif self.content_length is None and self.request.body:
+                    self.on_error('incomplete_headers')
                 else:
                     self.on_error('incomplete_body')
 

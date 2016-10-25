@@ -1,11 +1,10 @@
-import pytest
-
-from unittest.mock import Mock
 from collections import namedtuple
 from functools import partial
-import inspect
 import types
 import math
+from unittest.mock import Mock
+
+import pytest
 
 import impl_cffi
 
@@ -149,6 +148,16 @@ ab\r
 "1.1",
 {},
 b'ab')
+
+chunked_incomplete = ErrorTestCase(
+    b"POST / HTTP/1.1\r\n\r\n10\r\nasd", "incomplete_body")
+chunked_malformed1 = ErrorTestCase(
+    b"POST / HTTP/1.1\r\n\r\n1x\r\nhello", "malformed_body")
+# phr doesnt choke on this one
+chunked_malformed2 = ErrorTestCase(
+    b"POST / HTTP/1.1\r\n\r\n5\rhello\r\n0\r\n\r\n", "malformed_body")
+chunked_extra = ErrorTestCase(
+    b"POST / HTTP/1.1\r\n\r\n5\r\nhello\r\n0\r\n\r\nGET /", "incomplete_headers")
 
 
 def make_parts(value, get_size, dir=1):
@@ -296,8 +305,7 @@ def test_empty(parser):
     assert not parser.on_body.called
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize(testcase_fields,
-[
+@pytest.mark.parametrize(testcase_fields, [
     http11_contentlength_keep,
     http11_contentlength_close,
     http11_contentlength_zero
@@ -431,3 +439,21 @@ def test_http11_chunked_many_requests(parser, do_parts, cases):
         assert request.version == case.version
         assert request.headers == case.headers
         assert request.body == (case.body or None)
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@pytest.mark.parametrize('data,error',
+[
+    chunked_incomplete,
+    chunked_malformed1,
+#    chunked_malformed2, phr doesnt choke
+    chunked_extra
+])
+def test_http11_chunked_malformed(parser, do_parts, data, error):
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+    parser.feed_disconnect()
+
+    assert parser.on_error.call_args[0][0] == error
