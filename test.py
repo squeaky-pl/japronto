@@ -7,92 +7,16 @@ from unittest.mock import Mock
 import pytest
 
 import impl_cffi
+from cases import base, parametrize_cases
 
 testcase_fields = 'data,method,path,version,headers,body'
 
 HttpTestCase = namedtuple('HTTPTestCase', testcase_fields)
 ErrorTestCase = namedtuple('ErrorTestCase', 'data,error')
 
-http10long = HttpTestCase(
-b"""POST /wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg HTTP/1.0\r
-HOST: www.kittyhell.com\r
-User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; ja-JP-mac; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 Pathtraq/0.9\r
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r
-Accept-Language: ja,en-us;q=0.7,en;q=0.3\r
-Accept-Encoding: gzip,deflate\r
-Accept-Charset: Shift_JIS,utf-8;q=0.7,*;q=0.7\r
-Keep-Alive: 115\r
-Cookie: wp_ozh_wsa_visits=2; wp_ozh_wsa_visit_lasttime=xxxxxxxxxx; __utma=xxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.x; __utmz=xxxxxxxxx.xxxxxxxxxx.x.x.utmccn=(referral)|utmcsr=reader.livedoor.com|utmcct=/reader/|utmcmd=referral\r
-\r
-Hello there""",
-"POST",
-"/wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg",
-"1.0",
-{
-    "Host": "www.kittyhell.com",
-    "User-Agent": "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.6; ja-JP-mac; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 Pathtraq/0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "ja,en-us;q=0.7,en;q=0.3",
-    "Accept-Encoding": "gzip,deflate",
-    "Accept-Charset": "Shift_JIS,utf-8;q=0.7,*;q=0.7",
-    "Keep-Alive": "115",
-    "Cookie": "wp_ozh_wsa_visits=2; wp_ozh_wsa_visit_lasttime=xxxxxxxxxx; __utma=xxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.x; __utmz=xxxxxxxxx.xxxxxxxxxx.x.x.utmccn=(referral)|utmcsr=reader.livedoor.com|utmcct=/reader/|utmcmd=referral"
-},
-b"Hello there"
-)
-
-http10short = HttpTestCase(
-b"""POST / HTTP/1.0\r
-Host: www.example.com\r
-\r
-Hi!""",
-"POST",
-"/",
-"1.0",
-{"Host": "www.example.com"},
-b"Hi!"
-)
-
 malformed_headers1 = ErrorTestCase(b"GET / HTTP 1.0", "malformed_headers")
 malformed_headers2 = ErrorTestCase(b"GET / HTTP/2", "malformed_headers")
 incomplete_headers = ErrorTestCase(b"GET / HTTP/1.0\r\nH", "incomplete_headers")
-
-http11_contentlength_keep = HttpTestCase(
-b"""POST /login HTTP/1.1\r
-Content-Length: 5\r
-\r
-Hello""",
-"POST",
-"/login",
-"1.1",
-{"Content-Length": "5"},
-b"Hello"
-)
-
-http11_contentlength_zero = HttpTestCase(
-b"""POST /zero HTTP/1.1\r
-Content-Length: 0\r
-\r
-""",
-"POST",
-"/zero",
-"1.1",
-{"Content-Length": "0"},
-b""
-)
-
-http11_contentlength_close = HttpTestCase(
-b"""POST /logout HTTP/1.1\r
-Content-Length: 3\r
-Connection: close\r
-\r
-Bye""",
-"POST",
-"/logout",
-"1.1",
-{"Content-Length": "3", "Connection": "close"},
-b"Bye"
-)
 
 incomplete_body = ErrorTestCase(
     b"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nI", "incomplete_body")
@@ -232,31 +156,10 @@ def parser():
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize(testcase_fields, [http10long, http10short])
-def test_http10_one_request(parser, do_parts, data, method, path, version, headers, body):
-    parts = do_parts(data)
-
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
-
-    assert parser.on_headers.called
-    assert not parser.on_error.called
-    assert parser.on_body.called
-
-    request = parser.on_headers.call_args[0][0]
-
-    assert request.method == method
-    assert request.path == path
-    assert request.version == version
-    assert request.headers == headers
-    assert request.body == body
-
-
-@pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize('cases',
-    [[http10long, http10short], [http10short, http10long]])
-def test_http10_many_requests(parser, do_parts, cases):
+@parametrize_cases(
+    'base',
+    '10long', '10short', '10long+10short', '10short+10long')
+def test_http10(parser, do_parts, cases):
     for i, case in enumerate(cases, 1):
         parts = do_parts(case.data)
 
@@ -304,47 +207,20 @@ def test_empty(parser):
     assert not parser.on_error.called
     assert not parser.on_body.called
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize(testcase_fields, [
-    http11_contentlength_keep,
-    http11_contentlength_close,
-    http11_contentlength_zero
-])
-def test_http11_contentlength_one_request(
-        parser, do_parts,
-        data, method, path, version, headers, body):
-    parts = do_parts(data)
-
-    for part in parts:
-        parser.feed(part)
-
-    assert parser.on_headers.called
-    assert not parser.on_error.called
-    assert parser.on_body.called == bool(body)
-
-    request = parser.on_headers.call_args[0][0]
-
-    assert request.method == method
-    assert request.path == path
-    assert request.version == version
-    assert request.headers == headers
-    assert request.body == (body or None)
-
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize('cases',
-[
-    [http11_contentlength_keep, http11_contentlength_close],
-    [http11_contentlength_keep, http11_contentlength_keep],
-    [http11_contentlength_close, http11_contentlength_keep],
-    [http11_contentlength_close, http11_contentlength_close],
-    [http11_contentlength_close, http11_contentlength_close, http11_contentlength_keep],
-    [http11_contentlength_keep, http11_contentlength_close, http11_contentlength_keep],
-    [http11_contentlength_close, http11_contentlength_zero, http11_contentlength_keep],
-    [http11_contentlength_zero, http11_contentlength_close, http11_contentlength_zero],
-    [http11_contentlength_zero, http11_contentlength_zero]
-])
-def test_http11_contentlength_many_requests(parser, do_parts, cases):
+@parametrize_cases(
+    'base',
+    '11clkeep', '11clzero', '11clclose',
+    '11clkeep+11clclose', '11clkeep+11clkeep',
+    '11clclose+11clkeep', '11clclose+11clclose',
+    '11clclose+11clclose+11clkeep',
+    '11clkeep+11clclose+11clkeep',
+    '11clclose+11clzero+11clkeep',
+    '11clzero+11clclose+11clzero',
+    '11clzero+11clzero'
+)
+def test_http11_contentlength(parser, do_parts, cases):
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -363,7 +239,7 @@ def test_http11_contentlength_many_requests(parser, do_parts, cases):
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
-        assert request.body == (case.body or None)
+        assert request.body == case.body
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())

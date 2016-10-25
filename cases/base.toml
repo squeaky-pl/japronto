@@ -1,0 +1,81 @@
+[10long]
+data = """\
+POST \
+/wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg \
+HTTP/1.0\r\n\
+HOST: www.kittyhell.com\r\n\
+User-Agent: Mozilla/5.0 \
+  (Macintosh; U; Intel Mac OS X 10.6; ja-JP-mac; rv:1.9.2.3) \
+  Gecko/20100401 Firefox/3.6.3 Pathtraq/0.9\r\n\
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n\
+Accept-Language: ja,en-us;q=0.7,en;q=0.3\r\n\
+Accept-Encoding: gzip,deflate\r\n\
+Accept-Charset: Shift_JIS,utf-8;q=0.7,*;q=0.7\r\n\
+Keep-Alive: 115\r\n\
+Cookie: wp_ozh_wsa_visits=2; \
+  wp_ozh_wsa_visit_lasttime=xxxxxxxxxx; \
+  __utma=xxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.x; \
+  __utmz=xxxxxxxxx.xxxxxxxxxx.x.x.utmccn=(referral)|utmcsr=reader.livedoor.com|utmcct=/reader/|utmcmd=referral\r\n\
+\r\n\
+Hello there\
+"""
+
+method = "POST"
+path = "/wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg"
+version = "1.0"
+body = "Hello there"
+[10long.headers]
+Host = "www.kittyhell.com"
+User-Agent = """Mozilla/5.0 \
+  (Macintosh; U; Intel Mac OS X 10.6; ja-JP-mac; rv:1.9.2.3) \
+  Gecko/20100401 Firefox/3.6.3 Pathtraq/0.9"""
+Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+Accept-Language = "ja,en-us;q=0.7,en;q=0.3"
+Accept-Encoding = "gzip,deflate"
+Accept-Charset = "Shift_JIS,utf-8;q=0.7,*;q=0.7"
+Keep-Alive = "115"
+Cookie = """wp_ozh_wsa_visits=2; \
+  wp_ozh_wsa_visit_lasttime=xxxxxxxxxx; \
+  __utma=xxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.x; \
+  __utmz=xxxxxxxxx.xxxxxxxxxx.x.x.utmccn=(referral)|utmcsr=reader.livedoor.com|utmcct=/reader/|utmcmd=referral"""
+
+
+[10short]
+data = "POST / HTTP/1.0\r\nHost: www.example.com\r\n\r\nHi!"
+method = "POST"
+path = "/"
+version = "1.0"
+body = "Hi!"
+headers = { Host = "www.example.com" }
+
+
+[11clkeep]
+data = "POST /login HTTP/1.1\r\nContent-Length: 5\r\n\r\nHello"
+method = "POST"
+path = "/login"
+version = "1.1"
+headers = { Content-Length = "5"}
+body = "Hello"
+
+
+[11clzero]
+data = "POST /zero HTTP/1.1\r\nContent-Length: 0\r\n\r\n"
+method = "POST"
+path = "/zero"
+version = "1.1"
+headers = { Content-Length = "0"}
+# no body
+
+[11clclose]
+data = """\
+POST /logout HTTP/1.1\r\n\
+Content-Length: 3\r\n\
+Connection: close\r\n\
+\r\n\
+Bye\
+"""
+method = "POST"
+path = "/logout"
+version = "1.1"
+headers = { Content-Length = "3", Connection = "close" }
+body = "Bye"
