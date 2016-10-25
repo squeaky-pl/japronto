@@ -25,53 +25,6 @@ extra_body = ErrorTestCase(
 extra_body2 = ErrorTestCase(
     b"POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\nGET /", "incomplete_headers")
 
-http11_chunked1 = HttpTestCase(
-b"""POST /chunked HTTP/1.1\r
-\r
-4\r
-Wiki\r
-5\r
-pedia\r
-E\r
- in\r
-\r
-chunks.\r
-0\r
-\r
-""",
-"POST",
-"/chunked",
-"1.1",
-{},
-b"Wikipedia in\r\n\r\nchunks.")
-
-http11_chunked2 = HttpTestCase(
-b"""POST /chunked HTTP/1.1\r
-\r
-1\r
-r\r
-0\r
-\r
-""",
-"POST",
-"/chunked",
-"1.1",
-{},
-b'r')
-
-http11_chunked3 = HttpTestCase(
-b"""POST / HTTP/1.1\r
-\r
-000002\r
-ab\r
-0\r
-\r
-""",
-"POST",
-"/",
-"1.1",
-{},
-b'ab')
 
 chunked_incomplete = ErrorTestCase(
     b"POST / HTTP/1.1\r\n\r\n10\r\nasd", "incomplete_body")
@@ -254,48 +207,19 @@ def test_http11_malformed(parser, do_parts, data, error):
     assert parser.on_error.call_args[0][0] == error
 
 
-
 @pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize(testcase_fields,
-[
-    http11_chunked1,
-    http11_chunked2,
-    http11_chunked3
-])
-def test_http11_chunked_one_request(
-        parser, do_parts,
-        data, method, path, version, headers, body):
-    parts = do_parts(data)
-
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
-
-    assert parser.on_headers.called
-    assert not parser.on_error.called
-    assert parser.on_body.called
-
-    request = parser.on_headers.call_args[0][0]
-
-    assert request.method == method
-    assert request.path == path
-    assert request.version == version
-    assert request.headers == headers
-    assert request.body == body
-
-
-@pytest.mark.parametrize('do_parts', [one_part])
-@pytest.mark.parametrize('cases',
-[
-    [http11_chunked1, http11_chunked1],
-    [http11_chunked1, http11_chunked2],
-    [http11_chunked2, http11_chunked1],
-    [http11_chunked2, http11_chunked3],
-    [http11_chunked1, http11_chunked2, http11_chunked3],
-    [http11_chunked3, http11_chunked2, http11_chunked1],
-    [http11_chunked3, http11_chunked3, http11_chunked3]
-])
-def test_http11_chunked_many_requests(parser, do_parts, cases):
+@parametrize_cases(
+    'base',
+    '11chunked1', '11chunked2', '11chunked3',
+    '11chunked1+11chunked1',
+    '11chunked1+11chunked2',
+    '11chunked2+11chunked1',
+    '11chunked2+11chunked3',
+    '11chunked1+11chunked2+11chunked3',
+    '11chunked3+11chunked2+11chunked1',
+    '11chunked3+11chunked3+11chunked3'
+)
+def test_http11_chunked(parser, do_parts, cases):
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 

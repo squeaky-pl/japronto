@@ -66,6 +66,7 @@ version = "1.1"
 headers = { Content-Length = "0"}
 # no body
 
+
 [11clclose]
 data = """\
 POST /logout HTTP/1.1\r\n\
@@ -79,3 +80,56 @@ path = "/logout"
 version = "1.1"
 headers = { Content-Length = "3", Connection = "close" }
 body = "Bye"
+
+
+[11chunked1]
+data = """\
+POST /chunked HTTP/1.1\r\n\
+\r\n\
+4\r\n\
+Wiki\r\n\
+5\r\n\
+pedia\r\n\
+E\r\n in\r\n\
+\r\n\
+chunks.\r\n\
+0\r\n\
+\r\n\
+"""
+method = "POST"
+path = "/chunked"
+version = "1.1"
+headers = {}
+body = "Wikipedia in\r\n\r\nchunks."
+
+
+[11chunked2]
+data = """\
+POST /chunked HTTP/1.1\r\n\
+\r\n\
+1\r\n\
+r\r\n\
+0\r\n\
+\r\n\
+"""
+method = "POST"
+path = "/chunked"
+version = "1.1"
+headers = {}
+body = "r"
+
+
+[11chunked3]
+data = """\
+POST / HTTP/1.1\r\n\
+\r\n\
+000002\r\n\
+ab\r\n\
+0\r\n\
+\r\n\
+"""
+method = "POST"
+path = "/"
+version = "1.1"
+headers = {}
+body = "ab"
