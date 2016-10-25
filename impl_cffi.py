@@ -111,13 +111,14 @@ class HttpRequestParser(object):
                 self.chunked_offset)
             self.chunked_offset[0] = self.chunked_offset[0] + chunked_offset_start
 
-            self.buffer = self.buffer[:self.chunked_offset[0]]
-
             if result == -2:
+                self.buffer = self.buffer[:self.chunked_offset[0]]
                 return -2
+
             self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
             self.on_body(self.request)
-            self.buffer = self.buffer[len(self.buffer):]
+            self.buffer = self.buffer[
+                self.chunked_offset[0]:self.chunked_offset[0] + result]
 
             return result
 
@@ -161,7 +162,10 @@ class HttpRequestParser(object):
         elif self.connection == 'keep-alive' and self.buffer:
                 if self.content_length is not None and self.request.body or \
                    self.content_length == 0:
-                    self.on_error('incomplete_headers')
+                   self.on_error('incomplete_headers')
+                elif self.content_length is None and self.buffer.strip() == b'':
+                   # phr can leave whitespace at the end unparsed with chunked
+                   pass
                 else:
                     self.on_error('incomplete_body')
 

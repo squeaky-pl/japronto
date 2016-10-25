@@ -114,7 +114,8 @@ E\r
 \r
 chunks.\r
 0\r
-\r""",
+\r
+""",
 "POST",
 "/chunked",
 "1.1",
@@ -127,7 +128,8 @@ b"""POST /chunked HTTP/1.1\r
 1\r
 r\r
 0\r
-\r""",
+\r
+""",
 "POST",
 "/chunked",
 "1.1",
@@ -140,7 +142,8 @@ b"""POST / HTTP/1.1\r
 000002\r
 ab\r
 0\r
-\r""",
+\r
+""",
 "POST",
 "/",
 "1.1",
@@ -375,13 +378,14 @@ def test_http11_malformed(parser, do_parts, data, error):
     http11_chunked2,
     http11_chunked3
 ])
-def test_http11_contentlength_one_request(
+def test_http11_chunked_one_request(
         parser, do_parts,
         data, method, path, version, headers, body):
     parts = do_parts(data)
 
     for part in parts:
         parser.feed(part)
+    parser.feed_disconnect()
 
     assert parser.on_headers.called
     assert not parser.on_error.called
@@ -394,3 +398,36 @@ def test_http11_contentlength_one_request(
     assert request.version == version
     assert request.headers == headers
     assert request.body == body
+
+
+@pytest.mark.parametrize('do_parts', [one_part])
+@pytest.mark.parametrize('cases',
+[
+    [http11_chunked1, http11_chunked1],
+    [http11_chunked1, http11_chunked2],
+    [http11_chunked2, http11_chunked1],
+    [http11_chunked2, http11_chunked3],
+    [http11_chunked1, http11_chunked2, http11_chunked3],
+    [http11_chunked3, http11_chunked2, http11_chunked1],
+    [http11_chunked3, http11_chunked3, http11_chunked3]
+])
+def test_http11_chunked_many_requests(parser, do_parts, cases):
+    data = b''.join(c.data for c in cases)
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+    parser.feed_disconnect()
+
+    assert parser.on_headers.call_count == len(cases)
+    assert not parser.on_error.called
+    assert parser.on_body.call_count == sum(1 for c in cases if c.body)
+
+    for i, case in enumerate(cases):
+        request = parser.on_headers.call_args_list[i][0][0]
+
+        assert request.method == case.method
+        assert request.path == case.path
+        assert request.version == case.version
+        assert request.headers == case.headers
+        assert request.body == (case.body or None)
