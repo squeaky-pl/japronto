@@ -257,3 +257,36 @@ def test_http11_chunked_malformed(parser, do_parts, data, error):
     parser.feed_disconnect()
 
     assert parser.on_error.call_args[0][0] == error
+
+
+@pytest.mark.parametrize('do_parts', make_part_functions())
+@parametrize_cases(
+    'base',
+    '11chunked1+11clzero',
+    '11clkeep+11chunked2',
+    '11chunked2+11clclose',
+    '11clzero+11chunked3',
+    '11clclose+11chunked1+11chunked3',
+    '11chunked3+11clkeep+11clclose',
+    '11chunked3+11chunked3+11clclose'
+)
+def test_http11_mixed(parser, do_parts, cases):
+    data = b''.join(c.data for c in cases)
+    parts = do_parts(data)
+
+    for part in parts:
+        parser.feed(part)
+    parser.feed_disconnect()
+
+    assert parser.on_headers.call_count == len(cases)
+    assert not parser.on_error.called
+    assert parser.on_body.call_count == sum(1 for c in cases if c.body)
+
+    for i, case in enumerate(cases):
+        request = parser.on_headers.call_args_list[i][0][0]
+
+        assert request.method == case.method
+        assert request.path == case.path
+        assert request.version == case.version
+        assert request.headers == case.headers
+        assert request.body == (case.body or None)
