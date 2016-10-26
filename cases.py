@@ -15,7 +15,7 @@ def parametrize_cases(suite, *args):
     suite = suites[suite]
     cases_list = [
         [suite[c] for c in sel.split('+')] for sel in args]
-    return pytest.mark.parametrize('cases', cases_list)
+    return pytest.mark.parametrize('cases', cases_list, ids=args)
 
 
 def load_casefile(path):
