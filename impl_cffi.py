@@ -85,6 +85,7 @@ class HttpRequestParser(object):
 
     def parse_body(self):
         if self.content_length == 0:
+            self.request.body = b""
             self.on_body(self.request)
             return 0
         elif self.content_length is not None:

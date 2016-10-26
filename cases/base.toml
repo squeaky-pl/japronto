@@ -75,7 +75,7 @@ method = "POST"
 path = "/zero"
 version = "1.1"
 headers = { Content-Length = "0" }
-# body = null
+body = ""
 
 
 [11clclose]
@@ -130,6 +130,18 @@ version = "1.1"
 headers = {}
 body = "Wikipedia in\r\n\r\nchunks."
 
+[11chunkedzero]
+data = """
+PUT /zero HTTP/1.1\r\n\
+\r\n\
+0\r\n\
+\r\n\
+"""
+method = "PUT"
+path = "/zero"
+version = "1.1"
+headers = {}
+body = ""
 
 [11chunked2]
 data = """\

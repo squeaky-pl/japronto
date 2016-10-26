@@ -194,7 +194,7 @@ def test_http11_contentlength(parser, do_parts, cases):
 @pytest.mark.parametrize('do_parts', make_part_functions())
 @parametrize_cases(
     'base',
-    '11chunked1', '11chunked2', '11chunked3',
+    '11chunked1', '11chunked2', '11chunked3', '11chunkedzero',
     '11chunked1+11chunked1',
     '11chunked1+11chunked2',
     '11chunked2+11chunked1',
