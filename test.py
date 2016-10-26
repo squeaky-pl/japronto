@@ -14,9 +14,6 @@ testcase_fields = 'data,method,path,version,headers,body'
 HttpTestCase = namedtuple('HTTPTestCase', testcase_fields)
 ErrorTestCase = namedtuple('ErrorTestCase', 'data,error')
 
-malformed_headers1 = ErrorTestCase(b"GET / HTTP 1.0", "malformed_headers")
-malformed_headers2 = ErrorTestCase(b"GET / HTTP/2", "malformed_headers")
-incomplete_headers = ErrorTestCase(b"GET / HTTP/1.0\r\nH", "incomplete_headers")
 
 incomplete_body = ErrorTestCase(
     b"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nI", "incomplete_body")
@@ -111,7 +108,11 @@ def parser():
 @pytest.mark.parametrize('do_parts', make_part_functions())
 @parametrize_cases(
     'base',
-    '10long', '10short', '10long+10short', '10short+10long')
+    '10long', '10short', '10long+10short', '10short+10long',
+
+    '10malformed_headers1', '10malformed_headers2', '10incomplete_headers',
+    '10long+10malformed_headers2', '10long+10incomplete_headers',
+    '10short+10malformed_headers1', '10short+10malformed_headers2')
 def test_http10(parser, do_parts, cases):
     for i, case in enumerate(cases, 1):
         parts = do_parts(case.data)
@@ -120,9 +121,18 @@ def test_http10(parser, do_parts, cases):
             parser.feed(part)
         parser.feed_disconnect()
 
-        assert parser.on_headers.call_count == i
-        assert not parser.on_error.called
-        assert parser.on_body.call_count == i
+        header_errors = 1 if case.error and 'headers' in case.error else 0
+        body_errors = 1 if case.error and 'body' in case.error else 0
+
+        assert parser.on_headers.call_count == i - header_errors
+        assert parser.on_error.call_count == header_errors + body_errors
+        assert parser.on_body.call_count == i - header_errors - body_errors
+
+        if parser.on_error.called:
+            assert parser.on_error.call_args[0][0] == case.error
+
+        if header_errors:
+            continue
 
         request = parser.on_headers.call_args[0][0]
 
@@ -130,22 +140,11 @@ def test_http10(parser, do_parts, cases):
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
+
+        if body_errors:
+            continue
+
         assert request.body == case.body
-
-
-@pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize('data,error', [
-    malformed_headers2, malformed_headers1, incomplete_headers])
-def test_http10_malformed(parser, do_parts, data, error):
-    parts = do_parts(data)
-
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
-
-    assert not parser.on_headers.called
-    assert parser.on_error.call_args[0][0] == error
-    assert not parser.on_body.called
 
 
 def test_empty(parser):

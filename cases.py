@@ -6,7 +6,7 @@ import pytoml
 import pytest
 
 
-testcase_fields = 'data,method,path,version,headers,body'
+testcase_fields = 'data,method,path,version,headers,body,error'
 
 HttpTestCase = namedtuple('HTTPTestCase', testcase_fields)
 
@@ -29,7 +29,7 @@ def load_casefile(path):
         case_data['body'] = case_data['body'].encode('utf-8') \
             if 'body' in case_data else None
         case = HttpTestCase._make(
-            case_data[f] for f in testcase_fields.split(','))
+            case_data.get(f) for f in testcase_fields.split(','))
         result[case_name] = case
 
     return result
