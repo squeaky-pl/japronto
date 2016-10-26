@@ -182,9 +182,9 @@ def test_http11_contentlength(parser, do_parts, cases):
             error_count += 1
             continue
 
+        body_count += 1
+
         assert request.body == case.body
-        if case.body:
-            body_count += 1
 
     assert parser.on_headers.call_count == header_count
     assert parser.on_error.call_count == error_count
@@ -212,8 +212,6 @@ def test_http11_contentlength(parser, do_parts, cases):
     '11chunked3+11chunked1+11chunkedmalformed_body'
 )
 def test_http11_chunked(request, parser, do_parts, cases):
-    if request.node.name == "test_http11_chunked[11chunked2+11chunkedmalformed_body-do_parts4]":
-        pytest.set_trace()
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -244,9 +242,9 @@ def test_http11_chunked(request, parser, do_parts, cases):
             error_count += 1
             continue
 
+        body_count += 1
+
         assert request.body == case.body
-        if case.body:
-            body_count += 1
 
     assert parser.on_headers.call_count == header_count
     assert parser.on_error.call_count == error_count
@@ -274,7 +272,7 @@ def test_http11_mixed(parser, do_parts, cases):
 
     assert parser.on_headers.call_count == len(cases)
     assert not parser.on_error.called
-    assert parser.on_body.call_count == sum(1 for c in cases if c.body)
+    assert parser.on_body.call_count == len(cases)
 
     for i, case in enumerate(cases):
         request = parser.on_headers.call_args_list[i][0][0]
