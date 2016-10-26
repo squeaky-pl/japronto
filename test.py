@@ -139,13 +139,15 @@ def test_empty(parser):
 @pytest.mark.parametrize('do_parts', make_part_functions())
 @parametrize_cases(
     'base',
-    '11clkeep', '11clzero', '11clclose',
+    '11get', '11clkeep', '11clzero', '11clclose',
     '11clkeep+11clclose', '11clkeep+11clkeep',
     '11clclose+11clkeep', '11clclose+11clclose',
+    '11get+11clclose', '11clkeep+11get',
     '11clclose+11clclose+11clkeep',
     '11clkeep+11clclose+11clkeep',
     '11clclose+11clzero+11clkeep',
     '11clzero+11clclose+11clzero',
+    '11clkeep+11get+11clzero',
     '11clzero+11clzero',
 
     '11clincomplete_headers', '11clincomplete_body',

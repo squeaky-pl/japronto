@@ -48,17 +48,30 @@ version = "1.0"
 body = "Hi!"
 headers = { Host = "www.example.com" }
 
+
 [10malformed_headers1]
 data = "GET / HTTP 1.0"
 error = "malformed_headers"
+
 
 [10malformed_headers2]
 data = "GET / HTTP/2"
 error = "malformed_headers"
 
+
 [10incomplete_headers]
 data = "GET / HTTP/1.0\r\nH"
 error = "incomplete_headers"
+
+
+[11get]
+data = "GET /index.html HTTP/1.1\r\n\r\n"
+method = "GET"
+path = "/index.html"
+version = "1.1"
+headers = {}
+# body = null
+
 
 [11clkeep]
 data = "POST /login HTTP/1.1\r\nContent-Length: 5\r\n\r\nHello"

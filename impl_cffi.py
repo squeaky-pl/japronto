@@ -3,6 +3,9 @@ from __future__ import print_function
 from libpicohttpparser import ffi, lib
 
 
+NO_SEMANTICS = ["GET", "HEAD", "DELETE"]
+
+
 class HttpRequest(object):
     def __init__(self, method, path, version, headers):
         self.path = path
@@ -84,7 +87,10 @@ class HttpRequestParser(object):
         return result
 
     def parse_body(self):
-        if self.content_length == 0:
+        if self.content_length is None and self.request.method in NO_SEMANTICS:
+            self.on_body(self.request)
+            return 0
+        elif self.content_length == 0:
             self.request.body = b""
             self.on_body(self.request)
             return 0
