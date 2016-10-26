@@ -160,6 +160,7 @@ body = "Wikipedia in\r\n\r\nchunks."
 [11chunkedzero]
 data = """
 PUT /zero HTTP/1.1\r\n\
+Connection: close\r\n\
 \r\n\
 0\r\n\
 \r\n\
@@ -167,12 +168,13 @@ PUT /zero HTTP/1.1\r\n\
 method = "PUT"
 path = "/zero"
 version = "1.1"
-headers = {}
+headers = { Connection = "close" }
 body = ""
 
 [11chunked2]
 data = """\
 POST /chunked HTTP/1.1\r\n\
+Transfer-Encoding: chunked\r\n\
 \r\n\
 1;token=123;x=3\r\n\
 r\r\n\
@@ -182,7 +184,7 @@ r\r\n\
 method = "POST"
 path = "/chunked"
 version = "1.1"
-headers = {}
+headers = { Transfer-Encoding = "chunked" }
 body = "r"
 
 

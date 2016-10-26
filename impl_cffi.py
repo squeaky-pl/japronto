@@ -42,10 +42,11 @@ class HttpRequestParser(object):
     def _reset_state(self):
         self.request = None
         self.state = 'headers'
-        self.connection = 'close'
+        self.connection = None
         self.content_length = None
         self.chunked_decoder = None
         self.chunked_offset = None
+        self.transfer = None
 
     def parse_headers(self):
         self.num_headers[0] = 10
@@ -105,10 +106,9 @@ class HttpRequestParser(object):
             result = self.content_length
 
             return result
-        elif self.connection == 'close':
+        elif self.transfer == 'identity':
             return -2
-        # if we get here it means chunked
-        elif self.connection == 'keep-alive':
+        elif self.transfer == 'chunked':
             if not self.chunked_decoder:
                 self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
                 self.chunked_decoder.consume_trailer = b'\x01'
@@ -149,11 +149,14 @@ class HttpRequestParser(object):
                 if headers_result > 0:
                     if self.request.version == "1.0":
                         self.connection = self.request.headers.get('Connection', 'close')
+                        self.transfer = 'identity'
                     else:
                         self.connection = self.request.headers.get('Connection', 'keep-alive')
-                        self.content_length = self.request.headers.get('Content-Length')
-                        if self.content_length is not None:
-                            self.content_length = int(self.content_length)
+                        self.transfer = self.request.headers.get('Transfer-Encoding', 'chunked')
+
+                    self.content_length = self.request.headers.get('Content-Length')
+                    if self.content_length is not None:
+                        self.content_length = int(self.content_length)
 
                     self.state = 'body'
                 else:
@@ -169,20 +172,16 @@ class HttpRequestParser(object):
 
 
     def feed_disconnect(self):
-        if self.connection == 'close':
-            if self.request and self.buffer:
-                self.request.body = bytes(self.buffer)
-                self.on_body(self.request)
-            elif not self.request and self.buffer:
-                self.on_error('incomplete_headers')
-        elif self.connection == 'keep-alive' and self.buffer:
-                if self.content_length is not None and self.request.body or \
-                   self.content_length == 0:
-                   self.on_error('incomplete_headers')
-                elif self.content_length is None and self.request.body:
-                    self.on_error('incomplete_headers')
-                else:
-                    self.on_error('incomplete_body')
+        if not self.buffer:
+            return
+
+        if not self.transfer:
+            self.on_error('incomplete_headers')
+        elif self.transfer == 'identity':
+            self.request.body = bytes(self.buffer)
+            self.on_body(self.request)
+        elif self.transfer == 'chunked':
+            self.on_error('incomplete_body')
 
         self._reset_state()
         self.buffer = bytearray()
