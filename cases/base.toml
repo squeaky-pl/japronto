@@ -107,7 +107,7 @@ body = "Wikipedia in\r\n\r\nchunks."
 data = """\
 POST /chunked HTTP/1.1\r\n\
 \r\n\
-1\r\n\
+1;token=123;x=3\r\n\
 r\r\n\
 0\r\n\
 \r\n\
@@ -125,7 +125,7 @@ POST / HTTP/1.1\r\n\
 \r\n\
 000002\r\n\
 ab\r\n\
-0\r\n\
+0;q=1\r\n\
 \r\n\
 """
 method = "POST"
