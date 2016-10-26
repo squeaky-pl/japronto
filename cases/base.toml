@@ -162,3 +162,21 @@ path = "/"
 version = "1.1"
 headers = {}
 body = "ab"
+
+
+[11chunkedincomplete_body]
+data = "POST / HTTP/1.1\r\n\r\n10\r\nasd"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = {}
+error = "incomplete_body"
+
+
+[11chunkedmalformed_body]
+data = "POST / HTTP/1.1\r\n\r\n1x\r\nhello"
+method = "POST"
+path = "/"
+version = "1.1"
+headers =  {}
+error = "malformed_body"

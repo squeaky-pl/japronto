@@ -9,22 +9,6 @@ import pytest
 import impl_cffi
 from cases import base, parametrize_cases
 
-testcase_fields = 'data,method,path,version,headers,body'
-
-HttpTestCase = namedtuple('HTTPTestCase', testcase_fields)
-ErrorTestCase = namedtuple('ErrorTestCase', 'data,error')
-
-
-chunked_incomplete = ErrorTestCase(
-    b"POST / HTTP/1.1\r\n\r\n10\r\nasd", "incomplete_body")
-chunked_malformed1 = ErrorTestCase(
-    b"POST / HTTP/1.1\r\n\r\n1x\r\nhello", "malformed_body")
-# phr doesnt choke on this one
-chunked_malformed2 = ErrorTestCase(
-    b"POST / HTTP/1.1\r\n\r\n5\rhello\r\n0\r\n\r\n", "malformed_body")
-chunked_extra = ErrorTestCase(
-    b"POST / HTTP/1.1\r\n\r\n5\r\nhello\r\n0\r\n\r\nGET /", "incomplete_headers")
-
 
 def make_parts(value, get_size, dir=1):
     parts = []
@@ -217,46 +201,56 @@ def test_http11_contentlength(parser, do_parts, cases):
     '11chunked2+11chunked3',
     '11chunked1+11chunked2+11chunked3',
     '11chunked3+11chunked2+11chunked1',
-    '11chunked3+11chunked3+11chunked3'
+    '11chunked3+11chunked3+11chunked3',
+
+    '11chunkedincomplete_body', '11chunkedmalformed_body',
+    '11chunked1+11chunkedincomplete_body',
+    '11chunked1+11chunkedmalformed_body',
+    '11chunked2+11chunkedincomplete_body',
+    '11chunked2+11chunkedmalformed_body',
+    '11chunked2+11chunked2+11chunkedincomplete_body',
+    '11chunked3+11chunked1+11chunkedmalformed_body'
 )
-def test_http11_chunked(parser, do_parts, cases):
+def test_http11_chunked(request, parser, do_parts, cases):
+    if request.node.name == "test_http11_chunked[11chunked2+11chunkedmalformed_body-do_parts4]":
+        pytest.set_trace()
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
     for part in parts:
         parser.feed(part)
+        if parser.on_error.called:
+            break
     parser.feed_disconnect()
 
-    assert parser.on_headers.call_count == len(cases)
-    assert not parser.on_error.called
-    assert parser.on_body.call_count == sum(1 for c in cases if c.body)
+    header_count = 0
+    error_count = 0
+    body_count = 0
 
     for i, case in enumerate(cases):
+        if case.error and 'headers' in case.error:
+            error_count += 1
+            continue
+
+        header_count += 1
         request = parser.on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
-        assert request.body == (case.body or None)
 
+        if case.error and 'body' in case.error:
+            error_count += 1
+            continue
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize('data,error',
-[
-    chunked_incomplete,
-    chunked_malformed1,
-#    chunked_malformed2, phr doesnt choke
-    chunked_extra
-])
-def test_http11_chunked_malformed(parser, do_parts, data, error):
-    parts = do_parts(data)
+        assert request.body == case.body
+        if case.body:
+            body_count += 1
 
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
-
-    assert parser.on_error.call_args[0][0] == error
+    assert parser.on_headers.call_count == header_count
+    assert parser.on_error.call_count == error_count
+    assert parser.on_body.call_count == body_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -289,4 +283,4 @@ def test_http11_mixed(parser, do_parts, cases):
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
-        assert request.body == (case.body or None)
+        assert request.body == case.body
