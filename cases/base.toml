@@ -73,12 +73,26 @@ headers = {}
 # body = null
 
 
+[11clget]
+data = """\
+GET /body HTTP/1.1\r\n\
+Content-Length: 12\r\n\
+\r\n\
+Hello World!\
+"""
+method = "GET"
+path = "/body"
+version = "1.1"
+headers = { Content-Length = "12" }
+body = "Hello World!"
+
+
 [11clkeep]
 data = "POST /login HTTP/1.1\r\nContent-Length: 5\r\n\r\nHello"
 method = "POST"
 path = "/login"
 version = "1.1"
-headers = { Content-Length = "5"}
+headers = { Content-Length = "5" }
 body = "Hello"
 
 

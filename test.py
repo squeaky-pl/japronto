@@ -139,21 +139,24 @@ def test_empty(parser):
 @pytest.mark.parametrize('do_parts', make_part_functions())
 @parametrize_cases(
     'base',
-    '11get', '11clkeep', '11clzero', '11clclose',
+    '11get', '11clget', '11clkeep', '11clzero', '11clclose',
     '11clkeep+11clclose', '11clkeep+11clkeep',
     '11clclose+11clkeep', '11clclose+11clclose',
-    '11get+11clclose', '11clkeep+11get',
+    '11get+11clclose', '11clkeep+11get', '11clget+11get',
     '11clclose+11clclose+11clkeep',
     '11clkeep+11clclose+11clkeep',
     '11clclose+11clzero+11clkeep',
     '11clzero+11clclose+11clzero',
     '11clkeep+11get+11clzero',
     '11clzero+11clzero',
+    '11get+11clget+11get',
 
     '11clincomplete_headers', '11clincomplete_body',
     '11clkeep+11clincomplete_headers', '11clkeep+11clincomplete_body',
     '11clzero+11clincomplete_headers', '11clzero+11clincomplete_body',
-    '11clclose+11clkeep+11clincomplete_body'
+    '11clclose+11clkeep+11clincomplete_body',
+    '11get+11clincomplete_body',
+    '11clget+11clincomplete_headers'
 )
 def test_http11_contentlength(parser, do_parts, cases):
     data = b''.join(c.data for c in cases)
