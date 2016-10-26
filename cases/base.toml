@@ -126,6 +126,7 @@ POST / HTTP/1.1\r\n\
 000002\r\n\
 ab\r\n\
 0;q=1\r\n\
+This: is trailer header\r\n\
 \r\n\
 """
 method = "POST"
