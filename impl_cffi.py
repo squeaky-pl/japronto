@@ -103,6 +103,7 @@ class HttpRequestParser(object):
         elif self.connection == 'keep-alive':
             if not self.chunked_decoder:
                 self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
+                self.chunked_decoder.consume_trailer = b'\x01'
                 self.chunked_offset = ffi.new('size_t*')
 
             chunked_offset_start = self.chunked_offset[0]
@@ -170,9 +171,6 @@ class HttpRequestParser(object):
                 if self.content_length is not None and self.request.body or \
                    self.content_length == 0:
                    self.on_error('incomplete_headers')
-                elif self.content_length is None and self.buffer.strip() == b'':
-                   # phr can leave whitespace at the end unparsed with chunked
-                   pass
                 elif self.content_length is None and self.request.body:
                     self.on_error('incomplete_headers')
                 else:
