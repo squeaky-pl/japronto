@@ -75,7 +75,7 @@ method = "POST"
 path = "/zero"
 version = "1.1"
 headers = { Content-Length = "0" }
-# no body
+# body = null
 
 
 [11clclose]
@@ -91,6 +91,23 @@ path = "/logout"
 version = "1.1"
 headers = { Content-Length = "3", Connection = "close" }
 body = "Bye"
+
+
+[11clincomplete_headers]
+data = """\
+POST / HTTP/1.1\r\n\
+Content-Length: 3\r\n\
+I"""
+error = "incomplete_headers"
+
+
+[11clincomplete_body]
+data = "POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nI"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = { Content-Length = "5" }
+error = "incomplete_body"
 
 
 [11chunked1]

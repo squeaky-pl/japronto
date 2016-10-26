@@ -15,14 +15,6 @@ HttpTestCase = namedtuple('HTTPTestCase', testcase_fields)
 ErrorTestCase = namedtuple('ErrorTestCase', 'data,error')
 
 
-incomplete_body = ErrorTestCase(
-    b"POST / HTTP/1.1\r\nContent-Length: 5\r\n\r\nI", "incomplete_body")
-extra_body = ErrorTestCase(
-    b"POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nehlollypapa", "incomplete_headers")
-extra_body2 = ErrorTestCase(
-    b"POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\nGET /", "incomplete_headers")
-
-
 chunked_incomplete = ErrorTestCase(
     b"POST / HTTP/1.1\r\n\r\n10\r\nasd", "incomplete_body")
 chunked_malformed1 = ErrorTestCase(
@@ -170,7 +162,12 @@ def test_empty(parser):
     '11clkeep+11clclose+11clkeep',
     '11clclose+11clzero+11clkeep',
     '11clzero+11clclose+11clzero',
-    '11clzero+11clzero'
+    '11clzero+11clzero',
+
+    '11clincomplete_headers', '11clincomplete_body',
+    '11clkeep+11clincomplete_headers', '11clkeep+11clincomplete_body',
+    '11clzero+11clincomplete_headers', '11clzero+11clincomplete_body',
+    '11clclose+11clkeep+11clincomplete_body'
 )
 def test_http11_contentlength(parser, do_parts, cases):
     data = b''.join(c.data for c in cases)
@@ -180,30 +177,34 @@ def test_http11_contentlength(parser, do_parts, cases):
         parser.feed(part)
     parser.feed_disconnect()
 
-    assert parser.on_headers.call_count == len(cases)
-    assert not parser.on_error.called
-    assert parser.on_body.call_count == sum(1 for c in cases if c.body)
+    header_count = 0
+    error_count = 0
+    body_count = 0
 
     for i, case in enumerate(cases):
+        if case.error and 'headers' in case.error:
+            error_count += 1
+            continue
+
+        header_count += 1
         request = parser.on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
+
+        if case.error and 'body' in case.error:
+            error_count += 1
+            continue
+
         assert request.body == case.body
+        if case.body:
+            body_count += 1
 
-
-@pytest.mark.parametrize('do_parts', make_part_functions())
-@pytest.mark.parametrize('data,error', [incomplete_body, extra_body, extra_body2])
-def test_http11_malformed(parser, do_parts, data, error):
-    parts = do_parts(data)
-
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
-
-    assert parser.on_error.call_args[0][0] == error
+    assert parser.on_headers.call_count == header_count
+    assert parser.on_error.call_count == error_count
+    assert parser.on_body.call_count == body_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
