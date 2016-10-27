@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -ex
+
+python build_impl_cext.py build
+cp build/lib.linux-x86_64-3.5/*.so .
