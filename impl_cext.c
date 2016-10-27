@@ -39,6 +39,7 @@ typedef struct {
 
 static void _reset_state(HttpRequestParser* self) {
     self->state = HTTP_REQUEST_PARSER_HEADERS;
+    self->transfer = HTTP_REQUEST_PARSER_UNSET;
     self->content_length = CONTENT_LENGTH_UNSET;
     memset(&self->chunked_decoder, 0, sizeof(struct phr_chunked_decoder));
     self->chunked_decoder.consume_trailer = 1;
@@ -73,28 +74,83 @@ HttpRequestParser_dealloc(HttpRequestParser* self)
 }
 
 
+static int _parse_headers(HttpRequestParser* self) {
+  return -2;
+}
+
+static int _parse_body(HttpRequestParser* self) {
+  return -2;
+}
+
+
 static PyObject *
-HttpRequestParser_feed(HttpRequestParser* self) {
+HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
+  // FIXME: can be called without __init__
   printf("feed\n");
+
+  PyObject* data;
+  if (!PyArg_ParseTuple(args, "O", &data))
+        return NULL;
+  // FIXME check type
+  if(!PySequence_InPlaceConcat(self->buffer, data))
+        return NULL;
+  Py_DECREF(self->buffer);
+
+  int result;
+
+  while(1) {
+    if(self->state == HTTP_REQUEST_PARSER_HEADERS) {
+      result = _parse_headers(self);
+      if(result <= 0) {
+        Py_RETURN_NONE;
+      }
+
+      self->state = HTTP_REQUEST_PARSER_BODY;
+    }
+
+    if(self->state == HTTP_REQUEST_PARSER_BODY) {
+      result = _parse_body(self);
+
+      if(result < 0) {
+        Py_RETURN_NONE;
+      }
+
+      self->state = HTTP_REQUEST_PARSER_HEADERS;
+    }
+  }
+
   Py_RETURN_NONE;
 }
 
 
 static PyObject *
 HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
+  // FIXME: can be called without __init__
   printf("feed_disconnect\n");
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+HttpRequestParser_dump_buffer(HttpRequestParser* self) {
+  printf("buffer: "); PyObject_Print(self->buffer, stdout, 0); printf("\n");
+
   Py_RETURN_NONE;
 }
 
 
 static PyMethodDef HttpRequestParser_methods[] = {
-    {"feed", (PyCFunction)HttpRequestParser_feed, METH_NOARGS,
+    {"feed", (PyCFunction)HttpRequestParser_feed, METH_VARARGS,
      "feed"
     },
     {
       "feed_disconnect", (PyCFunction)HttpRequestParser_feed_disconnect,
       METH_NOARGS,
       "feed_disconnect"
+    },
+    {
+      "_dump_buffer", (PyCFunction)HttpRequestParser_dump_buffer,
+      METH_NOARGS,
+      "_dump_buffer"
     },
     {NULL}  /* Sentinel */
 };
