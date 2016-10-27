@@ -43,10 +43,10 @@ class HttpRequestParser(object):
         self.request = None
         self.state = 'headers'
         self.connection = None
+        self.transfer = None
         self.content_length = None
         self.chunked_decoder = None
         self.chunked_offset = None
-        self.transfer = None
 
     def _parse_headers(self):
         self.num_headers[0] = 10

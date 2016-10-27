@@ -13,7 +13,7 @@ enum HttpRequestParser_transfer {
   HTTP_REQUEST_PARSER_CHUNKED
 };
 
-static unsigned int const CONTENT_TYPE_UNSET = UINT_MAX;
+static unsigned int const CONTENT_LENGTH_UNSET = UINT_MAX;
 
 typedef struct {
     PyObject_HEAD
@@ -32,7 +32,45 @@ typedef struct {
     unsigned int content_length;
     struct phr_chunked_decoder chunked_decoder;
     size_t chunked_offset;
+
+    PyObject* buffer;
 } HttpRequestParser;
+
+
+static void _reset_state(HttpRequestParser* self) {
+    self->state = HTTP_REQUEST_PARSER_HEADERS;
+    self->content_length = CONTENT_LENGTH_UNSET;
+    memset(&self->chunked_decoder, 0, sizeof(struct phr_chunked_decoder));
+    self->chunked_decoder.consume_trailer = 1;
+    self->chunked_offset = 0;
+}
+
+
+static int
+HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
+{
+    printf("__init__\n");
+    // FIXME: __init__ can be called many times
+
+    _reset_state(self);
+    self->buffer = PyByteArray_FromStringAndSize("", 0);
+    if(!self->buffer)
+      return -1;
+
+    return 0;
+}
+
+
+static void
+HttpRequestParser_dealloc(HttpRequestParser* self)
+{
+    printf("__del__\n");
+    // FIXME: it might be that __init__ was not called, only __new__
+    // in this case buffer will point to some random memory
+    // BOOM!
+    Py_XDECREF(self->buffer);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
 
 
 static PyObject *
@@ -67,7 +105,7 @@ static PyTypeObject HttpRequestParserType = {
     "impl_cext.HttpRequestParser",       /* tp_name */
     sizeof(HttpRequestParser), /* tp_basicsize */
     0,                         /* tp_itemsize */
-    0,                         /* tp_dealloc */
+    (destructor)HttpRequestParser_dealloc, /* tp_dealloc */
     0,                         /* tp_print */
     0,                         /* tp_getattr */
     0,                         /* tp_setattr */
@@ -91,6 +129,14 @@ static PyTypeObject HttpRequestParserType = {
     0,                         /* tp_iter */
     0,                         /* tp_iternext */
     HttpRequestParser_methods, /* tp_methods */
+    0,                         /* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)HttpRequestParser_init, /* tp_init */
 };
 
 static PyModuleDef impl_cext = {
