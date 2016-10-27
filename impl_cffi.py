@@ -146,30 +146,29 @@ class HttpRequestParser(object):
             if self.state == 'headers':
                 result = self._parse_headers()
 
-                if result > 0:
-                    if self.request.version == "1.0":
-                        self.connection = self.request.headers.get('Connection', 'close')
-                        self.transfer = 'identity'
-                    else:
-                        self.connection = self.request.headers.get('Connection', 'keep-alive')
-                        self.transfer = self.request.headers.get('Transfer-Encoding', 'chunked')
-
-                    self.content_length = self.request.headers.get('Content-Length')
-                    if self.content_length is not None:
-                        self.content_length = int(self.content_length)
-
-                    self.state = 'body'
-                else:
+                if result <= 0:
                     return None
+
+                if self.request.version == "1.0":
+                    self.connection = self.request.headers.get('Connection', 'close')
+                    self.transfer = 'identity'
+                else:
+                    self.connection = self.request.headers.get('Connection', 'keep-alive')
+                    self.transfer = self.request.headers.get('Transfer-Encoding', 'chunked')
+
+                self.content_length = self.request.headers.get('Content-Length')
+                if self.content_length is not None:
+                    self.content_length = int(self.content_length)
+
+                self.state = 'body'
 
             if self.state == 'body':
                 result = self._parse_body()
 
-                if result >= 0:
-                    self.state = 'headers'
-                else:
+                if result < 0:
                     return None
 
+                self.state = 'headers'
 
     def feed_disconnect(self):
         if not self.buffer:
