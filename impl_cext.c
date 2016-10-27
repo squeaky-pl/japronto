@@ -1,8 +1,37 @@
 #include <Python.h>
 
+#include "picohttpparser.h"
+
+enum HttpRequestParser_state {
+  HTTP_REQUEST_PARSER_HEADERS,
+  HTTP_REQUEST_PARSER_BODY
+};
+
+enum HttpRequestParser_transfer {
+  HTTP_REQUEST_PARSER_UNSET,
+  HTTP_REQUEST_PARSER_IDENTITY,
+  HTTP_REQUEST_PARSER_CHUNKED
+};
+
+static unsigned int const CONTENT_TYPE_UNSET = UINT_MAX;
+
 typedef struct {
     PyObject_HEAD
-    /* Type-specific fields go here. */
+
+    char* method;
+    ssize_t method_len;
+    char* path;
+    ssize_t path_len;
+    int minor_version;
+    struct phr_header headers[10];
+    size_t num_headers;
+
+    enum HttpRequestParser_state state;
+    enum HttpRequestParser_transfer transfer;
+
+    unsigned int content_length;
+    struct phr_chunked_decoder chunked_decoder;
+    size_t chunked_offset;
 } HttpRequestParser;
 
 
