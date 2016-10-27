@@ -48,7 +48,7 @@ class HttpRequestParser(object):
         self.chunked_offset = None
         self.transfer = None
 
-    def parse_headers(self):
+    def _parse_headers(self):
         self.num_headers[0] = 10
 
         result = lib.phr_parse_request(
@@ -87,7 +87,7 @@ class HttpRequestParser(object):
 
         return result
 
-    def parse_body(self):
+    def _parse_body(self):
         if self.content_length is None and self.request.method in NO_SEMANTICS:
             self.on_body(self.request)
             return 0
@@ -144,7 +144,7 @@ class HttpRequestParser(object):
 
         while 1:
             if self.state == 'headers':
-                headers_result = self.parse_headers()
+                headers_result = self._parse_headers()
 
                 if headers_result > 0:
                     if self.request.version == "1.0":
@@ -163,7 +163,7 @@ class HttpRequestParser(object):
                     return None
 
             if self.state == 'body':
-                body_result = self.parse_body()
+                body_result = self._parse_body()
 
                 if body_result >= 0:
                     self.state = 'headers'
