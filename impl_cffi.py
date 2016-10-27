@@ -28,9 +28,6 @@ class HttpRequestParser(object):
         self.on_error = on_error
         self.on_body = on_body
 
-        self._reset_state()
-        self.buffer = bytearray()
-
         self.c_method = ffi.new('char **')
         self.method_len = ffi.new('size_t *')
         self.c_path = ffi.new('char **')
@@ -38,6 +35,10 @@ class HttpRequestParser(object):
         self.minor_version = ffi.new('int *')
         self.c_headers = ffi.new('struct phr_header[10]')
         self.num_headers = ffi.new('size_t *')
+        self.chunked_offset = ffi.new('size_t*')
+
+        self.buffer = bytearray()
+        self._reset_state()
 
     def _reset_state(self):
         self.request = None
@@ -46,7 +47,7 @@ class HttpRequestParser(object):
         self.transfer = None
         self.content_length = None
         self.chunked_decoder = None
-        self.chunked_offset = None
+        self.chunked_offset[0] = 0
 
     def _parse_headers(self):
         self.num_headers[0] = 10
@@ -123,7 +124,6 @@ class HttpRequestParser(object):
             if not self.chunked_decoder:
                 self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
                 self.chunked_decoder.consume_trailer = b'\x01'
-                self.chunked_offset = ffi.new('size_t*')
 
             chunked_offset_start = self.chunked_offset[0]
             self.chunked_offset[0] = len(self.buffer) - self.chunked_offset[0]
@@ -147,6 +147,7 @@ class HttpRequestParser(object):
             self.on_body(self.request)
             self.buffer = self.buffer[
                 self.chunked_offset[0]:self.chunked_offset[0] + result]
+            self._reset_state()
 
             return result
 
