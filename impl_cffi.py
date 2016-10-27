@@ -144,9 +144,9 @@ class HttpRequestParser(object):
 
         while 1:
             if self.state == 'headers':
-                headers_result = self._parse_headers()
+                result = self._parse_headers()
 
-                if headers_result > 0:
+                if result > 0:
                     if self.request.version == "1.0":
                         self.connection = self.request.headers.get('Connection', 'close')
                         self.transfer = 'identity'
@@ -163,11 +163,11 @@ class HttpRequestParser(object):
                     return None
 
             if self.state == 'body':
-                body_result = self._parse_body()
+                result = self._parse_body()
 
-                if body_result >= 0:
+                if result >= 0:
                     self.state = 'headers'
-                elif body_result == -2:
+                elif result == -2:
                     return None
 
 
