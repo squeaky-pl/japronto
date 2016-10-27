@@ -85,6 +85,17 @@ class HttpRequestParser(object):
 
         self.on_headers(self.request)
 
+        if self.minor_version[0] == 0:
+            self.connection = self.request.headers.get('Connection', 'close')
+            self.transfer = 'identity'
+        else:
+            self.connection = self.request.headers.get('Connection', 'keep-alive')
+            self.transfer = self.request.headers.get('Transfer-Encoding', 'chunked')
+
+        self.content_length = self.request.headers.get('Content-Length')
+        if self.content_length is not None:
+            self.content_length = int(self.content_length)
+
         return result
 
     def _parse_body(self):
@@ -148,17 +159,6 @@ class HttpRequestParser(object):
 
                 if result <= 0:
                     return None
-
-                if self.request.version == "1.0":
-                    self.connection = self.request.headers.get('Connection', 'close')
-                    self.transfer = 'identity'
-                else:
-                    self.connection = self.request.headers.get('Connection', 'keep-alive')
-                    self.transfer = self.request.headers.get('Transfer-Encoding', 'chunked')
-
-                self.content_length = self.request.headers.get('Content-Length')
-                if self.content_length is not None:
-                    self.content_length = int(self.content_length)
 
                 self.state = 'body'
 
