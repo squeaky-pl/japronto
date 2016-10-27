@@ -167,7 +167,7 @@ class HttpRequestParser(object):
 
                 if result >= 0:
                     self.state = 'headers'
-                elif result == -2:
+                else:
                     return None
 
 
