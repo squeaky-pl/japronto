@@ -2,6 +2,9 @@
 
 #include "picohttpparser.h"
 
+
+static PyObject* Request;
+
 enum HttpRequestParser_state {
   HTTP_REQUEST_PARSER_HEADERS,
   HTTP_REQUEST_PARSER_BODY
@@ -361,18 +364,36 @@ static PyModuleDef impl_cext = {
 PyMODINIT_FUNC
 PyInit_impl_cext(void)
 {
-    PyObject* m;
+    Request = NULL;
+    PyObject* m = NULL;
+    PyObject* impl_cffi = NULL;
 
     HttpRequestParserType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&HttpRequestParserType) < 0)
-        return NULL;
+        goto error;
 
     m = PyModule_Create(&impl_cext);
-    if (m == NULL)
-        return NULL;
+    if (!m)
+      goto error;
+
+    impl_cffi = PyImport_ImportModule("impl_cffi");
+    if(!impl_cffi)
+      goto error;
+
+    Request = PyObject_GetAttrString(impl_cffi, "HttpRequest");
+    if(!Request)
+      goto error;
 
     Py_INCREF(&HttpRequestParserType);
     PyModule_AddObject(
       m, "HttpRequestParser", (PyObject *)&HttpRequestParserType);
+
+
+    goto finally;
+
+    error:
+    Py_XDECREF(Request);
+    finally:
+    Py_XDECREF(impl_cffi);
     return m;
 }
