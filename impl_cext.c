@@ -18,14 +18,6 @@ static unsigned int const CONTENT_LENGTH_UNSET = UINT_MAX;
 typedef struct {
     PyObject_HEAD
 
-    char* method;
-    ssize_t method_len;
-    char* path;
-    ssize_t path_len;
-    int minor_version;
-    struct phr_header headers[10];
-    size_t num_headers;
-
     enum HttpRequestParser_state state;
     enum HttpRequestParser_transfer transfer;
 
@@ -75,7 +67,136 @@ HttpRequestParser_dealloc(HttpRequestParser* self)
 
 
 static int _parse_headers(HttpRequestParser* self) {
-  return -2;
+  PyObject* py_method = NULL;
+  PyObject* py_path = NULL;
+  PyObject* py_version = NULL;
+  PyObject* py_headers = NULL;
+
+  Py_buffer view;
+  int result;
+
+  if(PyObject_GetBuffer(self->buffer, &view, PyBUF_WRITABLE) == -1) {
+    result = -3;
+    goto finally;
+  }
+
+  const char* method;
+  size_t method_len;
+  const char* path;
+  size_t path_len;
+  int minor_version;
+  struct phr_header headers[10];
+  size_t num_headers = 10;
+
+  result = phr_parse_request(
+    view.buf, view.len,
+    &method, &method_len,
+    &path, &path_len,
+    &minor_version, headers, &num_headers, 0);
+
+  // FIXME: More than 10 headers
+
+  printf("result: %d\n", result);
+
+  if(result == -2)
+    goto finally;
+
+  if(result == -1) {
+    // TODO: on_error
+    _reset_state(self);
+    // TODO: this could be moved to the end
+    PyBuffer_Release(&view);
+    view.buf = NULL;
+    PyByteArray_Resize(self->buffer, 0);
+    goto finally;
+  }
+
+  // TODO: probably use static for common methods
+  py_method = PyUnicode_FromStringAndSize(method, method_len);
+  if(!py_method) {
+    result = -3;
+    goto finally;
+  }
+  printf("method: "); PyObject_Print(py_method, stdout, 0); printf("\n");
+  // TODO: probably static for "/", maybe "/index.html"
+  py_path = PyUnicode_FromStringAndSize(path, path_len);
+  if(!py_path) {
+    result = -3;
+    goto finally;
+  }
+  printf("path: "); PyObject_Print(py_path, stdout, 0); printf("\n");
+  // TODO: probably use static unicode
+  char version[3] = "1.1";
+  if(!minor_version)
+    version[2] = '0';
+  py_version = PyUnicode_FromStringAndSize(version, 3);
+  if(!py_version) {
+    result = -3;
+    goto finally;
+  }
+  printf("path: "); PyObject_Print(py_version, stdout, 0); printf("\n");
+
+  py_headers = PyDict_New();
+  if(!py_headers) {
+    result = -3;
+    goto finally;
+  }
+  for(size_t i = 0; i < num_headers; i++) {
+    struct phr_header header = headers[i];
+    // TODO: common names and values static
+    // TODO: normalize to title case
+    PyObject* py_header_name = NULL;
+    PyObject* py_header_value = NULL;
+
+    py_header_name = PyUnicode_FromStringAndSize(
+      header.name, header.name_len);
+    if(!py_header_name) {
+      result = -3;
+      goto finally_loop;
+    }
+
+    // FIXME: this can return NULL on codec error
+    py_header_value = PyUnicode_DecodeLatin1(
+      header.value, header.value_len, NULL);
+    if(!py_header_value) {
+      result = -3;
+      goto finally_loop;
+    }
+
+    if(PyDict_SetItem(py_headers, py_header_name, py_header_value) == -1)
+      result = -3;
+
+    PyObject_Print(py_header_name, stdout, 0); printf(": ");
+    PyObject_Print(py_header_value, stdout, 0); printf("\n");
+
+    finally_loop:
+    Py_XDECREF(py_header_value);
+    Py_XDECREF(py_header_name);
+
+    if(result == -3)
+      goto finally;
+  }
+
+  PyObject* trimmed_buffer = PySequence_GetSlice(
+    self->buffer, result, view.len);
+  if(!trimmed_buffer) {
+    result = -3;
+    goto finally;
+  }
+  Py_DECREF(self->buffer);
+  self->buffer = trimmed_buffer;
+
+  // on_headers
+
+  finally:
+  Py_XDECREF(py_headers);
+  Py_XDECREF(py_version);
+  Py_XDECREF(py_path);
+  Py_XDECREF(py_method);
+  if(view.buf)
+    PyBuffer_Release(&view);
+
+  return result;
 }
 
 static int _parse_body(HttpRequestParser* self) {

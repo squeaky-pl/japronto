@@ -52,6 +52,8 @@ class HttpRequestParser(object):
     def _parse_headers(self):
         self.num_headers[0] = 10
 
+        # FIXME: More than 10 headers
+
         result = lib.phr_parse_request(
             ffi.from_buffer(self.buffer), len(self.buffer),
             self.c_method, self.method_len,
