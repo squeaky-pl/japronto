@@ -26,6 +26,10 @@ typedef struct {
     size_t chunked_offset;
 
     PyObject* buffer;
+
+    PyObject* on_headers;
+    PyObject* on_body;
+    PyObject* on_error;
 } HttpRequestParser;
 
 
@@ -39,11 +43,38 @@ static void _reset_state(HttpRequestParser* self) {
 }
 
 
+static PyObject *
+HttpRequestParser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+    HttpRequestParser *self = NULL;
+
+    self = (HttpRequestParser *)type->tp_alloc(type, 0);
+    if (!self)
+        goto finally;
+
+    self->on_headers = NULL;
+    self->on_body = NULL;
+    self->on_error = NULL;
+    self->buffer = NULL;
+
+    finally:
+    return (PyObject *)self;
+}
+
 static int
 HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
 {
     printf("__init__\n");
     // FIXME: __init__ can be called many times
+
+    // FIXME: check argument types
+    int result = PyArg_ParseTuple(
+      args, "OOO", &self->on_headers, &self->on_body, &self->on_error);
+    if(!result)
+      return -1;
+    Py_INCREF(self->on_headers);
+    Py_INCREF(self->on_body);
+    Py_INCREF(self->on_error);
 
     _reset_state(self);
     self->buffer = PyByteArray_FromStringAndSize("", 0);
@@ -58,10 +89,11 @@ static void
 HttpRequestParser_dealloc(HttpRequestParser* self)
 {
     printf("__del__\n");
-    // FIXME: it might be that __init__ was not called, only __new__
-    // in this case buffer will point to some random memory
-    // BOOM!
+
     Py_XDECREF(self->buffer);
+    Py_XDECREF(self->on_error);
+    Py_XDECREF(self->on_body);
+    Py_XDECREF(self->on_headers);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -314,6 +346,8 @@ static PyTypeObject HttpRequestParserType = {
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
     (initproc)HttpRequestParser_init, /* tp_init */
+    0,                         /* tp_alloc */
+    HttpRequestParser_new,     /* tp_new */
 };
 
 static PyModuleDef impl_cext = {
