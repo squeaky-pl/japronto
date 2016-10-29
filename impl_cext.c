@@ -228,6 +228,18 @@ static int _parse_headers(HttpRequestParser* self) {
       // FIXME: negative values
     }
 
+    bool prev_alpha = false;
+    for(char* c = (char*)header.name; c < header.name + header.name_len; c++) {
+      if(*c >= 'A' && *c <= 'Z') {
+        if(prev_alpha)
+          *c |= 0x20;
+        prev_alpha = true;
+      } else if (*c >= 'a' && *c <= 'z')
+        prev_alpha = true;
+      else
+        prev_alpha = false;
+    }
+
     // TODO: common names and values static
     // TODO: normalize to title case
     PyObject* py_header_name = NULL;
