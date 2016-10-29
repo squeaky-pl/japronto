@@ -1,5 +1,9 @@
 import impl_cffi
-import impl_cext
+
+try:
+    import impl_cext
+except ImportError:
+    pass
 
 
 request = "GET /wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg HTTP/1.0\r\n"                                \
