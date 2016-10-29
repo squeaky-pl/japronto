@@ -78,7 +78,7 @@ def parser():
     on_body = Mock()
     parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
 
-    return parser
+    return parser, on_headers, on_error, on_body
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -90,6 +90,7 @@ def parser():
     '10long+10malformed_headers2', '10long+10incomplete_headers',
     '10short+10malformed_headers1', '10short+10malformed_headers2')
 def test_http10(parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = parser
     for i, case in enumerate(cases, 1):
         parts = do_parts(case.data)
 
@@ -100,17 +101,17 @@ def test_http10(parser, do_parts, cases):
         header_errors = 1 if case.error and 'headers' in case.error else 0
         body_errors = 1 if case.error and 'body' in case.error else 0
 
-        assert parser.on_headers.call_count == i - header_errors
-        assert parser.on_error.call_count == header_errors + body_errors
-        assert parser.on_body.call_count == i - header_errors - body_errors
+        assert on_headers.call_count == i - header_errors
+        assert on_error.call_count == header_errors + body_errors
+        assert on_body.call_count == i - header_errors - body_errors
 
-        if parser.on_error.called:
-            assert parser.on_error.call_args[0][0] == case.error
+        if on_error.called:
+            assert on_error.call_args[0][0] == case.error
 
         if header_errors:
             continue
 
-        request = parser.on_headers.call_args[0][0]
+        request = on_headers.call_args[0][0]
 
         assert request.method == case.method
         assert request.path == case.path
@@ -124,6 +125,8 @@ def test_http10(parser, do_parts, cases):
 
 
 def test_empty(parser):
+    parser, on_headers, on_error, on_body = parser
+
     parser.feed_disconnect()
     parser.feed(b'')
     parser.feed(b'')
@@ -131,9 +134,9 @@ def test_empty(parser):
     parser.feed_disconnect()
     parser.feed(b'')
 
-    assert not parser.on_headers.called
-    assert not parser.on_error.called
-    assert not parser.on_body.called
+    assert not on_headers.called
+    assert not on_error.called
+    assert not on_body.called
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -159,6 +162,8 @@ def test_empty(parser):
     '11clget+11clincomplete_headers'
 )
 def test_http11_contentlength(parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = parser
+
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -176,7 +181,7 @@ def test_http11_contentlength(parser, do_parts, cases):
             continue
 
         header_count += 1
-        request = parser.on_headers.call_args_list[i][0][0]
+        request = on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
@@ -191,9 +196,9 @@ def test_http11_contentlength(parser, do_parts, cases):
 
         assert request.body == case.body
 
-    assert parser.on_headers.call_count == header_count
-    assert parser.on_error.call_count == error_count
-    assert parser.on_body.call_count == body_count
+    assert on_headers.call_count == header_count
+    assert on_error.call_count == error_count
+    assert on_body.call_count == body_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -216,7 +221,8 @@ def test_http11_contentlength(parser, do_parts, cases):
     '11chunked2+11chunked2+11chunkedincomplete_body',
     '11chunked3+11chunked1+11chunkedmalformed_body'
 )
-def test_http11_chunked(request, parser, do_parts, cases):
+def test_http11_chunked(parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = parser
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -236,7 +242,7 @@ def test_http11_chunked(request, parser, do_parts, cases):
             continue
 
         header_count += 1
-        request = parser.on_headers.call_args_list[i][0][0]
+        request = on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
@@ -251,9 +257,9 @@ def test_http11_chunked(request, parser, do_parts, cases):
 
         assert request.body == case.body
 
-    assert parser.on_headers.call_count == header_count
-    assert parser.on_error.call_count == error_count
-    assert parser.on_body.call_count == body_count
+    assert on_headers.call_count == header_count
+    assert on_error.call_count == error_count
+    assert on_body.call_count == body_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -268,6 +274,7 @@ def test_http11_chunked(request, parser, do_parts, cases):
     '11chunked3+11chunked3+11clclose'
 )
 def test_http11_mixed(parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = parser
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -275,12 +282,12 @@ def test_http11_mixed(parser, do_parts, cases):
         parser.feed(part)
     parser.feed_disconnect()
 
-    assert parser.on_headers.call_count == len(cases)
-    assert not parser.on_error.called
-    assert parser.on_body.call_count == len(cases)
+    assert on_headers.call_count == len(cases)
+    assert not on_error.called
+    assert on_body.call_count == len(cases)
 
     for i, case in enumerate(cases):
-        request = parser.on_headers.call_args_list[i][0][0]
+        request = on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
