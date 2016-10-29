@@ -17,6 +17,8 @@ static PyObject* GET;
 static PyObject* POST;
 static PyObject* DELETE;
 static PyObject* HEAD;
+static PyObject* HTTP10;
+static PyObject* HTTP11;
 static PyObject* Host;
 static PyObject* User_Agent;
 static PyObject* Accept;
@@ -27,9 +29,9 @@ static PyObject* Connection;
 static PyObject* Cookie;
 static PyObject* Content_Length;
 static PyObject* Transfer_Encoding;
-/*static PyObject* Gzip_Deflate;
-static PyObject* Close;
-static PyObject* Keep_Alive;*/
+/*static PyObject* Gzip_Deflate;*/
+static PyObject* val_close;
+static PyObject* keep_alive;
 
 enum HttpRequestParser_state {
   HTTP_REQUEST_PARSER_HEADERS,
@@ -143,7 +145,6 @@ HttpRequestParser_dealloc(HttpRequestParser* self)
 static int _parse_headers(HttpRequestParser* self) {
   PyObject* py_method = NULL;
   PyObject* py_path = NULL;
-  PyObject* py_version = NULL;
   PyObject* py_headers = NULL;
   PyObject* error;
 
@@ -216,15 +217,12 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 #ifdef DEBUG_PRINT
   printf("path: "); PyObject_Print(py_path, stdout, 0); printf("\n");
 #endif
-  // TODO: probably use static unicode
-  char version[3] = "1.1";
-  if(!minor_version)
-    version[2] = '0';
-  py_version = PyUnicode_FromStringAndSize(version, 3);
-  if(!py_version) {
-    result = -3;
-    goto finally;
-  }
+  PyObject* py_version;
+  if(minor_version == 0)
+    py_version = HTTP10;
+  else
+    py_version = HTTP11;
+
 #ifdef DEBUG_PRINT
   printf("version: "); PyObject_Print(py_version, stdout, 0); printf("\n");
 #endif
@@ -248,6 +246,11 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 #define cmp_and_set_header_name(name, val) \
   if(header_name_equal(val)) { \
       py_header_name = name; \
+      Py_INCREF(name); \
+  }
+#define cmp_and_set_header_value(name, val) \
+  if(header_value_equal(val)) { \
+      py_header_value = name; \
       Py_INCREF(name); \
   }
 
@@ -320,12 +323,18 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
       }
     }
 
-    // FIXME: this can return NULL on codec error
-    py_header_value = PyUnicode_DecodeLatin1(
-      header.value, header.value_len, NULL);
-    if(!py_header_value) {
-      result = -3;
-      goto finally_loop;
+    if(py_header_name == Connection) {
+      cmp_and_set_header_value(keep_alive, "keep-alive")
+      else cmp_and_set_header_value(val_close, "close")
+      else /*FIXME: invalid Connection value*/;
+    } else {
+      // FIXME: this can return NULL on codec error
+      py_header_value = PyUnicode_DecodeLatin1(
+        header.value, header.value_len, NULL);
+      if(!py_header_value) {
+        result = -3;
+        goto finally_loop;
+      }
     }
 
     if(PyDict_SetItem(py_headers, py_header_name, py_header_value) == -1)
@@ -398,7 +407,6 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 
   finally:
   Py_XDECREF(py_headers);
-  Py_XDECREF(py_version);
   Py_XDECREF(py_path);
   Py_XDECREF(py_method);
   if(view.buf)
@@ -733,6 +741,8 @@ PyInit_impl_cext(void)
     POST = NULL;
     DELETE = NULL;
     HEAD = NULL;
+    HTTP10 = NULL;
+    HTTP11 = NULL;
     Host = NULL;
     User_Agent = NULL;
     Accept = NULL;
@@ -743,6 +753,8 @@ PyInit_impl_cext(void)
     Cookie = NULL;
     Content_Length = NULL;
     Transfer_Encoding = NULL;
+    val_close = NULL;
+    keep_alive = NULL;
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
 
@@ -785,6 +797,10 @@ PyInit_impl_cext(void)
     alloc_static(POST)
     alloc_static(DELETE)
     alloc_static(HEAD)
+
+    alloc_static2(HTTP10, "1.0")
+    alloc_static2(HTTP11, "1.1")
+
     alloc_static(Host)
     alloc_static2(User_Agent, "User-Agent")
     alloc_static(Accept)
@@ -796,6 +812,9 @@ PyInit_impl_cext(void)
     alloc_static2(Content_Length, "Content-Length")
     alloc_static2(Transfer_Encoding, "Transfer-Encoding")
 
+    alloc_static2(val_close, "close")
+    alloc_static2(keep_alive, "keep-alive")
+
 #undef alloc_static
 #undef alloc_static2
 
@@ -806,6 +825,9 @@ PyInit_impl_cext(void)
     goto finally;
 
     error:
+    Py_XDECREF(keep_alive);
+    Py_XDECREF(val_close);
+
     Py_XDECREF(Transfer_Encoding);
     Py_XDECREF(Content_Length);
     Py_XDECREF(Cookie);
@@ -816,16 +838,22 @@ PyInit_impl_cext(void)
     Py_XDECREF(Accept);
     Py_XDECREF(User_Agent);
     Py_XDECREF(Host);
+
     Py_XDECREF(HEAD);
     Py_XDECREF(DELETE);
     Py_XDECREF(POST);
     Py_XDECREF(GET);
+
+    Py_XDECREF(HTTP10);
+    Py_XDECREF(HTTP11);
+
     Py_XDECREF(empty_body);
     Py_XDECREF(incomplete_body);
     Py_XDECREF(invalid_headers);
     Py_XDECREF(incomplete_headers);
     Py_XDECREF(malformed_body);
     Py_XDECREF(malformed_headers);
+
     Py_XDECREF(Request);
     finally:
     Py_XDECREF(impl_cffi);
