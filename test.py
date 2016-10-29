@@ -76,7 +76,7 @@ def parser():
     on_headers = Mock()
     on_error = Mock()
     on_body = Mock()
-    parser = impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
+    parser = impl_cffi.HttpRequestParser(on_headers, on_body, on_error)
 
     return parser, on_headers, on_error, on_body
 

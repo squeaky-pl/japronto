@@ -27,10 +27,10 @@ class HttpRequest(object):
 
 
 class HttpRequestParser(object):
-    def __init__(self, on_headers, on_error, on_body):
+    def __init__(self, on_headers, on_body, on_error):
         self.on_headers = on_headers
-        self.on_error = on_error
         self.on_body = on_body
+        self.on_error = on_error
 
         self.c_method = ffi.new('char **')
         self.method_len = ffi.new('size_t *')
