@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <Python.h>
 
 #include "picohttpparser.h"
@@ -6,6 +7,8 @@
 static PyObject* Request;
 
 static PyObject* malformed_headers;
+static PyObject* malformed_body;
+static PyObject* empty_body;
 
 enum HttpRequestParser_state {
   HTTP_REQUEST_PARSER_HEADERS,
@@ -29,6 +32,7 @@ typedef struct {
     unsigned long content_length;
     struct phr_chunked_decoder chunked_decoder;
     size_t chunked_offset;
+    bool no_semantics;
 
     PyObject* buffer;
 
@@ -50,6 +54,7 @@ static void _reset_state(HttpRequestParser* self) {
     memset(&self->chunked_decoder, 0, sizeof(struct phr_chunked_decoder));
     self->chunked_decoder.consume_trailer = 1;
     self->chunked_offset = 0;
+    self->no_semantics = false;
 }
 
 
@@ -160,6 +165,12 @@ static int _parse_headers(HttpRequestParser* self) {
     PyByteArray_Resize(self->buffer, 0);
     goto finally;
   }
+
+  // TODO: is it faster to compare length first?
+  if(strncasecmp(method, "GET ", 4) == 0 ||
+     strncasecmp(method, "HEAD ", 5) == 0 ||
+     strncasecmp(method, "DELETE ", 7) == 0)
+    self->no_semantics = true;
 
   // TODO: probably use static for common methods
   py_method = PyUnicode_FromStringAndSize(method, method_len);
@@ -296,7 +307,138 @@ static int _parse_headers(HttpRequestParser* self) {
 }
 
 static int _parse_body(HttpRequestParser* self) {
-  return -2;
+  Py_buffer view;
+  view.buf = NULL;
+  PyObject* body = NULL;
+  int result = -2;
+  if(self->content_length == CONTENT_LENGTH_UNSET && self->no_semantics) {
+    result = 0;
+    goto on_body;
+  }
+
+  if(self->content_length == 0) {
+    Py_INCREF(empty_body);
+    body = empty_body;
+    result = 0;
+    goto on_body;
+  }
+
+  if(PyObject_GetBuffer(self->buffer, &view, PyBUF_WRITABLE) == -1) {
+    result = -3;
+    goto finally;
+  }
+
+  if(self->content_length != CONTENT_LENGTH_UNSET) {
+    if(self->content_length > (unsigned long)view.len) {
+      result = -2;
+      goto finally;
+    }
+
+    body = PyBytes_FromStringAndSize(view.buf, self->content_length);
+    if(!body) {
+      result = -3;
+      goto finally;
+    }
+
+    PyObject* trimmed_buffer = PySequence_GetSlice(
+      self->buffer, self->content_length, view.len);
+    if(!trimmed_buffer) {
+      result = -3;
+      goto finally;
+    }
+    Py_DECREF(self->buffer);
+    self->buffer = trimmed_buffer;
+
+    // TODO result = self->content_length (long)
+    result = 1;
+
+    goto on_body;
+  }
+
+  if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY) {
+    result = -2;
+    goto finally;
+  }
+
+  if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED) {
+    size_t chunked_offset_start = self->chunked_offset;
+    self->chunked_offset = (size_t)view.len - self->chunked_offset;
+    result = phr_decode_chunked(
+      &self->chunked_decoder,
+      (char *)view.buf + chunked_offset_start,
+      &self->chunked_offset);
+    self->chunked_offset = self->chunked_offset + chunked_offset_start;
+
+    if(result == -2) {
+      PyBuffer_Release(&view);
+      view.buf = NULL;
+      PyByteArray_Resize(self->buffer, self->chunked_offset);
+      goto finally;
+    }
+
+    if(result == -1) {
+      PyObject* on_error_result = PyObject_CallFunctionObjArgs(
+        self->on_error, malformed_body, NULL);
+      if(!on_error_result) {
+        result = -3;
+        goto finally;
+      }
+      Py_DECREF(on_error_result);
+
+      _reset_state(self);
+      PyBuffer_Release(&view);
+      view.buf = NULL;
+      PyByteArray_Resize(self->buffer, 0);
+      goto finally;
+    }
+
+    body = PyBytes_FromStringAndSize(view.buf, self->chunked_offset);
+    if(!body) {
+      result = -3;
+      goto finally;
+    }
+
+    PyObject* trimmed_buffer = PySequence_GetSlice(
+      self->buffer, self->chunked_offset, self->chunked_offset + result);
+    if(!trimmed_buffer) {
+      result = -3;
+      goto finally;
+    }
+    Py_DECREF(self->buffer);
+    self->buffer = trimmed_buffer;
+
+    goto on_body;
+  }
+
+  goto finally;
+
+  PyObject* on_body_result;
+  on_body:
+
+  if(body) {
+    if(PyObject_SetAttrString(self->request, "body", body) == -1) {
+      result = -3;
+      goto finally;
+    }
+
+    printf("body: "); PyObject_Print(body, stdout, 0); printf("\n");
+  }
+
+  on_body_result = PyObject_CallFunctionObjArgs(
+    self->on_body, self->request, NULL);
+  if(!on_body_result) {
+    result = -3;
+    goto finally;
+  }
+  Py_DECREF(on_body_result);
+  Py_XDECREF(body);
+
+  _reset_state(self);
+
+  finally:
+  if(view.buf)
+    PyBuffer_Release(&view);
+  return result;
 }
 
 
@@ -427,6 +569,8 @@ PyInit_impl_cext(void)
 {
     Request = NULL;
     malformed_headers = NULL;
+    malformed_body = NULL;
+    empty_body = NULL;
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
 
@@ -450,6 +594,14 @@ PyInit_impl_cext(void)
     if(!malformed_headers)
       goto error;
 
+    malformed_body = PyUnicode_FromString("malformed_body");
+    if(!malformed_body)
+      goto error;
+
+    empty_body = PyBytes_FromString("");
+    if(!empty_body)
+      goto error;
+
     Py_INCREF(&HttpRequestParserType);
     PyModule_AddObject(
       m, "HttpRequestParser", (PyObject *)&HttpRequestParserType);
@@ -458,6 +610,8 @@ PyInit_impl_cext(void)
     goto finally;
 
     error:
+    Py_XDECREF(empty_body);
+    Py_XDECREF(malformed_body);
     Py_XDECREF(malformed_headers);
     Py_XDECREF(Request);
     finally:
