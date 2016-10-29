@@ -228,7 +228,7 @@ def test_http11_chunked(parser, do_parts, cases):
 
     for part in parts:
         parser.feed(part)
-        if parser.on_error.called:
+        if on_error.called:
             break
     parser.feed_disconnect()
 
