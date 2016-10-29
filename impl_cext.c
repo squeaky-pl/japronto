@@ -8,6 +8,8 @@ static PyObject* Request;
 
 static PyObject* malformed_headers;
 static PyObject* malformed_body;
+static PyObject* incomplete_headers;
+static PyObject* incomplete_body;
 static PyObject* empty_body;
 
 enum HttpRequestParser_state {
@@ -498,6 +500,54 @@ static PyObject *
 HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
   // FIXME: can be called without __init__
   printf("feed_disconnect\n");
+
+  PyObject* error;
+
+  if(!PyByteArray_Size(self->buffer)) {
+    Py_RETURN_NONE;
+  }
+
+  if(self->transfer == HTTP_REQUEST_PARSER_UNSET) {
+    error = incomplete_headers;
+    goto on_error;
+  }
+
+  if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY) {
+    PyObject * body = PyBytes_FromObject(self->buffer);
+    if(!body)
+      return NULL;
+
+    if(PyObject_SetAttrString(self->request, "body", body) == -1)
+      return NULL;
+
+    PyObject* on_body_result = PyObject_CallFunctionObjArgs(
+      self->on_body, self->request, NULL);
+    if(!on_body_result)
+      return NULL;
+    Py_DECREF(on_body_result);
+
+    goto finally;
+  }
+
+  if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED) {
+    error = incomplete_body;
+    goto on_error;
+  }
+
+  goto finally;
+
+  PyObject* on_error_result;
+  on_error:
+  on_error_result = PyObject_CallFunctionObjArgs(
+    self->on_error, error, NULL);
+  if(!on_error_result)
+    return NULL;
+  Py_DECREF(on_error_result);
+
+  finally:
+  _reset_state(self);
+  PyByteArray_Resize(self->buffer, 0);
+
   Py_RETURN_NONE;
 }
 
@@ -582,6 +632,8 @@ PyInit_impl_cext(void)
     Request = NULL;
     malformed_headers = NULL;
     malformed_body = NULL;
+    incomplete_headers = NULL;
+    incomplete_body = NULL;
     empty_body = NULL;
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
@@ -610,6 +662,14 @@ PyInit_impl_cext(void)
     if(!malformed_body)
       goto error;
 
+    incomplete_headers = PyUnicode_FromString("incomplete_headers");
+    if(!incomplete_headers)
+      goto error;
+
+    incomplete_body = PyUnicode_FromString("incomplete_body");
+    if(!incomplete_body)
+      goto error;
+
     empty_body = PyBytes_FromString("");
     if(!empty_body)
       goto error;
@@ -623,6 +683,8 @@ PyInit_impl_cext(void)
 
     error:
     Py_XDECREF(empty_body);
+    Py_XDECREF(incomplete_body);
+    Py_XDECREF(incomplete_headers);
     Py_XDECREF(malformed_body);
     Py_XDECREF(malformed_headers);
     Py_XDECREF(Request);
