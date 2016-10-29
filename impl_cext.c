@@ -82,7 +82,9 @@ HttpRequestParser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
 {
+#ifdef DEBUG_PRINT
     printf("__init__\n");
+#endif
     // FIXME: __init__ can be called many times
 
     // FIXME: check argument types
@@ -106,7 +108,9 @@ HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
 static void
 HttpRequestParser_dealloc(HttpRequestParser* self)
 {
+#ifdef DEBUG_PRINT
     printf("__del__\n");
+#endif
 
     Py_XDECREF(self->buffer);
     Py_XDECREF(self->on_error);
@@ -146,8 +150,9 @@ static int _parse_headers(HttpRequestParser* self) {
     &minor_version, headers, &num_headers, 0);
 
   // FIXME: More than 10 headers
-
+#ifdef DEBUG_PRINT
   printf("result: %d\n", result);
+#endif
 
   if(result == -2)
     goto finally;
@@ -180,14 +185,18 @@ static int _parse_headers(HttpRequestParser* self) {
     result = -3;
     goto finally;
   }
+#ifdef DEBUG_PRINT
   printf("method: "); PyObject_Print(py_method, stdout, 0); printf("\n");
+#endif
   // TODO: probably static for "/", maybe "/index.html"
   py_path = PyUnicode_FromStringAndSize(path, path_len);
   if(!py_path) {
     result = -3;
     goto finally;
   }
+#ifdef DEBUG_PRINT
   printf("path: "); PyObject_Print(py_path, stdout, 0); printf("\n");
+#endif
   // TODO: probably use static unicode
   char version[3] = "1.1";
   if(!minor_version)
@@ -197,7 +206,9 @@ static int _parse_headers(HttpRequestParser* self) {
     result = -3;
     goto finally;
   }
+#ifdef DEBUG_PRINT
   printf("version: "); PyObject_Print(py_version, stdout, 0); printf("\n");
+#endif
 
 
   if(minor_version == 0)
@@ -265,8 +276,10 @@ static int _parse_headers(HttpRequestParser* self) {
     if(PyDict_SetItem(py_headers, py_header_name, py_header_value) == -1)
       result = -3;
 
+#ifdef DEBUG_PRINT
     PyObject_Print(py_header_name, stdout, 0); printf(": ");
     PyObject_Print(py_header_value, stdout, 0); printf("\n");
+#endif
 
     finally_loop:
     Py_XDECREF(py_header_value);
@@ -276,12 +289,14 @@ static int _parse_headers(HttpRequestParser* self) {
       goto finally;
   }
 
+#ifdef DEBUG_PRINT
   if(self->content_length != CONTENT_LENGTH_UNSET)
     printf("self->content_length: %ld\n", self->content_length);
   if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY)
     printf("self->transfer: identity\n");
   else if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED)
     printf("self->transfer: chunked\n");
+#endif
 
   PyObject* trimmed_buffer = PySequence_GetSlice(
     self->buffer, result, view.len);
@@ -435,7 +450,9 @@ static int _parse_body(HttpRequestParser* self) {
       goto finally;
     }
 
+#ifdef DEBUG_PRINT
     printf("body: "); PyObject_Print(body, stdout, 0); printf("\n");
+#endif
   }
 
   on_body_result = PyObject_CallFunctionObjArgs(
@@ -459,7 +476,9 @@ static int _parse_body(HttpRequestParser* self) {
 static PyObject *
 HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
   // FIXME: can be called without __init__
+#ifdef DEBUG_PRINT
   printf("feed\n");
+#endif
 
   PyObject* data;
   if (!PyArg_ParseTuple(args, "O", &data))
@@ -499,7 +518,9 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
 static PyObject *
 HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
   // FIXME: can be called without __init__
+#ifdef DEBUG_PRINT
   printf("feed_disconnect\n");
+#endif
 
   PyObject* error;
 
