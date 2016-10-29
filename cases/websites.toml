@@ -1,0 +1,69 @@
+[github]
+data = """\
+GET / HTTP/1.1\r\n\
+Host: github.com\r\n\
+User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0\r\n\
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n\
+Accept-Language: en-US,en;q=0.5\r\n\
+Accept-Encoding: gzip, deflate, br\r\n\
+Cookie: _octo=GHx; logged_in=yes; _ga=GAx; user_session=x; dotcom_user=x; __Host-user_session_same_site=x; _gh_sess=x; tz=America%2FSao_Paulo; _gat=x\r\n
+Connection: keep-alive\r\n\
+Upgrade-Insecure-Requests: 1\r\n\
+Pragma: no-cache\r\n\
+Cache-Control: no-cache\r\n\
+\r\n\
+"""
+
+[google]
+data = """\
+GET / HTTP/1.1\r\n\
+Host: google.com\r\n\
+Connection: keep-alive\r\n\
+Upgrade-Insecure-Requests: 1\r\n\
+User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36\r\n\
+X-Client-Data: Qwerty\r\n\
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n\
+Accept-Encoding: gzip, deflate, sdch\r\n\
+Accept-Language: en-US,en;q=0.8,es;q=0.6\r\n\
+Cookie: NID=x; SID=x; HSID=x; APISID=x\r\n\
+\r\n\
+"""
+
+[amazon]
+data = """\
+GET / HTTP/1.1\r\n\
+Host: www.amazon.com\r\n\
+Connection: keep-alive\r\n\
+Upgrade-Insecure-Requests: 1\r\n\
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.50 Safari/537.36 OPR/41.0.2353.23 (Edition beta)\r\n
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n\
+Accept-Encoding: gzip, deflate, lzma, sdch, br\r\n\
+Accept-Language: en-US,en;q=0.8\r\n\
+\r\n\
+"""
+
+[xkcd]
+data = """\
+GET /comics/mushrooms.png HTTP/1.1\r\n\
+Host: imgs.xkcd.com\r\n\
+Connection: keep-alive\r\n\
+Upgrade-Insecure-Requests: 1\r\n\
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.50 Safari/537.36 OPR/41.0.2353.23 (Edition beta)\r\n\
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n\
+Accept-Encoding: gzip, deflate, lzma, sdch\r\n\
+Accept-Language: en-US,en;q=0.8\r\n\
+\r\n\
+"""
+
+[4chan]
+data = """\
+GET /image/favicon.ico HTTP/1.1\r\n\
+Host: s.4cdn.org\r\n\
+Connection: keep-alive\r\n\
+User-Agent: Mozilla/5.0 (X11; Fedora; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.59 Safari/537.36\r\n\
+Accept: */*\r\n\
+Referer: http://www.4chan.org/\r\n\
+Accept-Encoding: gzip, deflate, sdch\r\n\
+Accept-Language: en-US,en;q=0.8,es;q=0.6\r\n\
+\r\n\
+"""
