@@ -18,7 +18,7 @@ enum HttpRequestParser_transfer {
   HTTP_REQUEST_PARSER_CHUNKED
 };
 
-static unsigned int const CONTENT_LENGTH_UNSET = UINT_MAX;
+static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 
 typedef struct {
     PyObject_HEAD
@@ -26,7 +26,7 @@ typedef struct {
     enum HttpRequestParser_state state;
     enum HttpRequestParser_transfer transfer;
 
-    unsigned int content_length;
+    unsigned long content_length;
     struct phr_chunked_decoder chunked_decoder;
     size_t chunked_offset;
 
@@ -184,7 +184,13 @@ static int _parse_headers(HttpRequestParser* self) {
     result = -3;
     goto finally;
   }
-  printf("path: "); PyObject_Print(py_version, stdout, 0); printf("\n");
+  printf("version: "); PyObject_Print(py_version, stdout, 0); printf("\n");
+
+
+  if(minor_version == 0)
+    self->transfer = HTTP_REQUEST_PARSER_IDENTITY;
+  else
+    self->transfer = HTTP_REQUEST_PARSER_CHUNKED;
 
   py_headers = PyDict_New();
   if(!py_headers) {
@@ -193,6 +199,24 @@ static int _parse_headers(HttpRequestParser* self) {
   }
   for(size_t i = 0; i < num_headers; i++) {
     struct phr_header header = headers[i];
+
+    if(strncasecmp(header.name, "Transfer-Encoding", header.name_len) == 0) {
+      if(strncasecmp(header.value, "chunked", header.value_len) == 0)
+        self->transfer = HTTP_REQUEST_PARSER_CHUNKED;
+      else if(strncasecmp(header.value, "identity", header.value_len) == 0)
+        self->transfer = HTTP_REQUEST_PARSER_IDENTITY;
+      else
+        /*TODO: handle incorrept values for protocol version, also comma sep*/;
+    }
+
+    if(strncasecmp(header.name, "Content-Length", header.name_len) == 0) {
+      char * endptr = (char *)header.value + header.name_len;
+      self->content_length = strtol(header.value, &endptr, 10);
+
+      // FIXME: endptr != NULL, zero length, invlid chars
+      // FIXME: negative values
+    }
+
     // TODO: common names and values static
     // TODO: normalize to title case
     PyObject* py_header_name = NULL;
@@ -226,6 +250,13 @@ static int _parse_headers(HttpRequestParser* self) {
     if(result == -3)
       goto finally;
   }
+
+  if(self->content_length != CONTENT_LENGTH_UNSET)
+    printf("self->content_length: %ld\n", self->content_length);
+  if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY)
+    printf("self->transfer: identity\n");
+  else if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED)
+    printf("self->transfer: chunked\n");
 
   PyObject* trimmed_buffer = PySequence_GetSlice(
     self->buffer, result, view.len);
