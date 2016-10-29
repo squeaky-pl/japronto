@@ -105,6 +105,7 @@ HttpRequestParser_dealloc(HttpRequestParser* self)
     Py_XDECREF(self->on_error);
     Py_XDECREF(self->on_body);
     Py_XDECREF(self->on_headers);
+    Py_XDECREF(self->request);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -235,7 +236,22 @@ static int _parse_headers(HttpRequestParser* self) {
   Py_DECREF(self->buffer);
   self->buffer = trimmed_buffer;
 
-  // on_headers
+  PyObject* request = PyObject_CallFunctionObjArgs(
+    Request, py_method, py_path, py_version, py_headers, NULL);
+  if(!request) {
+    result = -3;
+    goto finally;
+  }
+  Py_DECREF(self->request);
+  self->request = request;
+
+  PyObject* on_headers_result = PyObject_CallFunctionObjArgs(
+    self->on_headers, request, NULL);
+  if(!on_headers_result) {
+    result = -3;
+    goto finally;
+  }
+  Py_DECREF(on_headers_result);
 
   finally:
   Py_XDECREF(py_headers);

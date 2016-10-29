@@ -21,6 +21,10 @@ class HttpRequest(object):
         for n, v in self.headers.items():
             print(n, v)
 
+    def __repr__(self):
+        return '<HttpRequest {0.method} {0.path} {0.version}, {1} headers>' \
+            .format(self, len(self.headers))
+
 
 class HttpRequestParser(object):
     def __init__(self, on_headers, on_error, on_body):
