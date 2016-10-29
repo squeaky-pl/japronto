@@ -88,20 +88,39 @@ class HttpRequestParser(object):
 
         self.buffer = self.buffer[result:]
 
+        if self.minor_version[0] == 0:
+            self.connection = headers.get('Connection', 'close')
+            self.transfer = 'identity'
+        else:
+            self.connection = headers.get('Connection', 'keep-alive')
+            self.transfer = headers.get('Transfer-Encoding', 'chunked')
+
+        self.content_length = headers.get('Content-Length')
+        if self.content_length is not None:
+            content_length_error = False
+
+            if not self.content_length:
+                content_length_error = True
+
+            if not content_length_error and self.content_length[0] in '+-':
+                content_length_error = True
+
+            if not content_length_error:
+                try:
+                    self.content_length = int(self.content_length)
+                except ValueError:
+                    content_length_error = True
+
+            if content_length_error:
+                self.on_error('invalid_headers')
+                self._reset_state()
+                self.buffer = bytearray()
+
+                return -1
+
         self.request = HttpRequest(method, path, version, headers)
 
         self.on_headers(self.request)
-
-        if self.minor_version[0] == 0:
-            self.connection = self.request.headers.get('Connection', 'close')
-            self.transfer = 'identity'
-        else:
-            self.connection = self.request.headers.get('Connection', 'keep-alive')
-            self.transfer = self.request.headers.get('Transfer-Encoding', 'chunked')
-
-        self.content_length = self.request.headers.get('Content-Length')
-        if self.content_length is not None:
-            self.content_length = int(self.content_length)
 
         return result
 

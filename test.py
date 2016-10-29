@@ -155,6 +155,8 @@ def test_empty(parser):
     '11get+11clget+11get',
 
     '11clincomplete_headers', '11clincomplete_body',
+    '11clinvalid1', '11clinvalid2', '11clinvalid3',
+    '11clinvalid4', '11clinvalid5',
     '11clkeep+11clincomplete_headers', '11clkeep+11clincomplete_body',
     '11clzero+11clincomplete_headers', '11clzero+11clincomplete_body',
     '11clclose+11clkeep+11clincomplete_body',

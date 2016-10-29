@@ -108,7 +108,7 @@ body = ""
 [11clclose]
 data = """\
 POST /logout HTTP/1.1\r\n\
-Content-Length: 3\r\n\
+Content-Length: 003\r\n\
 Connection: close\r\n\
 \r\n\
 Bye\
@@ -116,7 +116,7 @@ Bye\
 method = "POST"
 path = "/logout"
 version = "1.1"
-headers = { Content-Length = "3", Connection = "close" }
+headers = { Content-Length = "003", Connection = "close" }
 body = "Bye"
 
 
@@ -135,6 +135,46 @@ path = "/"
 version = "1.1"
 headers = { Content-Length = "5" }
 error = "incomplete_body"
+
+[11clinvalid1]
+data = "POST / HTTP/1.1\r\nContent-Length: asd\r\n\r\n"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = { Content-Length = "asd" }
+error = "invalid_headers"
+
+[11clinvalid2]
+data = "POST / HTTP/1.1\r\nContent-Length: +5\r\n\r\n"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = { Content-Length = "+5" }
+error = "invalid_headers"
+
+[11clinvalid3]
+data = "POST / HTTP/1.1\r\nContent-Length: -5\r\n\r\n"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = { Content-Length = "+5" }
+error = "invalid_headers"
+
+[11clinvalid4]
+data = "POST / HTTP/1.1\r\nContent-Length: 4f\r\n\r\n"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = { Content-Length = "4f" }
+error = "invalid_headers"
+
+[11clinvalid5]
+data = "POST / HTTP/1.1\r\nContent-Length: \r\n\r\n"
+method = "POST"
+path = "/"
+version = "1.1"
+headers = { Content-Length = "" }
+error = "invalid_headers"
 
 
 [11chunked1]
