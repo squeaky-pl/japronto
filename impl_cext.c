@@ -9,6 +9,7 @@ static PyObject* Request;
 static PyObject* malformed_headers;
 static PyObject* malformed_body;
 static PyObject* incomplete_headers;
+static PyObject* invalid_headers;
 static PyObject* incomplete_body;
 static PyObject* empty_body;
 
@@ -126,6 +127,7 @@ static int _parse_headers(HttpRequestParser* self) {
   PyObject* py_path = NULL;
   PyObject* py_version = NULL;
   PyObject* py_headers = NULL;
+  PyObject* error;
 
   Py_buffer view;
   int result;
@@ -158,19 +160,8 @@ static int _parse_headers(HttpRequestParser* self) {
     goto finally;
 
   if(result == -1) {
-    PyObject* on_error_result = PyObject_CallFunctionObjArgs(
-      self->on_error, malformed_headers, NULL);
-    if(!on_error_result) {
-      result = -3;
-      goto finally;
-    }
-    Py_DECREF(on_error_result);
-
-    _reset_state(self);
-    PyBuffer_Release(&view);
-    view.buf = NULL;
-    PyByteArray_Resize(self->buffer, 0);
-    goto finally;
+    error = malformed_headers;
+    goto on_error;
   }
 
   // TODO: is it faster to compare length first?
@@ -234,11 +225,26 @@ static int _parse_headers(HttpRequestParser* self) {
     }
 
     if(strncasecmp(header.name, "Content-Length", header.name_len) == 0) {
-      char * endptr = (char *)header.value + header.name_len;
-      self->content_length = strtol(header.value, &endptr, 10);
 
-      // FIXME: endptr != NULL, zero length, invlid chars
-      // FIXME: negative values
+      if(!header.value_len) {
+        error = invalid_headers;
+        goto on_error;
+      }
+
+      if(*header.value == '+' || *header.value == '-') {
+        error = invalid_headers;
+        goto on_error;
+      }
+
+      char * endptr = (char *)header.value + header.value_len;
+      self->content_length = strtol(header.value, &endptr, 10);
+      // FIXME: overflow?
+
+      if(endptr != (char*)header.value + header.value_len) {
+        error = invalid_headers;
+        goto on_error;
+      }
+
     }
 
     bool prev_alpha = false;
@@ -254,7 +260,6 @@ static int _parse_headers(HttpRequestParser* self) {
     }
 
     // TODO: common names and values static
-    // TODO: normalize to title case
     PyObject* py_header_name = NULL;
     PyObject* py_header_value = NULL;
 
@@ -323,6 +328,23 @@ static int _parse_headers(HttpRequestParser* self) {
     goto finally;
   }
   Py_DECREF(on_headers_result);
+
+  goto finally;
+
+  PyObject* on_error_result;
+  on_error:
+  on_error_result = PyObject_CallFunctionObjArgs(
+    self->on_error, error, NULL);
+  if(!on_error_result) {
+    result = -3;
+    goto finally;
+  }
+  Py_DECREF(on_error_result);
+
+  _reset_state(self);
+  PyBuffer_Release(&view);
+  view.buf = NULL;
+  PyByteArray_Resize(self->buffer, 0);
 
   finally:
   Py_XDECREF(py_headers);
@@ -652,6 +674,7 @@ PyInit_impl_cext(void)
 {
     Request = NULL;
     malformed_headers = NULL;
+    invalid_headers = NULL;
     malformed_body = NULL;
     incomplete_headers = NULL;
     incomplete_body = NULL;
@@ -687,6 +710,10 @@ PyInit_impl_cext(void)
     if(!incomplete_headers)
       goto error;
 
+    invalid_headers = PyUnicode_FromString("invalid_headers");
+    if(!invalid_headers)
+      goto error;
+
     incomplete_body = PyUnicode_FromString("incomplete_body");
     if(!incomplete_body)
       goto error;
@@ -705,6 +732,7 @@ PyInit_impl_cext(void)
     error:
     Py_XDECREF(empty_body);
     Py_XDECREF(incomplete_body);
+    Py_XDECREF(invalid_headers);
     Py_XDECREF(incomplete_headers);
     Py_XDECREF(malformed_body);
     Py_XDECREF(malformed_headers);
