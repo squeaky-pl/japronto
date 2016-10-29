@@ -13,6 +13,24 @@ static PyObject* invalid_headers;
 static PyObject* incomplete_body;
 static PyObject* empty_body;
 
+static PyObject* GET;
+static PyObject* POST;
+static PyObject* DELETE;
+static PyObject* HEAD;
+static PyObject* Host;
+static PyObject* User_Agent;
+static PyObject* Accept;
+static PyObject* Accept_Language;
+static PyObject* Accept_Encoding;
+static PyObject* Accept_Charset;
+static PyObject* Connection;
+static PyObject* Cookie;
+static PyObject* Content_Length;
+static PyObject* Transfer_Encoding;
+/*static PyObject* Gzip_Deflate;
+static PyObject* Close;
+static PyObject* Keep_Alive;*/
+
 enum HttpRequestParser_state {
   HTTP_REQUEST_PARSER_HEADERS,
   HTTP_REQUEST_PARSER_BODY
@@ -164,18 +182,28 @@ static int _parse_headers(HttpRequestParser* self) {
     goto on_error;
   }
 
-  // TODO: is it faster to compare length first?
-  if(strncasecmp(method, "GET ", 4) == 0 ||
-     strncasecmp(method, "HEAD ", 5) == 0 ||
-     strncasecmp(method, "DELETE ", 7) == 0)
+#define if_method_equal(m) \
+if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
+{ \
+  py_method = m; \
+  Py_INCREF(m); \
+}
+  if_method_equal(GET)
+  else if_method_equal(POST)
+  else if_method_equal(DELETE)
+  else if_method_equal(HEAD)
+  else {
+    py_method = PyUnicode_FromStringAndSize(method, method_len);
+    if(!py_method) {
+      result = -3;
+      goto finally;
+    }
+  }
+#undef if_method_equal
+
+  if(py_method == GET || py_method == DELETE || py_method == HEAD)
     self->no_semantics = true;
 
-  // TODO: probably use static for common methods
-  py_method = PyUnicode_FromStringAndSize(method, method_len);
-  if(!py_method) {
-    result = -3;
-    goto finally;
-  }
 #ifdef DEBUG_PRINT
   printf("method: "); PyObject_Print(py_method, stdout, 0); printf("\n");
 #endif
@@ -212,20 +240,35 @@ static int _parse_headers(HttpRequestParser* self) {
     result = -3;
     goto finally;
   }
+
+#define header_name_equal(val) \
+  header.name_len == strlen(val) && strncasecmp(header.name, val, header.name_len) == 0
+#define header_value_equal(val) \
+  header.value_len == strlen(val) && strncasecmp(header.value, val, header.value_len) == 0
+#define cmp_and_set_header_name(name, val) \
+  if(header_name_equal(val)) { \
+      py_header_name = name; \
+      Py_INCREF(name); \
+  }
+
   for(size_t i = 0; i < num_headers; i++) {
     struct phr_header header = headers[i];
 
-    if(strncasecmp(header.name, "Transfer-Encoding", header.name_len) == 0) {
-      if(strncasecmp(header.value, "chunked", header.value_len) == 0)
+    // TODO: common names and values static
+    PyObject* py_header_name = NULL;
+    PyObject* py_header_value = NULL;
+
+    if(header_name_equal("Transfer-Encoding")) {
+      if(header_value_equal("chunked"))
         self->transfer = HTTP_REQUEST_PARSER_CHUNKED;
-      else if(strncasecmp(header.value, "identity", header.value_len) == 0)
+      else if(header_value_equal("identity"))
         self->transfer = HTTP_REQUEST_PARSER_IDENTITY;
       else
         /*TODO: handle incorrept values for protocol version, also comma sep*/;
-    }
 
-    if(strncasecmp(header.name, "Content-Length", header.name_len) == 0) {
-
+      py_header_name = Transfer_Encoding;
+      Py_INCREF(Transfer_Encoding);
+    } else if(header_name_equal("Content-Length")) {
       if(!header.value_len) {
         error = invalid_headers;
         goto on_error;
@@ -245,29 +288,36 @@ static int _parse_headers(HttpRequestParser* self) {
         goto on_error;
       }
 
+      py_header_name = Content_Length;
+      Py_INCREF(Content_Length);
     }
+    else cmp_and_set_header_name(Host, "Host")
+    else cmp_and_set_header_name(User_Agent, "User-Agent")
+    else cmp_and_set_header_name(Accept, "Accept")
+    else cmp_and_set_header_name(Accept_Language, "Accept-Language")
+    else cmp_and_set_header_name(Accept_Encoding, "Accept-Encoding")
+    else cmp_and_set_header_name(Accept_Charset, "Accept-Charset")
+    else cmp_and_set_header_name(Connection, "Connection")
+    else cmp_and_set_header_name(Cookie, "Cookie")
+    else {
+      bool prev_alpha = false;
+      for(char* c = (char*)header.name; c < header.name + header.name_len; c++) {
+        if(*c >= 'A' && *c <= 'Z') {
+          if(prev_alpha)
+            *c |= 0x20;
+          prev_alpha = true;
+        } else if (*c >= 'a' && *c <= 'z')
+          prev_alpha = true;
+        else
+          prev_alpha = false;
+      }
 
-    bool prev_alpha = false;
-    for(char* c = (char*)header.name; c < header.name + header.name_len; c++) {
-      if(*c >= 'A' && *c <= 'Z') {
-        if(prev_alpha)
-          *c |= 0x20;
-        prev_alpha = true;
-      } else if (*c >= 'a' && *c <= 'z')
-        prev_alpha = true;
-      else
-        prev_alpha = false;
-    }
-
-    // TODO: common names and values static
-    PyObject* py_header_name = NULL;
-    PyObject* py_header_value = NULL;
-
-    py_header_name = PyUnicode_FromStringAndSize(
-      header.name, header.name_len);
-    if(!py_header_name) {
-      result = -3;
-      goto finally_loop;
+      py_header_name = PyUnicode_FromStringAndSize(
+        header.name, header.name_len);
+      if(!py_header_name) {
+        result = -3;
+        goto finally_loop;
+      }
     }
 
     // FIXME: this can return NULL on codec error
@@ -679,6 +729,20 @@ PyInit_impl_cext(void)
     incomplete_headers = NULL;
     incomplete_body = NULL;
     empty_body = NULL;
+    GET = NULL;
+    POST = NULL;
+    DELETE = NULL;
+    HEAD = NULL;
+    Host = NULL;
+    User_Agent = NULL;
+    Accept = NULL;
+    Accept_Language = NULL;
+    Accept_Encoding = NULL;
+    Accept_Charset = NULL;
+    Connection = NULL;
+    Cookie = NULL;
+    Content_Length = NULL;
+    Transfer_Encoding = NULL;
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
 
@@ -698,38 +762,64 @@ PyInit_impl_cext(void)
     if(!Request)
       goto error;
 
-    malformed_headers = PyUnicode_FromString("malformed_headers");
-    if(!malformed_headers)
+#define alloc_static(name) \
+    name = PyUnicode_FromString(#name); \
+    if(!name) \
+      goto error;
+#define alloc_static2(name, val) \
+    name = PyUnicode_FromString(val); \
+    if(!name) \
       goto error;
 
-    malformed_body = PyUnicode_FromString("malformed_body");
-    if(!malformed_body)
-      goto error;
-
-    incomplete_headers = PyUnicode_FromString("incomplete_headers");
-    if(!incomplete_headers)
-      goto error;
-
-    invalid_headers = PyUnicode_FromString("invalid_headers");
-    if(!invalid_headers)
-      goto error;
-
-    incomplete_body = PyUnicode_FromString("incomplete_body");
-    if(!incomplete_body)
-      goto error;
+    alloc_static(malformed_headers)
+    alloc_static(malformed_body)
+    alloc_static(incomplete_headers)
+    alloc_static(invalid_headers)
+    alloc_static(incomplete_body)
 
     empty_body = PyBytes_FromString("");
     if(!empty_body)
       goto error;
 
+    alloc_static(GET)
+    alloc_static(POST)
+    alloc_static(DELETE)
+    alloc_static(HEAD)
+    alloc_static(Host)
+    alloc_static2(User_Agent, "User-Agent")
+    alloc_static(Accept)
+    alloc_static2(Accept_Language, "Accept-Language")
+    alloc_static2(Accept_Encoding, "Accept-Encoding")
+    alloc_static2(Accept_Charset, "Accept-Charset")
+    alloc_static(Connection)
+    alloc_static(Cookie)
+    alloc_static2(Content_Length, "Content-Length")
+    alloc_static2(Transfer_Encoding, "Transfer-Encoding")
+
+#undef alloc_static
+#undef alloc_static2
+
     Py_INCREF(&HttpRequestParserType);
     PyModule_AddObject(
       m, "HttpRequestParser", (PyObject *)&HttpRequestParserType);
 
-
     goto finally;
 
     error:
+    Py_XDECREF(Transfer_Encoding);
+    Py_XDECREF(Content_Length);
+    Py_XDECREF(Cookie);
+    Py_XDECREF(Connection);
+    Py_XDECREF(Accept_Charset);
+    Py_XDECREF(Accept_Encoding);
+    Py_XDECREF(Accept_Language);
+    Py_XDECREF(Accept);
+    Py_XDECREF(User_Agent);
+    Py_XDECREF(Host);
+    Py_XDECREF(HEAD);
+    Py_XDECREF(DELETE);
+    Py_XDECREF(POST);
+    Py_XDECREF(GET);
     Py_XDECREF(empty_body);
     Py_XDECREF(incomplete_body);
     Py_XDECREF(invalid_headers);
