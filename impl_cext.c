@@ -5,6 +5,8 @@
 
 static PyObject* Request;
 
+static PyObject* malformed_headers;
+
 enum HttpRequestParser_state {
   HTTP_REQUEST_PARSER_HEADERS,
   HTTP_REQUEST_PARSER_BODY
@@ -30,6 +32,7 @@ typedef struct {
 
     PyObject* buffer;
 
+    PyObject* request;
     PyObject* on_headers;
     PyObject* on_body;
     PyObject* on_error;
@@ -37,6 +40,10 @@ typedef struct {
 
 
 static void _reset_state(HttpRequestParser* self) {
+    Py_XDECREF(self->request);
+    self->request = Py_None;
+    Py_INCREF(self->request);
+
     self->state = HTTP_REQUEST_PARSER_HEADERS;
     self->transfer = HTTP_REQUEST_PARSER_UNSET;
     self->content_length = CONTENT_LENGTH_UNSET;
@@ -59,6 +66,7 @@ HttpRequestParser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->on_body = NULL;
     self->on_error = NULL;
     self->buffer = NULL;
+    self->request = NULL;
 
     finally:
     return (PyObject *)self;
@@ -137,9 +145,15 @@ static int _parse_headers(HttpRequestParser* self) {
     goto finally;
 
   if(result == -1) {
-    // TODO: on_error
+    PyObject* on_error_result = PyObject_CallFunctionObjArgs(
+      self->on_error, malformed_headers, NULL);
+    if(!on_error_result) {
+      result = -3;
+      goto finally;
+    }
+    Py_DECREF(on_error_result);
+
     _reset_state(self);
-    // TODO: this could be moved to the end
     PyBuffer_Release(&view);
     view.buf = NULL;
     PyByteArray_Resize(self->buffer, 0);
@@ -365,6 +379,7 @@ PyMODINIT_FUNC
 PyInit_impl_cext(void)
 {
     Request = NULL;
+    malformed_headers = NULL;
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
 
@@ -384,6 +399,10 @@ PyInit_impl_cext(void)
     if(!Request)
       goto error;
 
+    malformed_headers = PyUnicode_FromString("malformed_headers");
+    if(!malformed_headers)
+      goto error;
+
     Py_INCREF(&HttpRequestParserType);
     PyModule_AddObject(
       m, "HttpRequestParser", (PyObject *)&HttpRequestParserType);
@@ -392,6 +411,7 @@ PyInit_impl_cext(void)
     goto finally;
 
     error:
+    Py_XDECREF(malformed_headers);
     Py_XDECREF(Request);
     finally:
     Py_XDECREF(impl_cffi);
