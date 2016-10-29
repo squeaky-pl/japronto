@@ -1,4 +1,5 @@
 import impl_cffi
+import impl_cext
 
 
 request = "GET /wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg HTTP/1.0\r\n"                                \
@@ -48,7 +49,7 @@ http11_chunked = "POST /chunked HTTP/1.1\r\n" \
     "\r\n"
 http11_chunked = http11_chunked.encode('ascii')
 
-def setup_cffi(dump=True):
+def setup(dump=True, impl=impl_cffi):
     if dump:
         def on_headers(request):
             request.dump_headers()
@@ -65,7 +66,7 @@ def setup_cffi(dump=True):
         def on_body(request):
             pass
 
-    return impl_cffi.HttpRequestParser(on_headers, on_error, on_body)
+    return impl.HttpRequestParser(on_headers, on_body, on_error)
 
 
 def main():
