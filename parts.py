@@ -34,8 +34,8 @@ def geometric_series():
         s *= 2
 
 
-def fancy_series():
+def fancy_series(minimum=2):
     x = 0
     while 1:
-        yield int(2 + abs(math.sin(x / 5)) * 64)
+        yield int(minimum + abs(math.sin(x / 3)) * 64)
         x += 1
