@@ -7,6 +7,10 @@ from unittest.mock import Mock
 import pytest
 
 import impl_cffi
+try:
+    import impl_cext
+except ImportError:
+    impl_cext = None
 from cases import base, parametrize_cases
 
 
@@ -71,14 +75,32 @@ def test_make_parts(data, get_size, dir, parts):
     assert make_parts(data, get_size, dir) == parts
 
 
-@pytest.fixture
-def parser():
-    on_headers = Mock()
-    on_error = Mock()
-    on_body = Mock()
-    parser = impl_cffi.HttpRequestParser(on_headers, on_body, on_error)
+def parametrize_make_parser():
+    ids = []
+    factories = []
+    if impl_cext:
+        def make_cext():
+            on_headers = Mock()
+            on_error = Mock()
+            on_body = Mock()
+            parser_cext = \
+                impl_cext.HttpRequestParser(on_headers, on_body, on_error)
 
-    return parser, on_headers, on_error, on_body
+            return parser_cext, on_headers, on_error, on_body
+        factories.append(make_cext)
+        ids.append('cext')
+
+    def make_cffi():
+        on_headers = Mock()
+        on_error = Mock()
+        on_body = Mock()
+        parser_cffi = impl_cffi.HttpRequestParser(on_headers, on_body, on_error)
+
+        return parser_cffi, on_headers, on_error, on_body
+    factories.append(make_cffi)
+    ids.append('cffi')
+
+    return pytest.mark.parametrize('make_parser', factories, ids=ids)
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -89,8 +111,9 @@ def parser():
     '10malformed_headers1', '10malformed_headers2', '10incomplete_headers',
     '10long+10malformed_headers2', '10long+10incomplete_headers',
     '10short+10malformed_headers1', '10short+10malformed_headers2')
-def test_http10(parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = parser
+@parametrize_make_parser()
+def test_http10(make_parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = make_parser()
     for i, case in enumerate(cases, 1):
         parts = do_parts(case.data)
 
@@ -124,8 +147,9 @@ def test_http10(parser, do_parts, cases):
         assert request.body == case.body
 
 
-def test_empty(parser):
-    parser, on_headers, on_error, on_body = parser
+@parametrize_make_parser()
+def test_empty(make_parser):
+    parser, on_headers, on_error, on_body = make_parser()
 
     parser.feed_disconnect()
     parser.feed(b'')
@@ -163,8 +187,9 @@ def test_empty(parser):
     '11get+11clincomplete_body',
     '11clget+11clincomplete_headers'
 )
-def test_http11_contentlength(parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = parser
+@parametrize_make_parser()
+def test_http11_contentlength(make_parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = make_parser()
 
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
@@ -223,8 +248,9 @@ def test_http11_contentlength(parser, do_parts, cases):
     '11chunked2+11chunked2+11chunkedincomplete_body',
     '11chunked3+11chunked1+11chunkedmalformed_body'
 )
-def test_http11_chunked(parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = parser
+@parametrize_make_parser()
+def test_http11_chunked(make_parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = make_parser()
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -275,8 +301,9 @@ def test_http11_chunked(parser, do_parts, cases):
     '11chunked3+11clkeep+11clclose',
     '11chunked3+11chunked3+11clclose'
 )
-def test_http11_mixed(parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = parser
+@parametrize_make_parser()
+def test_http11_mixed(make_parser, do_parts, cases):
+    parser, on_headers, on_error, on_body = make_parser()
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
