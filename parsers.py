@@ -9,6 +9,12 @@ def silent_callback(*args):
     pass
 
 
+def debug_callback(*args):
+    print(args)
+    if isinstance(args[0], impl_cffi.HttpRequest):
+        print(args[0].body)
+
+
 if impl_cext:
     def make_cext(cb_factory):
         on_headers = cb_factory()
