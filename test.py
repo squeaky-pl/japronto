@@ -1,52 +1,12 @@
-from collections import namedtuple
 from functools import partial
-import types
-import math
 from unittest.mock import Mock
 
 import pytest
 
 
 from cases import base, parametrize_cases
+from parts import one_part, make_parts, geometric_series, fancy_series
 import parsers
-
-
-def make_parts(value, get_size, dir=1):
-    parts = []
-
-    left = bytearray(value)
-    while left:
-        if isinstance(get_size, types.GeneratorType):
-            size = next(get_size)
-        else:
-            size = get_size
-
-        if dir == 1:
-            parts.append(bytes(left[:size]))
-            left = left[size:]
-        else:
-            parts.append(bytes(left[-size:]))
-            left = left[:-size]
-
-    return parts if dir == 1 else list(reversed(parts))
-
-
-def one_part(value):
-    return [value]
-
-
-def geometric_series():
-    s = 2
-    while 1:
-        yield s
-        s *= 2
-
-
-def fancy_series():
-    x = 0
-    while 1:
-        yield int(2 + abs(math.sin(x / 5)) * 64)
-        x += 1
 
 
 def make_part_functions():
