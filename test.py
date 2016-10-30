@@ -6,12 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 
-import impl_cffi
-try:
-    import impl_cext
-except ImportError:
-    impl_cext = None
+
 from cases import base, parametrize_cases
+import parsers
 
 
 def make_parts(value, get_size, dir=1):
@@ -78,26 +75,11 @@ def test_make_parts(data, get_size, dir, parts):
 def parametrize_make_parser():
     ids = []
     factories = []
-    if impl_cext:
-        def make_cext():
-            on_headers = Mock()
-            on_error = Mock()
-            on_body = Mock()
-            parser_cext = \
-                impl_cext.HttpRequestParser(on_headers, on_body, on_error)
-
-            return parser_cext, on_headers, on_error, on_body
-        factories.append(make_cext)
+    if hasattr(parsers, 'make_cext'):
+        factories.append(partial(parsers.make_cext, Mock))
         ids.append('cext')
 
-    def make_cffi():
-        on_headers = Mock()
-        on_error = Mock()
-        on_body = Mock()
-        parser_cffi = impl_cffi.HttpRequestParser(on_headers, on_body, on_error)
-
-        return parser_cffi, on_headers, on_error, on_body
-    factories.append(make_cffi)
+    factories.append(partial(parsers.make_cffi, Mock))
     ids.append('cffi')
 
     return pytest.mark.parametrize('make_parser', factories, ids=ids)
