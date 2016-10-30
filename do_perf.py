@@ -1,4 +1,7 @@
 import subprocess
+import os
+import sys
+import argparse
 
 import parsers
 import parts
@@ -18,7 +21,23 @@ def get_websites(size=2 ** 18):
     return data
 
 
+
 if __name__ == '__main__':
+    print('pid', os.getpid())
+
+    argparser = argparse.ArgumentParser(description='do_perf')
+    argparser.add_argument(
+        '-p', '--parsers', dest='parsers', default='cffi,cext')
+    argparser.add_argument(
+        '-b', '--benchmarks', dest='benchmarks', default='http10long,websites,websitesn')
+
+    result = argparser.parse_args(sys.argv[1:])
+    parsers = result.parsers.split(',')
+    benchmarks = result.benchmarks.split(',')
+
+    one_shot = [b for b in benchmarks if b in ['http10long', 'websites']]
+    multi_shot = [b for b in benchmarks if b in ['websitesn']]
+
     setup = """
 import parsers
 import do_perf
@@ -31,8 +50,8 @@ parser.feed(data)
 parser.feed_disconnect()
 """
 
-    for dataset in ['http10long', 'websites']:
-        for parser in ['cffi', 'cext']:
+    for dataset in one_shot:
+        for parser in parsers:
             print('-- {} {} --'.format(dataset, parser))
             subprocess.check_call([
                 'python', '-m', 'perf', 'timeit', '-s', setup.format(parser, dataset), loop])
@@ -49,8 +68,9 @@ for i in p:
 parser.feed_disconnect()
 """
 
-    for parser in ['cffi', 'cext']:
-        print('-- website parts {} --'.format(parser))
-        subprocess.check_call([
-            'python', '-m', 'perf', 'timeit', '-s', setup.format(parser, 'websites'), loop])
-        print()
+    if multi_shot:
+        for parser in parsers:
+            print('-- website parts {} --'.format(parser))
+            subprocess.check_call([
+                'python', '-m', 'perf', 'timeit', '-s', setup.format(parser, 'websites'), loop])
+            print()
