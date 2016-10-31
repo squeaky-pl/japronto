@@ -537,9 +537,7 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
   if(self->buffer_start == self->buffer_end) {
     self->buffer_start = 0;
     self->buffer_end = 0;
-  }
-
-  if((size_t)data_len > self->buffer_capacity - self->buffer_end) {
+  } else if((size_t)data_len > self->buffer_capacity - self->buffer_end) {
     memmove(self->buffer, self->buffer + self->buffer_start, self->buffer_end - self->buffer_start);
     self->buffer_end -= self->buffer_start;
     self->buffer_start = 0;
