@@ -2,6 +2,7 @@ import subprocess
 import os
 import sys
 import argparse
+import atexit
 
 import parsers
 import parts
@@ -21,9 +22,14 @@ def get_websites(size=2 ** 18):
     return data
 
 
-
 if __name__ == '__main__':
     print('pid', os.getpid())
+
+    def cont():
+        subprocess.check_call(['pkill', '--signal', 'CONT', 'firefox'])
+
+    atexit.register(cont)
+    subprocess.check_call(['pkill', '--signal', 'STOP', 'firefox'])
 
     argparser = argparse.ArgumentParser(description='do_perf')
     argparser.add_argument(
