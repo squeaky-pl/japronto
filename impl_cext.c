@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <Python.h>
+#include <sys/param.h>
 
 #include "picohttpparser.h"
 
@@ -125,7 +126,7 @@ HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
     // if(!self->buffer)
     //   return -1;
     self->buffer_len = 0;
-    self->buffer_capacity= 2048;
+    self->buffer_capacity = 2048;
     self->buffer = malloc(2048);
     if(!self->buffer)
       return -1;
@@ -592,6 +593,14 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
   int data_len;
   if(!PyArg_ParseTuple(args, "y#", &data, &data_len))
     return NULL;
+  if((size_t)data_len > self->buffer_capacity - self->buffer_len) {
+    self->buffer_capacity = MAX(
+      self->buffer_capacity * 2,
+      self->buffer_len + data_len);
+    self->buffer = realloc(self->buffer, self->buffer_capacity);
+    if(!self->buffer)
+      /* FIXME: alloc error */;
+  }
   memcpy(self->buffer + self->buffer_len, data, (size_t)data_len);
   self->buffer_len += (size_t)data_len;
 
