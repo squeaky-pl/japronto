@@ -5,10 +5,9 @@ import impl_cext
 
 response = [
     b'HTTP/1.1 200 OK\r\n',
-    b'Connection: close\r\n',
-    b'Content-Length: 3\r\n',
-    b'\r\n',
-    b'asd']
+    b'Connection: keep-alive\r\n',
+    b'Content-Length: '
+]
 
 
 class HttpProtocol(asyncio.Protocol):
@@ -17,24 +16,36 @@ class HttpProtocol(asyncio.Protocol):
             self.on_headers, self.on_body, self.on_error)
 
     def connection_made(self, transport):
-        self.transport = transport
-        print('connection made')
+          self.transport = transport
+    #     print('connection made')
 
     def connection_lost(self, exc):
-        print('connection lost')
         self.parser.feed_disconnect()
 
     def data_received(self, data):
-        print('received', data)
         self.parser.feed(data)
 
     def on_headers(self, request):
-        request.dump_headers()
+        return
 
     def on_body(self, request):
-        print(request.body)
-
         self.transport.writelines(response)
+        if request.path == '/':
+            self.transport.write(b'12\r\n\r\nHello world!')
+        elif request.path == '/dump':
+            data = [
+                'method: ', request.method, '\r\n',
+                'path: ', request.path, '\r\n',
+                'version: ', request.version, '\r\n',
+                'headers:\r\n'
+            ]
+
+            for h, v in request.headers.items():
+                data.extend([h, ': ', v, '\r\n'])
+
+            data = (''.join(data)).encode()
+            self.transport.write(str(len(data)).encode() + b'\r\n\r\n')
+            self.transport.write(data)
 
     def on_error(self, error):
         print(error)
