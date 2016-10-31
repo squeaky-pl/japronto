@@ -124,7 +124,7 @@ HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
 
     self->buffer_start = 0;
     self->buffer_end = 0;
-    self->buffer_capacity = 2048;
+    self->buffer_capacity = 4096;
     self->buffer = malloc(self->buffer_capacity);
     if(!self->buffer)
       return -1;
