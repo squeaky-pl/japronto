@@ -7,6 +7,8 @@ NO_SEMANTICS = ["GET", "HEAD", "DELETE"]
 
 
 class HttpRequest(object):
+    __slots__ = ('path', 'method', 'version', 'headers', 'body')
+
     def __init__(self, method, path, version, headers):
         self.path = path
         self.method = method
