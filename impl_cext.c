@@ -580,9 +580,12 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
 
   PyObject* error;
 
+  PyObject* body = NULL;
+
   if(!self->buffer_len) {
-      Py_RETURN_NONE;
+      goto finally;
   }
+
 
   if(self->transfer == HTTP_REQUEST_PARSER_UNSET) {
     error = incomplete_headers;
@@ -596,8 +599,6 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
 
     if(PyObject_SetAttrString(self->request, "body", body) == -1)
       return NULL;
-
-    Py_DECREF(body);
 
     PyObject* on_body_result = PyObject_CallFunctionObjArgs(
       self->on_body, self->request, NULL);
@@ -624,6 +625,7 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
   Py_DECREF(on_error_result);
 
   finally:
+  Py_XDECREF(body);
   _reset_state(self);
   self->buffer_len = 0;
 
