@@ -58,7 +58,6 @@ typedef struct {
     size_t chunked_offset;
     bool no_semantics;
 
-//   PyObject* buffer;
     char* buffer;
     size_t buffer_len;
     size_t buffer_capacity;
@@ -97,7 +96,6 @@ HttpRequestParser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     self->on_headers = NULL;
     self->on_body = NULL;
     self->on_error = NULL;
-    // self->buffer = NULL;
     self->request = NULL;
 
     finally:
@@ -122,12 +120,10 @@ HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
     Py_INCREF(self->on_error);
 
     _reset_state(self);
-    // self->buffer = PyByteArray_FromStringAndSize("", 0);
-    // if(!self->buffer)
-    //   return -1;
+
     self->buffer_len = 0;
     self->buffer_capacity = 2048;
-    self->buffer = malloc(2048);
+    self->buffer = malloc(self->buffer_capacity);
     if(!self->buffer)
       return -1;
 
@@ -145,7 +141,6 @@ HttpRequestParser_dealloc(HttpRequestParser* self)
     if(self->buffer)
       free(self->buffer);
 
-    // Py_XDECREF(self->buffer);
     Py_XDECREF(self->on_error);
     Py_XDECREF(self->on_body);
     Py_XDECREF(self->on_headers);
@@ -160,13 +155,7 @@ static int _parse_headers(HttpRequestParser* self) {
   PyObject* py_headers = NULL;
   PyObject* error;
 
-  // Py_buffer view;
   int result;
-
-  // if(PyObject_GetBuffer(self->buffer, &view, PyBUF_WRITABLE) == -1) {
-  //   result = -3;
-  //   goto finally;
-  // }
 
   const char* method;
   size_t method_len;
@@ -374,14 +363,6 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
     printf("self->transfer: chunked\n");
 #endif
 
-  // PyObject* trimmed_buffer = PySequence_GetSlice(
-  //   self->buffer, result, view.len);
-  // if(!trimmed_buffer) {
-  //   result = -3;
-  //   goto finally;
-  // }
-  // Py_DECREF(self->buffer);
-  // self->buffer = trimmed_buffer;
   memmove(self->buffer, self->buffer + (size_t)result, self->buffer_len - (size_t)result);
   self->buffer_len -= (size_t)result;
 
@@ -415,24 +396,17 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   Py_DECREF(on_error_result);
 
   _reset_state(self);
-  // PyBuffer_Release(&view);
-  // view.buf = NULL;
-  // PyByteArray_Resize(self->buffer, 0);
   self->buffer_len = 0;
 
   finally:
   Py_XDECREF(py_headers);
   Py_XDECREF(py_path);
   Py_XDECREF(py_method);
-  // if(view.buf)
-  //   PyBuffer_Release(&view);
 
   return result;
 }
 
 static int _parse_body(HttpRequestParser* self) {
-  // Py_buffer view;
-  // view.buf = NULL;
   PyObject* body = NULL;
   int result = -2;
   if(self->content_length == CONTENT_LENGTH_UNSET && self->no_semantics) {
@@ -447,11 +421,6 @@ static int _parse_body(HttpRequestParser* self) {
     goto on_body;
   }
 
-  // if(PyObject_GetBuffer(self->buffer, &view, PyBUF_WRITABLE) == -1) {
-  //   result = -3;
-  //   goto finally;
-  // }
-
   if(self->content_length != CONTENT_LENGTH_UNSET) {
     if(self->content_length > self->buffer_len) {
       result = -2;
@@ -464,14 +433,6 @@ static int _parse_body(HttpRequestParser* self) {
       goto finally;
     }
 
-    // PyObject* trimmed_buffer = PySequence_GetSlice(
-    //   self->buffer, self->content_length, view.len);
-    // if(!trimmed_buffer) {
-    //   result = -3;
-    //   goto finally;
-    // }
-    // Py_DECREF(self->buffer);
-    // self->buffer = trimmed_buffer;
     memmove(self->buffer, self->buffer + self->content_length, self->buffer_len - self->content_length);
     self->buffer_len -= self->content_length;
 
@@ -496,9 +457,6 @@ static int _parse_body(HttpRequestParser* self) {
     self->chunked_offset = self->chunked_offset + chunked_offset_start;
 
     if(result == -2) {
-      //PyBuffer_Release(&view);
-      //view.buf = NULL;
-      //PyByteArray_Resize(self->buffer, self->chunked_offset);
       self->buffer_len = self->chunked_offset;
       goto finally;
     }
@@ -513,28 +471,17 @@ static int _parse_body(HttpRequestParser* self) {
       Py_DECREF(on_error_result);
 
       _reset_state(self);
-      //PyBuffer_Release(&view);
-      //view.buf = NULL;
-      //PyByteArray_Resize(self->buffer, 0);
       self->buffer_len = 0;
+
       goto finally;
     }
 
-    //body = PyBytes_FromStringAndSize(view.buf, self->chunked_offset);
     body = PyBytes_FromStringAndSize(self->buffer, self->chunked_offset);
     if(!body) {
       result = -3;
       goto finally;
     }
 
-    // PyObject* trimmed_buffer = PySequence_GetSlice(
-    //   self->buffer, self->chunked_offset, self->chunked_offset + result);
-    // if(!trimmed_buffer) {
-    //   result = -3;
-    //   goto finally;
-    // }
-    // Py_DECREF(self->buffer);
-    // self->buffer = trimmed_buffer;
     memmove(self->buffer, self->buffer + self->chunked_offset, (size_t)result);
     self->buffer_len = (size_t)result;
 
@@ -569,8 +516,6 @@ static int _parse_body(HttpRequestParser* self) {
   _reset_state(self);
 
   finally:
-  // if(view.buf)
-  //   PyBuffer_Release(&view);
   return result;
 }
 
@@ -582,17 +527,11 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
   printf("feed\n");
 #endif
 
-  // PyObject* data;
-  // if (!PyArg_ParseTuple(args, "O", &data))
-  //       return NULL;
-  // // FIXME check type
-  // if(!PySequence_InPlaceConcat(self->buffer, data))
-  //       return NULL;
-  // Py_DECREF(self->buffer);
   const char* data;
   int data_len;
   if(!PyArg_ParseTuple(args, "y#", &data, &data_len))
     return NULL;
+
   if((size_t)data_len > self->buffer_capacity - self->buffer_len) {
     self->buffer_capacity = MAX(
       self->buffer_capacity * 2,
@@ -601,6 +540,7 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
     if(!self->buffer)
       /* FIXME: alloc error */;
   }
+
   memcpy(self->buffer + self->buffer_len, data, (size_t)data_len);
   self->buffer_len += (size_t)data_len;
 
@@ -640,9 +580,6 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
 
   PyObject* error;
 
-  // if(!PyByteArray_Size(self->buffer)) {
-  //   Py_RETURN_NONE;
-  // }
   if(!self->buffer_len) {
       Py_RETURN_NONE;
   }
@@ -653,10 +590,6 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
   }
 
   if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY) {
-    // PyObject * body = PyBytes_FromObject(self->buffer);
-    // if(!body)
-    //   return NULL;
-
     PyObject * body = PyBytes_FromStringAndSize(self->buffer, self->buffer_len);
     if(!body)
       return NULL;
@@ -692,7 +625,6 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
 
   finally:
   _reset_state(self);
-  //PyByteArray_Resize(self->buffer, 0);
   self->buffer_len = 0;
 
   Py_RETURN_NONE;
