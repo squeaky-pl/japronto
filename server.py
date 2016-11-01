@@ -54,7 +54,8 @@ class HttpProtocol(asyncio.Protocol):
 def serve():
     loop = uvloop.new_event_loop()
 
-    server_coro = loop.create_server(lambda: HttpProtocol(), '0.0.0.0', 8080)
+    server_coro = loop.create_server(
+        lambda: HttpProtocol(), '0.0.0.0', 8080, reuse_port=True)
 
     server = loop.run_until_complete(server_coro)
 
