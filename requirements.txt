@@ -1,2 +1,4 @@
 perf
 uvloop
+cffi
+pytoml
