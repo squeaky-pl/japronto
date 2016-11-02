@@ -750,6 +750,8 @@ PyInit_impl_cext(void)
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
 
+    /* FIXME, remove this since we have new */
+    /* how does this even not segfault !!! */
     HttpRequestParserType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&HttpRequestParserType) < 0)
         goto error;

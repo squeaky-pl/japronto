@@ -1,0 +1,120 @@
+#include <Python.h>
+
+
+typedef struct {
+  PyObject_HEAD
+
+  PyObject* status_code;
+  PyObject* mime_type;
+  PyObject* text;
+  PyObject* encoding;
+} Response;
+
+static PyObject *
+Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  Response* self = NULL;
+
+  self = (Response*)type->tp_alloc(type, 0);
+  if(!self)
+    goto finally;
+
+  self->status_code = NULL;
+  self->mime_type = NULL;
+  self->text = NULL;
+  self->encoding = NULL;
+
+  finally:
+  return (PyObject*)self;
+}
+
+
+static void
+Response_dealloc(Response* self)
+{
+  Py_XDECREF(self->encoding);
+  Py_XDECREF(self->text);
+  Py_XDECREF(self->mime_type);
+  Py_XDECREF(self->status_code);
+
+  Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
+static int
+Response_init(Response* self, PyObject *args, PyObject *kwds)
+{
+  // FIXME: check argument types
+  return 0;
+}
+
+static PyTypeObject ResponseType = {
+  PyVarObject_HEAD_INIT(NULL, 0)
+  "cresponse.Response",      /* tp_name */
+  sizeof(Response),          /* tp_basicsize */
+  0,                         /* tp_itemsize */
+  (destructor)Response_dealloc, /* tp_dealloc */
+  0,                         /* tp_print */
+  0,                         /* tp_getattr */
+  0,                         /* tp_setattr */
+  0,                         /* tp_reserved */
+  0,                         /* tp_repr */
+  0,                         /* tp_as_number */
+  0,                         /* tp_as_sequence */
+  0,                         /* tp_as_mapping */
+  0,                         /* tp_hash  */
+  0,                         /* tp_call */
+  0,                         /* tp_str */
+  0,                         /* tp_getattro */
+  0,                         /* tp_setattro */
+  0,                         /* tp_as_buffer */
+  Py_TPFLAGS_DEFAULT,        /* tp_flags */
+  "Response",                /* tp_doc */
+  0,                         /* tp_traverse */
+  0,                         /* tp_clear */
+  0,                         /* tp_richcompare */
+  0,                         /* tp_weaklistoffset */
+  0,                         /* tp_iter */
+  0,                         /* tp_iternext */
+  0,                         /* tp_methods */
+  0,                         /* tp_members */
+  0,                         /* tp_getset */
+  0,                         /* tp_base */
+  0,                         /* tp_dict */
+  0,                         /* tp_descr_get */
+  0,                         /* tp_descr_set */
+  0,                         /* tp_dictoffset */
+  (initproc)Response_init,   /* tp_init */
+  0,                         /* tp_alloc */
+  Response_new,              /* tp_new */
+};
+
+
+static PyModuleDef cresponse = {
+  PyModuleDef_HEAD_INIT,
+  "cresponse",
+  "cresponse",
+  -1,
+  NULL, NULL, NULL, NULL, NULL
+};
+
+
+PyMODINIT_FUNC
+PyInit_cresponse(void)
+{
+  PyObject* m = NULL;
+
+  if (PyType_Ready(&ResponseType) < 0)
+    goto error;
+
+  m = PyModule_Create(&cresponse);
+  if(!m)
+    goto error;
+
+  Py_INCREF(&ResponseType);
+  PyModule_AddObject(m, "Response", (PyObject*)&ResponseType);
+
+  error:
+  finally:
+  return m;
+}
