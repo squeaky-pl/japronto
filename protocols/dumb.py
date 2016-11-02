@@ -31,9 +31,9 @@ class HttpProtocol(asyncio.Protocol):
     def on_body(self, request):
         if request.path == '/':
             data = response[:]
-            response.append('12\r\n\r\nHello world!')
+            data.append('12\r\n\r\nHello dumby!')
 
-        self.transport.write(data.encode('utf-8'))
+        self.transport.write(''.join(data).encode('utf-8'))
 
 
     def on_error(self, error):
