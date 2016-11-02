@@ -2,6 +2,7 @@ import uvloop
 import asyncio as aio
 import sys
 import statistics
+import cpu
 from asyncio.subprocess import PIPE, STDOUT
 
 
@@ -28,6 +29,7 @@ def run_wrk(loop, endpoint=None):
 
 
 if __name__ == '__main__':
+    cpu.dump()
     loop = uvloop.new_event_loop()
 
     aio.set_event_loop(loop)
