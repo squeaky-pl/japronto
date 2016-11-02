@@ -8,12 +8,12 @@ import protocols.dumb
 import protocols.handler
 
 
-def serve(protocol_factory):
+def serve(protocol_factory, reuse_port=False):
     loop = uvloop.new_event_loop()
 
     server_coro = loop.create_server(
         lambda: protocol_factory(loop),
-        '0.0.0.0', 8080, reuse_port=True)
+        '0.0.0.0', 8080, reuse_port=reuse_port)
 
     server = loop.run_until_complete(server_coro)
 
