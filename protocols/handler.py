@@ -2,7 +2,7 @@ import asyncio
 import impl_cext
 
 
-from response import Response
+from responses.py import factory, dispose, Response
 
 
 class HttpProtocol(asyncio.Protocol):
@@ -32,9 +32,9 @@ class HttpProtocol(asyncio.Protocol):
 
 async def handle_request(request, transport):
     if(request.path == '/'):
-        response = Response(text='Hello world!')
+        response = factory(text='Hello world!')
     elif(request.path == '/dump'):
-        response = Response()
+        response = factory()
         data = [
             'method: ', request.method, '\r\n',
             'path: ', request.path, '\r\n',
@@ -47,3 +47,5 @@ async def handle_request(request, transport):
         response.text = ''.join(data)
 
     transport.write(response.render())
+
+    dispose(response)
