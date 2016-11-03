@@ -4,7 +4,6 @@ import signal
 import argparse
 import sys
 
-import protocols.dumb
 import protocols.handler
 
 
@@ -28,7 +27,7 @@ def serve(protocol_factory, reuse_port=False):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser('server')
     argparser.add_argument(
-        '-p', dest='protocol_factory', default='handler')
+        '-p', dest='flavor', default='block')
     args = argparser.parse_args(sys.argv[1:])
 
-    serve(getattr(protocols, args.protocol_factory).HttpProtocol)
+    serve(protocols.handler.make_class(args.flavor))
