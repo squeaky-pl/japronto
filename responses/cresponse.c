@@ -111,6 +111,8 @@ Response_render(Response* self)
     /* TODO these are always 3 digit, maybe modulus would be faster */
     snprintf(self->buffer + code_offset, 4, "%ld", status_code);
     *(self->buffer + code_offset + 3) = ' ';
+  } else {
+    memcpy(self->buffer + code_offset, "200", 3);
   }
 
   size_t buffer_offset = strlen(header);

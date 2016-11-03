@@ -22,6 +22,7 @@ def make_class(flavor):
             self.parser = impl_cext.HttpRequestParser(
                 self.on_headers, self.on_body, self.on_error)
             self.loop = loop
+            self.response = Response()
 
         if flavor == 'queue':
             def connection_made(self, transport):
@@ -43,7 +44,7 @@ def make_class(flavor):
 
         if flavor == 'block':
             def on_body(self, request):
-                handle_request_block(request, self.transport)
+                handle_request_block(request, self.transport, self.response)
         elif flavor == 'task':
             def on_body(self, request):
                 self.loop.create_task(handle_request(request, self.transport))
@@ -80,21 +81,18 @@ async def handle_requests(queue, transport):
     while 1:
         request = await queue.get()
 
-        if request.path == '/':
-            response = Response(text='Hello queue!')
+        response = Response(text='Hello queue!')
 
-            transport.write(response.render())
+        transport.write(response.render())
 
 
 async def handle_request(request, transport):
-    if request.path == '/':
-        response = Response(text='Hello ttask!')
+    response = Response(text='Hello ttask!')
 
     transport.write(response.render())
 
 
-def handle_request_block(request, transport):
-    if request.path == '/':
-        response = Response(text='Hello block!')
+def handle_request_block(request, transport, response):
+    response.__init__(404, text='Hello block')
 
     transport.write(response.render())
