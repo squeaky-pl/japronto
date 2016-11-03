@@ -12,6 +12,11 @@ typedef struct {
   char buffer[1024];
 } Response;
 
+
+static const char header[] = "HTTP/1.1 200 OK\r\n"
+  "Connection: keep-alive\r\n"
+  "Content-Length: ";
+
 static PyObject *
 Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -21,10 +26,16 @@ Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   if(!self)
     goto finally;
 
-  self->status_code = NULL;
-  self->mime_type = NULL;
-  self->text = NULL;
-  self->encoding = NULL;
+  self->status_code = Py_None;
+  Py_INCREF(self->status_code);
+  self->mime_type = Py_None;
+  Py_INCREF(self->mime_type);
+  self->text = Py_None;
+  Py_INCREF(self->text);
+  self->encoding = Py_None;
+  Py_INCREF(self->encoding);
+
+  memcpy(self->buffer, header, strlen(header));
 
   finally:
   return (PyObject*)self;
@@ -42,9 +53,6 @@ Response_dealloc(Response* self)
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static const char header[] = "HTTP/1.1 200 OK\r\n"
-  "Connection: keep-alive\r\n"
-  "Content-Length: ";
 static const size_t code_offset = 9;
 
 static int
@@ -52,26 +60,33 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
 {
   static char *kwlist[] = {"status_code", "text", "mime_type", "encoding", NULL};
 
+  PyObject* status_code = Py_None;
+  PyObject* text = Py_None;
+  PyObject* mime_type = Py_None;
+  PyObject* encoding = Py_None;
+
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
       args, kw, "|OOOO", kwlist,
-      &self->status_code, &self->text, &self->mime_type, &self->encoding))
+      &status_code, &text, &mime_type, &encoding))
       goto error;
 
-  if(self->status_code) {
-    Py_INCREF(self->status_code);
-  }
-  if(self->text) {
-    Py_INCREF(self->text);
-  }
-  if(self->mime_type) {
-    Py_INCREF(self->mime_type);
-  }
-  if(self->encoding) {
-    Py_INCREF(self->encoding);
-  }
 
-  memcpy(self->buffer, header, strlen(header));
+  Py_DECREF(self->status_code);
+  self->status_code = status_code;
+  Py_INCREF(self->status_code);
+
+  Py_DECREF(self->text);
+  self->text = text;
+  Py_INCREF(self->text);
+
+  Py_DECREF(self->mime_type);
+  self->mime_type = mime_type;
+  Py_INCREF(self->mime_type);
+
+  Py_DECREF(self->encoding);
+  self->encoding = encoding;
+  Py_INCREF(self->encoding);
 
   goto finally;
 
@@ -90,7 +105,7 @@ static const char text_plain[] = "text/plain";
 static PyObject*
 Response_render(Response* self)
 {
-  if(self->status_code) {
+  if(self->status_code != Py_None) {
     unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
     /* FIXME: overflow, check range 100 - 599 */
     /* TODO these are always 3 digit, maybe modulus would be faster */
@@ -102,8 +117,8 @@ Response_render(Response* self)
 
   Py_ssize_t body_len = 0;
   const char* body = NULL;
-  if(self->text) {
-    if(!self->encoding) {
+  if(self->text != Py_None) {
+    if(self->encoding == Py_None) {
       body = PyUnicode_AsUTF8AndSize(self->text, &body_len);
       if(!body)
         goto error;
@@ -132,7 +147,7 @@ Response_render(Response* self)
 
   Py_ssize_t mime_type_len = strlen(text_plain);
   const char* mime_type = text_plain;
-  if(self->mime_type) {
+  if(self->mime_type != Py_None) {
     mime_type = PyUnicode_AsUTF8AndSize(self->mime_type, &mime_type_len);
     if(!mime_type)
       goto error;
@@ -145,7 +160,7 @@ Response_render(Response* self)
 
   Py_ssize_t encoding_len = strlen(utf8);
   const char* encoding = utf8;
-  if(self->encoding) {
+  if(self->encoding != Py_None) {
     encoding = PyUnicode_AsUTF8AndSize(self->encoding, &encoding_len);
     if(!encoding)
       goto error;
