@@ -7,6 +7,15 @@ import impl_cext
 from responses.cresponse import Response
 
 
+static_response = b"""HTTP/1.1 200 OK\r
+Connection: keep-alive\r
+Content-Length: 12\r
+Content-Type: text/plain; encoding=utf-8\r
+\r
+Hello statc!
+"""
+
+
 def make_class(flavor):
     class HttpProtocol(asyncio.Protocol):
         def __init__(self, loop):
@@ -14,14 +23,14 @@ def make_class(flavor):
                 self.on_headers, self.on_body, self.on_error)
             self.loop = loop
 
-        if flavor in ['block', 'task']:
-            def connection_made(self, transport):
-                self.transport = transport
-        elif flavor == 'queue':
+        if flavor == 'queue':
             def connection_made(self, transport):
                 self.transport = transport
                 self.queue = Queue(loop=self.loop)
                 self.loop.create_task(handle_requests(self.queue, transport))
+        else:
+            def connection_made(self, transport):
+                self.transport = transport
 
         def connection_lost(self, exc):
             self.parser.feed_disconnect()
@@ -41,6 +50,25 @@ def make_class(flavor):
         elif flavor == 'queue':
             def on_body(self, request):
                 self.queue.put_nowait(request)
+        elif flavor == 'inline':
+            def on_body(self, request):
+                body = 'Hello inlin!'
+                status_code = 200
+                mime_type = 'text/plain'
+                encoding = 'utf-8'
+                text = [b'HTTP/1.1 ']
+                text.extend([str(status_code).encode(), b' OK\r\n'])
+                text.append(b'Connection: keep-alive\r\n')
+                text.append(b'Content-Length: ')
+                text.extend([str(len(body)).encode(), b'\r\n'])
+                text.extend([b'Content-Type: ', mime_type.encode(), b'; encoding=', encoding.encode(), b'\r\n\r\n'])
+                text.append(body.encode())
+
+                self.transport.write(b''.join(text))
+
+        elif flavor == 'static':
+            def on_body(self, request):
+                self.transport.write(static_response)
 
         def on_error(self, error):
             print(error)
