@@ -34,15 +34,15 @@ static PyObject* Transfer_Encoding;
 static PyObject* val_close;
 static PyObject* keep_alive;
 
-enum HttpRequestParser_state {
-  HTTP_REQUEST_PARSER_HEADERS,
-  HTTP_REQUEST_PARSER_BODY
+enum Parser_state {
+  PARSER_HEADERS,
+  PARSER_BODY
 };
 
-enum HttpRequestParser_transfer {
-  HTTP_REQUEST_PARSER_UNSET,
-  HTTP_REQUEST_PARSER_IDENTITY,
-  HTTP_REQUEST_PARSER_CHUNKED
+enum Parser_transfer {
+  PARSER_UNSET,
+  PARSER_IDENTITY,
+  PARSER_CHUNKED
 };
 
 static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
@@ -50,8 +50,8 @@ static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 typedef struct {
     PyObject_HEAD
 
-    enum HttpRequestParser_state state;
-    enum HttpRequestParser_transfer transfer;
+    enum Parser_state state;
+    enum Parser_transfer transfer;
 
     unsigned long content_length;
     struct phr_chunked_decoder chunked_decoder;
@@ -67,16 +67,16 @@ typedef struct {
     PyObject* on_headers;
     PyObject* on_body;
     PyObject* on_error;
-} HttpRequestParser;
+} Parser;
 
 
-static void _reset_state(HttpRequestParser* self) {
+static void _reset_state(Parser* self) {
     Py_XDECREF(self->request);
     self->request = Py_None;
     Py_INCREF(self->request);
 
-    self->state = HTTP_REQUEST_PARSER_HEADERS;
-    self->transfer = HTTP_REQUEST_PARSER_UNSET;
+    self->state = PARSER_HEADERS;
+    self->transfer = PARSER_UNSET;
     self->content_length = CONTENT_LENGTH_UNSET;
     memset(&self->chunked_decoder, 0, sizeof(struct phr_chunked_decoder));
     self->chunked_decoder.consume_trailer = 1;
@@ -86,11 +86,11 @@ static void _reset_state(HttpRequestParser* self) {
 
 
 static PyObject *
-HttpRequestParser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+Parser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    HttpRequestParser *self = NULL;
+    Parser *self = NULL;
 
-    self = (HttpRequestParser *)type->tp_alloc(type, 0);
+    self = (Parser *)type->tp_alloc(type, 0);
     if (!self)
         goto finally;
 
@@ -104,7 +104,7 @@ HttpRequestParser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 static int
-HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
+Parser_init(Parser *self, PyObject *args, PyObject *kwds)
 {
 #ifdef DEBUG_PRINT
     printf("__init__\n");
@@ -134,7 +134,7 @@ HttpRequestParser_init(HttpRequestParser *self, PyObject *args, PyObject *kwds)
 
 
 static void
-HttpRequestParser_dealloc(HttpRequestParser* self)
+Parser_dealloc(Parser* self)
 {
 #ifdef DEBUG_PRINT
     printf("__del__\n");
@@ -151,7 +151,7 @@ HttpRequestParser_dealloc(HttpRequestParser* self)
 }
 
 
-static int _parse_headers(HttpRequestParser* self) {
+static int _parse_headers(Parser* self) {
   PyObject* py_method = NULL;
   PyObject* py_path = NULL;
   PyObject* py_headers = NULL;
@@ -232,9 +232,9 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 
 
   if(minor_version == 0)
-    self->transfer = HTTP_REQUEST_PARSER_IDENTITY;
+    self->transfer = PARSER_IDENTITY;
   else
-    self->transfer = HTTP_REQUEST_PARSER_CHUNKED;
+    self->transfer = PARSER_CHUNKED;
 
   py_headers = PyDict_New();
   if(!py_headers) {
@@ -266,9 +266,9 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 
     if(header_name_equal("Transfer-Encoding")) {
       if(header_value_equal("chunked"))
-        self->transfer = HTTP_REQUEST_PARSER_CHUNKED;
+        self->transfer = PARSER_CHUNKED;
       else if(header_value_equal("identity"))
-        self->transfer = HTTP_REQUEST_PARSER_IDENTITY;
+        self->transfer = PARSER_IDENTITY;
       else
         /*TODO: handle incorrept values for protocol version, also comma sep*/;
 
@@ -318,6 +318,7 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
           prev_alpha = false;
       }
 
+      // FIXME this should accept only ascii
       py_header_name = PyUnicode_FromStringAndSize(
         header.name, header.name_len);
       if(!py_header_name) {
@@ -359,9 +360,9 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 #ifdef DEBUG_PRINT
   if(self->content_length != CONTENT_LENGTH_UNSET)
     printf("self->content_length: %ld\n", self->content_length);
-  if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY)
+  if(self->transfer == PARSER_IDENTITY)
     printf("self->transfer: identity\n");
-  else if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED)
+  else if(self->transfer == PARSER_CHUNKED)
     printf("self->transfer: chunked\n");
 #endif
 
@@ -408,7 +409,7 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   return result;
 }
 
-static int _parse_body(HttpRequestParser* self) {
+static int _parse_body(Parser* self) {
   PyObject* body = NULL;
   int result = -2;
   if(self->content_length == CONTENT_LENGTH_UNSET && self->no_semantics) {
@@ -443,12 +444,12 @@ static int _parse_body(HttpRequestParser* self) {
     goto on_body;
   }
 
-  if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY) {
+  if(self->transfer == PARSER_IDENTITY) {
     result = -2;
     goto finally;
   }
 
-  if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED) {
+  if(self->transfer == PARSER_CHUNKED) {
     size_t chunked_offset_start = self->chunked_offset;
     self->chunked_offset = self->buffer_end - self->buffer_start - self->chunked_offset;
     result = phr_decode_chunked(
@@ -523,7 +524,7 @@ static int _parse_body(HttpRequestParser* self) {
 
 
 static PyObject *
-HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
+Parser_feed(Parser* self, PyObject *args) {
   // FIXME: can be called without __init__
 #ifdef DEBUG_PRINT
   printf("feed\n");
@@ -558,23 +559,23 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
   int result;
 
   while(1) {
-    if(self->state == HTTP_REQUEST_PARSER_HEADERS) {
+    if(self->state == PARSER_HEADERS) {
       result = _parse_headers(self);
       if(result <= 0) {
         Py_RETURN_NONE;
       }
 
-      self->state = HTTP_REQUEST_PARSER_BODY;
+      self->state = PARSER_BODY;
     }
 
-    if(self->state == HTTP_REQUEST_PARSER_BODY) {
+    if(self->state == PARSER_BODY) {
       result = _parse_body(self);
 
       if(result < 0) {
         Py_RETURN_NONE;
       }
 
-      self->state = HTTP_REQUEST_PARSER_HEADERS;
+      self->state = PARSER_HEADERS;
     }
   }
 
@@ -583,7 +584,7 @@ HttpRequestParser_feed(HttpRequestParser* self, PyObject *args) {
 
 
 static PyObject *
-HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
+Parser_feed_disconnect(Parser* self) {
   // FIXME: can be called without __init__
 #ifdef DEBUG_PRINT
   printf("feed_disconnect\n");
@@ -598,12 +599,12 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
   }
 
 
-  if(self->transfer == HTTP_REQUEST_PARSER_UNSET) {
+  if(self->transfer == PARSER_UNSET) {
     error = incomplete_headers;
     goto on_error;
   }
 
-  if(self->transfer == HTTP_REQUEST_PARSER_IDENTITY) {
+  if(self->transfer == PARSER_IDENTITY) {
     PyObject * body = PyBytes_FromStringAndSize(self->buffer + self->buffer_start, self->buffer_end - self->buffer_start);
     if(!body)
       return NULL;
@@ -620,7 +621,7 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
     goto finally;
   }
 
-  if(self->transfer == HTTP_REQUEST_PARSER_CHUNKED) {
+  if(self->transfer == PARSER_CHUNKED) {
     error = incomplete_body;
     goto on_error;
   }
@@ -645,24 +646,21 @@ HttpRequestParser_feed_disconnect(HttpRequestParser* self) {
 }
 
 static PyObject *
-HttpRequestParser_dump_buffer(HttpRequestParser* self) {
+Parser_dump_buffer(Parser* self) {
   // printf("buffer: "); PyObject_Print(self->buffer, stdout, 0); printf("\n");
 
   Py_RETURN_NONE;
 }
 
 
-static PyMethodDef HttpRequestParser_methods[] = {
-    {"feed", (PyCFunction)HttpRequestParser_feed, METH_VARARGS,
-     "feed"
-    },
-    {
-      "feed_disconnect", (PyCFunction)HttpRequestParser_feed_disconnect,
+static PyMethodDef Parser_methods[] = {
+    {"feed", (PyCFunction)Parser_feed, METH_VARARGS, "feed"},
+    {"feed_disconnect", (PyCFunction)Parser_feed_disconnect,
       METH_NOARGS,
       "feed_disconnect"
     },
     {
-      "_dump_buffer", (PyCFunction)HttpRequestParser_dump_buffer,
+      "_dump_buffer", (PyCFunction)Parser_dump_buffer,
       METH_NOARGS,
       "_dump_buffer"
     },
@@ -670,12 +668,12 @@ static PyMethodDef HttpRequestParser_methods[] = {
 };
 
 
-static PyTypeObject HttpRequestParserType = {
+static PyTypeObject ParserType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "impl_cext.HttpRequestParser",       /* tp_name */
-    sizeof(HttpRequestParser), /* tp_basicsize */
+    sizeof(Parser), /* tp_basicsize */
     0,                         /* tp_itemsize */
-    (destructor)HttpRequestParser_dealloc, /* tp_dealloc */
+    (destructor)Parser_dealloc, /* tp_dealloc */
     0,                         /* tp_print */
     0,                         /* tp_getattr */
     0,                         /* tp_setattr */
@@ -698,7 +696,7 @@ static PyTypeObject HttpRequestParserType = {
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
     0,                         /* tp_iternext */
-    HttpRequestParser_methods, /* tp_methods */
+    Parser_methods,            /* tp_methods */
     0,                         /* tp_members */
     0,                         /* tp_getset */
     0,                         /* tp_base */
@@ -706,9 +704,9 @@ static PyTypeObject HttpRequestParserType = {
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)HttpRequestParser_init, /* tp_init */
+    (initproc)Parser_init,     /* tp_init */
     0,                         /* tp_alloc */
-    HttpRequestParser_new,     /* tp_new */
+    Parser_new,                /* tp_new */
 };
 
 static PyModuleDef impl_cext = {
@@ -750,10 +748,7 @@ PyInit_impl_cext(void)
     PyObject* m = NULL;
     PyObject* impl_cffi = NULL;
 
-    /* FIXME, remove this since we have new */
-    /* how does this even not segfault !!! */
-    HttpRequestParserType.tp_new = PyType_GenericNew;
-    if (PyType_Ready(&HttpRequestParserType) < 0)
+    if (PyType_Ready(&ParserType) < 0)
         goto error;
 
     m = PyModule_Create(&impl_cext);
@@ -812,9 +807,9 @@ PyInit_impl_cext(void)
 #undef alloc_static
 #undef alloc_static2
 
-    Py_INCREF(&HttpRequestParserType);
+    Py_INCREF(&ParserType);
     PyModule_AddObject(
-      m, "HttpRequestParser", (PyObject *)&HttpRequestParserType);
+      m, "HttpRequestParser", (PyObject *)&ParserType);
 
     goto finally;
 
