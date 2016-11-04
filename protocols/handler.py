@@ -5,7 +5,7 @@ import impl_cext
 
 #from responses.py import factory, dispose, Response
 from responses.cresponse import Response
-
+from protocols.cprotocol import Protocol as CProtocol
 
 static_response = b"""HTTP/1.1 200 OK\r
 Connection: keep-alive\r
@@ -17,8 +17,11 @@ Hello statc!
 
 
 def make_class(flavor):
+    if flavor == 'c':
+        return CProtocol
+
     class HttpProtocol(asyncio.Protocol):
-        def __init__(self, loop):
+        def __init__(self, loop, handler):
             self.parser = impl_cext.HttpRequestParser(
                 self.on_headers, self.on_body, self.on_error)
             self.loop = loop
