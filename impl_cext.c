@@ -45,8 +45,6 @@ enum Parser_transfer {
   PARSER_CHUNKED
 };
 
-#define PARSER_STANDALONE 1
-
 static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 
 typedef struct {
@@ -73,10 +71,10 @@ typedef struct {
     PyObject* on_body;
     PyObject* on_error;
 #else
-    void* on_headers;
-    void* on_body;
-    void* on_error;
     void* protocol;
+    void (*on_headers)(void*, PyObject*);
+    void (*on_body)(void*, PyObject*);
+    void (*on_error)(void*, PyObject*);
 #endif
 } Parser;
 
@@ -127,7 +125,10 @@ static int
 Parser_init(Parser *self, PyObject *args, PyObject *kwds)
 #else
 int
-Parser_init(Parser* self, void* protocol, void* on_headers, void* on_body, void* on_error)
+Parser_init(Parser* self, void* protocol,
+            void (*on_headers)(void*, PyObject*),
+            void (*on_body)(void*, PyObject*),
+            void (*on_error)(void*, PyObject*))
 #endif
 {
 #ifdef PARSER_STANDALONE
@@ -416,6 +417,7 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   Py_DECREF(self->request);
   self->request = request;
 
+#ifdef PARSER_STANDALONE
   PyObject* on_headers_result = PyObject_CallFunctionObjArgs(
     self->on_headers, request, NULL);
   if(!on_headers_result) {
@@ -423,9 +425,13 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
     goto finally;
   }
   Py_DECREF(on_headers_result);
+#else
+  self->on_headers(self->protocol, request);
+#endif
 
   goto finally;
 
+#ifdef PARSER_STANDALONE
   PyObject* on_error_result;
   on_error:
   on_error_result = PyObject_CallFunctionObjArgs(
@@ -435,6 +441,10 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
     goto finally;
   }
   Py_DECREF(on_error_result);
+#else
+  on_error:
+  self->on_error(self->protocol, error);
+#endif
 
   _reset_state(self);
   self->buffer_start = 0;
@@ -502,21 +512,8 @@ static int _parse_body(Parser* self) {
       goto finally;
     }
 
-    if(result == -1) {
-      PyObject* on_error_result = PyObject_CallFunctionObjArgs(
-        self->on_error, malformed_body, NULL);
-      if(!on_error_result) {
-        result = -3;
-        goto finally;
-      }
-      Py_DECREF(on_error_result);
-
-      _reset_state(self);
-      self->buffer_start = 0;
-      self->buffer_end = 0;
-
-      goto finally;
-    }
+    if(result == -1)
+      goto error;
 
     body = PyBytes_FromStringAndSize(self->buffer + self->buffer_start, self->chunked_offset);
     if(!body) {
@@ -532,7 +529,6 @@ static int _parse_body(Parser* self) {
 
   goto finally;
 
-  PyObject* on_body_result;
   on_body:
 
   if(body) {
@@ -546,16 +542,41 @@ static int _parse_body(Parser* self) {
 #endif
   }
 
-  on_body_result = PyObject_CallFunctionObjArgs(
+#ifdef PARSER_STANDALONE
+  PyObject* on_body_result = PyObject_CallFunctionObjArgs(
     self->on_body, self->request, NULL);
   if(!on_body_result) {
     result = -3;
     goto finally;
   }
   Py_DECREF(on_body_result);
+#else
+  self->on_body(self->protocol, self->request);
+#endif
   Py_XDECREF(body);
 
   _reset_state(self);
+
+  goto finally;
+
+#ifdef PARSER_STANDALONE
+  PyObject* on_error_result;
+  error:
+  on_error_result = PyObject_CallFunctionObjArgs(
+    self->on_error, malformed_body, NULL);
+  if(!on_error_result) {
+    result = -3;
+    goto finally;
+  }
+  Py_DECREF(on_error_result);
+#else
+  error:
+  self->on_error(self->protocol, malformed_body);
+#endif
+
+  _reset_state(self);
+  self->buffer_start = 0;
+  self->buffer_end = 0;
 
   finally:
   return result;
@@ -668,15 +689,9 @@ Parser_feed_disconnect(Parser* self)
       return NULL;
 
     if(PyObject_SetAttrString(self->request, "body", body) == -1)
-      return NULL;
+      return NULL; /* FIXME LEAK */
 
-    PyObject* on_body_result = PyObject_CallFunctionObjArgs(
-      self->on_body, self->request, NULL);
-    if(!on_body_result)
-      return NULL;
-    Py_DECREF(on_body_result);
-
-    goto finally;
+    goto on_body;
   }
 
   if(self->transfer == PARSER_CHUNKED) {
@@ -686,6 +701,22 @@ Parser_feed_disconnect(Parser* self)
 
   goto finally;
 
+#ifdef PARSER_STANDALONE
+  PyObject* on_body_result;
+  on_body:
+  on_body_result = PyObject_CallFunctionObjArgs(
+    self->on_body, self->request, NULL);
+  if(!on_body_result)
+    return NULL;
+  Py_DECREF(on_body_result);
+#else
+  on_body:
+  self->on_body(self->protocol, self->request);
+#endif
+
+  goto finally;
+
+#ifdef PARSER_STANDALONE
   PyObject* on_error_result;
   on_error:
   on_error_result = PyObject_CallFunctionObjArgs(
@@ -693,6 +724,10 @@ Parser_feed_disconnect(Parser* self)
   if(!on_error_result)
     return NULL;
   Py_DECREF(on_error_result);
+#else
+  on_error:
+  self->on_error(self->protocol, error);
+#endif
 
   finally:
   Py_XDECREF(body);
