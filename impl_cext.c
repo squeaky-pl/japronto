@@ -45,10 +45,14 @@ enum Parser_transfer {
   PARSER_CHUNKED
 };
 
+#define PARSER_STANDALONE 1
+
 static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 
 typedef struct {
+#ifdef PARSER_STANDALONE
     PyObject_HEAD
+#endif
 
     enum Parser_state state;
     enum Parser_transfer transfer;
@@ -64,9 +68,16 @@ typedef struct {
     size_t buffer_capacity;
 
     PyObject* request;
+#ifdef PARSER_STANDALONE
     PyObject* on_headers;
     PyObject* on_body;
     PyObject* on_error;
+#else
+    void* on_headers;
+    void* on_body;
+    void* on_error;
+    void* protocol;
+#endif
 } Parser;
 
 
@@ -84,28 +95,42 @@ static void _reset_state(Parser* self) {
     self->no_semantics = false;
 }
 
-
+#ifdef PARSER_STANDALONE
 static PyObject *
 Parser_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+#else
+void
+Parser_new(Parser* self)
+#endif
 {
+#ifdef PARSER_STANDALONE
     Parser *self = NULL;
 
     self = (Parser *)type->tp_alloc(type, 0);
     if (!self)
         goto finally;
+#endif
 
     self->on_headers = NULL;
     self->on_body = NULL;
     self->on_error = NULL;
     self->request = NULL;
 
+#ifdef PARSER_STANDALONE
     finally:
     return (PyObject *)self;
+#endif
 }
 
+#ifdef PARSER_STANDALONE
 static int
 Parser_init(Parser *self, PyObject *args, PyObject *kwds)
+#else
+int
+Parser_init(Parser* self, void* protocol, void* on_headers, void* on_body, void* on_error)
+#endif
 {
+#ifdef PARSER_STANDALONE
 #ifdef DEBUG_PRINT
     printf("__init__\n");
 #endif
@@ -119,6 +144,12 @@ Parser_init(Parser *self, PyObject *args, PyObject *kwds)
     Py_INCREF(self->on_headers);
     Py_INCREF(self->on_body);
     Py_INCREF(self->on_error);
+#else
+    self->protocol = protocol;
+    self->on_headers = on_headers;
+    self->on_body = on_body;
+    self->on_error = on_error;
+#endif
 
     _reset_state(self);
 
@@ -132,22 +163,30 @@ Parser_init(Parser *self, PyObject *args, PyObject *kwds)
     return 0;
 }
 
-
+#ifdef PARSER_STANDALONE
 static void
 Parser_dealloc(Parser* self)
+#else
+void
+Parser_dealloc(Parser* self)
+#endif
 {
+#ifdef PARSER_STANDALONE
 #ifdef DEBUG_PRINT
     printf("__del__\n");
+#endif
 #endif
 
     if(self->buffer)
       free(self->buffer);
 
+#ifdef PARSER_STANDALONE
     Py_XDECREF(self->on_error);
     Py_XDECREF(self->on_body);
     Py_XDECREF(self->on_headers);
     Py_XDECREF(self->request);
     Py_TYPE(self)->tp_free((PyObject*)self);
+#endif
 }
 
 
@@ -523,17 +562,28 @@ static int _parse_body(Parser* self) {
 }
 
 
+#ifdef PARSER_STANDALONE
 static PyObject *
-Parser_feed(Parser* self, PyObject *args) {
+Parser_feed(Parser* self, PyObject *args)
+#else
+Parser*
+Parser_feed(Parser* self, PyObject* py_data)
+#endif
+{
+  char* data;
+#ifdef PARSER_STANDALONE
   // FIXME: can be called without __init__
 #ifdef DEBUG_PRINT
   printf("feed\n");
 #endif
-
-  const char* data;
   int data_len;
   if(!PyArg_ParseTuple(args, "y#", &data, &data_len))
     return NULL;
+#else
+  Py_ssize_t data_len;
+  if(PyBytes_AsStringAndSize(py_data, &data, &data_len) == -1)
+    return NULL;
+#endif
 
   if(self->buffer_start == self->buffer_end) {
     self->buffer_start = 0;
@@ -561,9 +611,8 @@ Parser_feed(Parser* self, PyObject *args) {
   while(1) {
     if(self->state == PARSER_HEADERS) {
       result = _parse_headers(self);
-      if(result <= 0) {
-        Py_RETURN_NONE;
-      }
+      if(result <= 0)
+        goto finally;
 
       self->state = PARSER_BODY;
     }
@@ -571,20 +620,29 @@ Parser_feed(Parser* self, PyObject *args) {
     if(self->state == PARSER_BODY) {
       result = _parse_body(self);
 
-      if(result < 0) {
-        Py_RETURN_NONE;
-      }
+      if(result < 0)
+        goto finally;
 
       self->state = PARSER_HEADERS;
     }
   }
 
+  finally:
+#ifdef PARSER_STANDALONE
   Py_RETURN_NONE;
+#else
+  return self;
+#endif
 }
 
-
+#ifdef PARSER_STANDALONE
 static PyObject *
-Parser_feed_disconnect(Parser* self) {
+Parser_feed_disconnect(Parser* self)
+#else
+Parser*
+Parser_feed_disconnect(Parser* self)
+#endif
+{
   // FIXME: can be called without __init__
 #ifdef DEBUG_PRINT
   printf("feed_disconnect\n");
@@ -642,9 +700,14 @@ Parser_feed_disconnect(Parser* self) {
   self->buffer_start = 0;
   self->buffer_end = 0;
 
+  #ifdef PARSER_STANDALONE
   Py_RETURN_NONE;
+  #else
+  return self;
+  #endif
 }
 
+#ifdef PARSER_STANDALONE
 static PyObject *
 Parser_dump_buffer(Parser* self) {
   // printf("buffer: "); PyObject_Print(self->buffer, stdout, 0); printf("\n");
@@ -716,9 +779,15 @@ static PyModuleDef impl_cext = {
     -1,
     NULL, NULL, NULL, NULL, NULL
 };
+#endif
 
+#ifdef PARSER_STANDALONE
 PyMODINIT_FUNC
 PyInit_impl_cext(void)
+#else
+int
+init_parser(void)
+#endif
 {
     Request = NULL;
     malformed_headers = NULL;
@@ -745,15 +814,21 @@ PyInit_impl_cext(void)
     Transfer_Encoding = NULL;
     val_close = NULL;
     keep_alive = NULL;
+#ifdef PARSER_STANDALONE
     PyObject* m = NULL;
+#else
+    int m = 0;
+#endif
     PyObject* impl_cffi = NULL;
 
+#ifdef PARSER_STANDALONE
     if (PyType_Ready(&ParserType) < 0)
         goto error;
 
     m = PyModule_Create(&impl_cext);
     if (!m)
       goto error;
+#endif
 
     impl_cffi = PyImport_ImportModule("impl_cffi");
     if(!impl_cffi)
@@ -807,9 +882,11 @@ PyInit_impl_cext(void)
 #undef alloc_static
 #undef alloc_static2
 
+#ifdef PARSER_STANDALONE
     Py_INCREF(&ParserType);
     PyModule_AddObject(
       m, "HttpRequestParser", (PyObject *)&ParserType);
+#endif
 
     goto finally;
 
@@ -844,6 +921,9 @@ PyInit_impl_cext(void)
     Py_XDECREF(malformed_headers);
 
     Py_XDECREF(Request);
+#ifndef PARSER_STANDALONE
+    m = -1;
+#endif
     finally:
     Py_XDECREF(impl_cffi);
     return m;
