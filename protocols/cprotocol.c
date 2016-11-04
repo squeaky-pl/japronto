@@ -4,14 +4,12 @@
 static PyObject* Parser;
 static PyObject* Response;
 
-static PyObject* feed;
-static PyObject* feed_disconnect;
-
 
 typedef struct {
   PyObject_HEAD
 
-  PyObject* parser;
+  PyObject* feed;
+  PyObject* feed_disconnect;
   PyObject* loop;
   PyObject* handler;
   PyObject* response;
@@ -28,7 +26,8 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   if(!self)
     goto finally;
 
-  self->parser = NULL;
+  self->feed = NULL;
+  self->feed_disconnect = NULL;
   self->loop = NULL;
   self->handler = NULL;
   self->response = NULL;
@@ -46,7 +45,8 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->response);
   Py_XDECREF(self->handler);
   Py_XDECREF(self->loop);
-  Py_XDECREF(self->parser);
+  Py_XDECREF(self->feed_disconnect);
+  Py_XDECREF(self->feed);
 
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -55,6 +55,9 @@ Protocol_dealloc(Protocol* self)
 static int
 Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 {
+  int result = 0;
+  PyObject* parser = NULL;
+
   if(!PyArg_ParseTuple(args, "OO", &self->loop, &self->handler))
     goto error;
   Py_INCREF(self->loop);
@@ -70,9 +73,17 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(!on_error)
     goto error;
 
-  self->parser = PyObject_CallFunctionObjArgs(
+  parser = PyObject_CallFunctionObjArgs(
     Parser, on_headers, on_body, on_error, NULL);
-  if(!self->parser)
+  if(!parser)
+    goto error;
+
+  self->feed = PyObject_GetAttrString(parser, "feed");
+  if(!self->feed)
+    goto error;
+
+  self->feed_disconnect = PyObject_GetAttrString(parser, "feed_disconnect");
+  if(!self->feed_disconnect)
     goto error;
 
   self->response = PyObject_CallFunctionObjArgs(Response, NULL);
@@ -82,9 +93,10 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   goto finally;
 
   error:
-  return -1;
+  result = -1;
   finally:
-  return 0;
+  Py_XDECREF(parser);
+  return result;
 }
 
 
@@ -107,8 +119,8 @@ Protocol_connection_made(Protocol* self, PyObject* args)
 static PyObject*
 Protocol_connection_lost(Protocol* self, PyObject* args)
 {
-  PyObject* result = PyObject_CallMethodObjArgs(
-    self->parser, feed_disconnect, NULL);
+  PyObject* result = PyObject_CallFunctionObjArgs(
+    self->feed_disconnect, NULL);
   if(!result)
     goto error;
   Py_DECREF(result);
@@ -129,8 +141,8 @@ Protocol_data_received(Protocol* self, PyObject* args)
   if(!PyArg_ParseTuple(args, "O", &data))
     goto error;
 
-  PyObject* result = PyObject_CallMethodObjArgs(
-    self->parser, feed, data, NULL);
+  PyObject* result = PyObject_CallFunctionObjArgs(
+    self->feed, data, NULL);
   if(!result)
     goto error;
   Py_DECREF(result);
@@ -250,8 +262,6 @@ PyInit_cprotocol(void)
   Parser = NULL;
   PyObject* cresponse = NULL;
   Response = NULL;
-  feed = NULL;
-  feed_disconnect = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -279,19 +289,9 @@ PyInit_cprotocol(void)
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
-  feed = PyUnicode_FromString("feed");
-  if(!feed)
-    goto error;
-
-  feed_disconnect = PyUnicode_FromString("feed_disconnect");
-  if(!feed_disconnect)
-    goto error;
-
   goto finally;
 
   error:
-  Py_XDECREF(feed_disconnect);
-  Py_XDECREF(feed);
   Py_XDECREF(Response);
   Py_XDECREF(Parser);
   finally:
