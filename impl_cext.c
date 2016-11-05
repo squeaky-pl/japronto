@@ -1,6 +1,5 @@
 #include <sys/param.h>
 
-#include "picohttpparser.h"
 #include "impl_cext.h"
 
 static PyObject* Request;
@@ -83,9 +82,9 @@ Parser_init(Parser *self, PyObject *args, PyObject *kwds)
 #else
 int
 Parser_init(Parser* self, void* protocol,
-            void (*on_headers)(void*, PyObject*),
-            void (*on_body)(void*, PyObject*),
-            void (*on_error)(void*, PyObject*))
+            void* (*on_headers)(void*, PyObject*),
+            void* (*on_body)(void*, PyObject*),
+            void* (*on_error)(void*, PyObject*))
 #endif
 {
 #ifdef PARSER_STANDALONE
@@ -383,7 +382,10 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   }
   Py_DECREF(on_headers_result);
 #else
-  self->on_headers(self->protocol, request);
+  if(!self->on_headers(self->protocol, request)) {
+    result = -3;
+    goto finally;
+  }
 #endif
 
   goto finally;
@@ -400,7 +402,10 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   Py_DECREF(on_error_result);
 #else
   on_error:
-  self->on_error(self->protocol, error);
+  if(!self->on_error(self->protocol, error)) {
+    result = -3;
+    goto finally;
+  };
 #endif
 
   _reset_state(self);
@@ -508,7 +513,10 @@ static int _parse_body(Parser* self) {
   }
   Py_DECREF(on_body_result);
 #else
-  self->on_body(self->protocol, self->request);
+  if(!self->on_body(self->protocol, self->request)) {
+    result = -3;
+    goto finally;
+  };
 #endif
   Py_XDECREF(body);
 
@@ -528,7 +536,10 @@ static int _parse_body(Parser* self) {
   Py_DECREF(on_error_result);
 #else
   error:
-  self->on_error(self->protocol, malformed_body);
+  if(!self->on_error(self->protocol, malformed_body)) {
+    result = -3;
+    goto finally;
+  }
 #endif
 
   _reset_state(self);
@@ -664,11 +675,13 @@ Parser_feed_disconnect(Parser* self)
   on_body_result = PyObject_CallFunctionObjArgs(
     self->on_body, self->request, NULL);
   if(!on_body_result)
-    return NULL;
+    return NULL; /*FIXME LEAK*/
   Py_DECREF(on_body_result);
 #else
   on_body:
-  self->on_body(self->protocol, self->request);
+  if(!self->on_body(self->protocol, self->request)) {
+    return NULL; /*FIXME LEAK*/
+  }
 #endif
 
   goto finally;
@@ -679,11 +692,13 @@ Parser_feed_disconnect(Parser* self)
   on_error_result = PyObject_CallFunctionObjArgs(
     self->on_error, error, NULL);
   if(!on_error_result)
-    return NULL;
+    return NULL; /*FIXME maybe leak */
   Py_DECREF(on_error_result);
 #else
   on_error:
-  self->on_error(self->protocol, error);
+  if(!self->on_error(self->protocol, error)) {
+    return NULL; /*FIXME maybe leak */
+  }
 #endif
 
   finally:
