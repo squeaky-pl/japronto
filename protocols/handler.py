@@ -1,6 +1,5 @@
 import asyncio
 from asyncio.queues import Queue
-import impl_cext
 
 
 #from responses.py import factory, dispose, Response
@@ -20,6 +19,7 @@ def make_class(flavor):
     if flavor == 'c':
         return CProtocol
 
+    import impl_cext
     class HttpProtocol(asyncio.Protocol):
         def __init__(self, loop, handler):
             self.parser = impl_cext.HttpRequestParser(
