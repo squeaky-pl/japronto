@@ -1,15 +1,21 @@
 #include <Python.h>
 
 
+#define PARSER_STANDALONE 1
+
+#ifdef PARSER_STANDALONE
 static PyObject* Parser;
+#endif
 static PyObject* Response;
 
 
 typedef struct {
   PyObject_HEAD
 
+#ifdef PARSER_STANDALONE
   PyObject* feed;
   PyObject* feed_disconnect;
+#endif
   PyObject* loop;
   PyObject* handler;
   PyObject* response;
@@ -26,8 +32,10 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   if(!self)
     goto finally;
 
+#ifdef PARSER_STANDALONE
   self->feed = NULL;
   self->feed_disconnect = NULL;
+#endif
   self->loop = NULL;
   self->handler = NULL;
   self->response = NULL;
@@ -45,8 +53,10 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->response);
   Py_XDECREF(self->handler);
   Py_XDECREF(self->loop);
+#ifdef PARSER_STANDALONE
   Py_XDECREF(self->feed_disconnect);
   Py_XDECREF(self->feed);
+#endif
 
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -56,12 +66,8 @@ static int
 Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 {
   int result = 0;
+#ifdef PARSER_STANDALONE
   PyObject* parser = NULL;
-
-  if(!PyArg_ParseTuple(args, "OO", &self->loop, &self->handler))
-    goto error;
-  Py_INCREF(self->loop);
-  Py_INCREF(self->handler);
 
   PyObject* on_headers = PyObject_GetAttrString((PyObject*)self, "on_headers");
   if(!on_headers)
@@ -85,6 +91,13 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   self->feed_disconnect = PyObject_GetAttrString(parser, "feed_disconnect");
   if(!self->feed_disconnect)
     goto error;
+#endif
+
+  if(!PyArg_ParseTuple(args, "OO", &self->loop, &self->handler))
+    goto error;
+  Py_INCREF(self->loop);
+  Py_INCREF(self->handler);
+
 
   self->response = PyObject_CallFunctionObjArgs(Response, NULL);
   if(!self->response)
@@ -95,7 +108,9 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   error:
   result = -1;
   finally:
+#ifdef PARSER_STANDALONE
   Py_XDECREF(parser);
+#endif
   return result;
 }
 
@@ -119,11 +134,13 @@ Protocol_connection_made(Protocol* self, PyObject* args)
 static PyObject*
 Protocol_connection_lost(Protocol* self, PyObject* args)
 {
+#ifdef PARSER_STANDALONE
   PyObject* result = PyObject_CallFunctionObjArgs(
     self->feed_disconnect, NULL);
   if(!result)
     goto error;
   Py_DECREF(result);
+#endif
 
   goto finally;
 
@@ -141,11 +158,13 @@ Protocol_data_received(Protocol* self, PyObject* args)
   if(!PyArg_ParseTuple(args, "O", &data))
     goto error;
 
+#ifdef PARSER_STANDALONE
   PyObject* result = PyObject_CallFunctionObjArgs(
     self->feed, data, NULL);
   if(!result)
     goto error;
   Py_DECREF(result);
+#endif
 
   goto finally;
 
@@ -155,20 +174,23 @@ Protocol_data_received(Protocol* self, PyObject* args)
   Py_RETURN_NONE;
 }
 
-
+#ifdef PARSER_STANDALONE
 static PyObject*
 Protocol_on_headers(Protocol* self, PyObject *args)
 {
   Py_RETURN_NONE;
 }
+#endif
 
 
 static PyObject*
 Protocol_on_body(Protocol* self, PyObject *args)
 {
+#ifdef PARSER_STANDALONE
   PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
     goto error;
+#endif
 
   PyObject* result = PyObject_CallFunctionObjArgs(
     self->handler, request, self->transport, self->response, NULL);
@@ -184,21 +206,24 @@ Protocol_on_body(Protocol* self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-
+#ifdef PARSER_STANDALONE
 static PyObject*
 Protocol_on_error(Protocol* self, PyObject *args)
 {
   Py_RETURN_NONE;
 }
+#endif
 
 
 static PyMethodDef Protocol_methods[] = {
   {"connection_made", (PyCFunction)Protocol_connection_made, METH_VARARGS, ""},
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_VARARGS, ""},
+#ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
   {"on_error", (PyCFunction)Protocol_on_error, METH_VARARGS, ""},
+#endif
   {NULL}
 };
 
@@ -258,8 +283,10 @@ PyMODINIT_FUNC
 PyInit_cprotocol(void)
 {
   PyObject* m = NULL;
+#ifdef PARSER_STANDALONE
   PyObject* impl_cext = NULL;
   Parser = NULL;
+#endif
   PyObject* cresponse = NULL;
   Response = NULL;
 
@@ -270,6 +297,7 @@ PyInit_cprotocol(void)
   if(!m)
     goto error;
 
+#ifdef PARSER_STANDALONE
   impl_cext = PyImport_ImportModule("impl_cext");
   if(!impl_cext)
     goto error;
@@ -277,6 +305,7 @@ PyInit_cprotocol(void)
   Parser = PyObject_GetAttrString(impl_cext, "HttpRequestParser");
   if(!Parser)
     goto error;
+#endif
 
   cresponse = PyImport_ImportModule("responses.cresponse");
   if(!cresponse)
@@ -293,9 +322,13 @@ PyInit_cprotocol(void)
 
   error:
   Py_XDECREF(Response);
+#ifdef PARSER_STANDALONE
   Py_XDECREF(Parser);
+#endif
   finally:
   Py_XDECREF(cresponse);
+#ifdef PARSER_STANDALONE
   Py_XDECREF(impl_cext);
+#endif
   return m;
 }
