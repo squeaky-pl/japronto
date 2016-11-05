@@ -62,10 +62,12 @@ if __name__ == '__main__':
         print('.', end='')
         sys.stdout.flush()
 
+    server.terminate()
+    loop.run_until_complete(server.wait())
+
     print()
     print(results)
-    print(statistics.median_grouped(results))
-
-    server.terminate()
-
-    loop.run_until_complete(server.wait())
+    median = statistics.median_grouped(results)
+    stdev = round(statistics.stdev(results), 2)
+    p = round((stdev / median) * 100, 2)
+    print('median:', median, 'stdev:', stdev, '%', p)
