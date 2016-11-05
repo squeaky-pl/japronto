@@ -98,7 +98,7 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
 
 
 static const char Content_Type[] = "Content-Type: ";
-static const char encoding_c[] = "; encoding=";
+static const char charset[] = "; charset=";
 static const char utf8[] = "utf-8";
 static const char text_plain[] = "text/plain";
 
@@ -157,8 +157,8 @@ Response_render(Response* self)
   }
   memcpy(self->buffer + buffer_offset, mime_type, (size_t)mime_type_len);
   buffer_offset += mime_type_len;
-  memcpy(self->buffer + buffer_offset, encoding_c, strlen(encoding_c));
-  buffer_offset += strlen(encoding_c);
+  memcpy(self->buffer + buffer_offset, charset, strlen(charset));
+  buffer_offset += strlen(charset);
 
   Py_ssize_t encoding_len = strlen(utf8);
   const char* encoding = utf8;
