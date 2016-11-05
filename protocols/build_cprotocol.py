@@ -8,7 +8,7 @@ shared_path = os.path.abspath(
 
 cprotocol = Extension(
     'cprotocol', sources=['cprotocol.c', '../impl_cext.c'],
-    libraries=['picohttpparser'], include_dirs=['..', shared_path],
+    libraries=['picohttpparser'], include_dirs=['.', '..', shared_path],
     library_dirs=[shared_path], extra_link_args=['-Wl,-rpath,' + shared_path],
     extra_compile_args=[])
 

@@ -1,7 +1,10 @@
+#pragma once
+
 #include <stdbool.h>
 #include <Python.h>
 
 #include "picohttpparser.h"
+
 
 enum Parser_state {
   PARSER_HEADERS,
@@ -41,9 +44,6 @@ typedef struct {
     PyObject* on_error;
 #else
     void* protocol;
-    void* (*on_headers)(void*, PyObject*);
-    void* (*on_body)(void*, PyObject*);
-    void* (*on_error)(void*, PyObject*);
 #endif
 } Parser;
 
@@ -52,10 +52,7 @@ void
 Parser_new(Parser* self);
 
 int
-Parser_init(Parser* self, void* protocol,
-            void* (*on_headers)(void*, PyObject*),
-            void* (*on_body)(void*, PyObject*),
-            void* (*on_error)(void*, PyObject*));
+Parser_init(Parser* self, void* protocol);
 
 void
 Parser_dealloc(Parser* self);

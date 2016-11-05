@@ -2,6 +2,10 @@
 
 #include "impl_cext.h"
 
+#ifndef PARSER_STANDALONE
+#include "cprotocol.h"
+#endif
+
 static PyObject* Request;
 
 static PyObject* malformed_headers;
@@ -63,11 +67,11 @@ Parser_new(Parser* self)
     self = (Parser *)type->tp_alloc(type, 0);
     if (!self)
         goto finally;
-#endif
 
     self->on_headers = NULL;
     self->on_body = NULL;
     self->on_error = NULL;
+#endif
     self->request = NULL;
 
 #ifdef PARSER_STANDALONE
@@ -81,10 +85,7 @@ static int
 Parser_init(Parser *self, PyObject *args, PyObject *kwds)
 #else
 int
-Parser_init(Parser* self, void* protocol,
-            void* (*on_headers)(void*, PyObject*),
-            void* (*on_body)(void*, PyObject*),
-            void* (*on_error)(void*, PyObject*))
+Parser_init(Parser* self, void* protocol)
 #endif
 {
 #ifdef PARSER_STANDALONE
@@ -103,9 +104,6 @@ Parser_init(Parser* self, void* protocol,
     Py_INCREF(self->on_error);
 #else
     self->protocol = protocol;
-    self->on_headers = on_headers;
-    self->on_body = on_body;
-    self->on_error = on_error;
 #endif
 
     _reset_state(self);
@@ -382,7 +380,7 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   }
   Py_DECREF(on_headers_result);
 #else
-  if(!self->on_headers(self->protocol, request)) {
+  if(!Protocol_on_headers(self->protocol, request)) {
     result = -3;
     goto finally;
   }
@@ -402,7 +400,7 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   Py_DECREF(on_error_result);
 #else
   on_error:
-  if(!self->on_error(self->protocol, error)) {
+  if(!Protocol_on_error(self->protocol, error)) {
     result = -3;
     goto finally;
   };
@@ -513,7 +511,7 @@ static int _parse_body(Parser* self) {
   }
   Py_DECREF(on_body_result);
 #else
-  if(!self->on_body(self->protocol, self->request)) {
+  if(!Protocol_on_body(self->protocol, self->request)) {
     result = -3;
     goto finally;
   };
@@ -536,7 +534,7 @@ static int _parse_body(Parser* self) {
   Py_DECREF(on_error_result);
 #else
   error:
-  if(!self->on_error(self->protocol, malformed_body)) {
+  if(!Protocol_on_error(self->protocol, malformed_body)) {
     result = -3;
     goto finally;
   }
@@ -679,7 +677,7 @@ Parser_feed_disconnect(Parser* self)
   Py_DECREF(on_body_result);
 #else
   on_body:
-  if(!self->on_body(self->protocol, self->request)) {
+  if(!Protocol_on_body(self->protocol, self->request)) {
     return NULL; /*FIXME LEAK*/
   }
 #endif
@@ -696,7 +694,7 @@ Parser_feed_disconnect(Parser* self)
   Py_DECREF(on_error_result);
 #else
   on_error:
-  if(!self->on_error(self->protocol, error)) {
+  if(!Protocol_on_error(self->protocol, error)) {
     return NULL; /*FIXME maybe leak */
   }
 #endif

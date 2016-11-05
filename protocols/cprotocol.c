@@ -3,36 +3,13 @@
 
 //#define PARSER_STANDALONE 1
 
-#ifndef PARSER_STANDALONE
-#include "impl_cext.h"
-#endif
+#include "cprotocol.h"
 
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
 static PyObject* Response;
 
-
-typedef struct {
-  PyObject_HEAD
-
-#ifdef PARSER_STANDALONE
-  PyObject* feed;
-  PyObject* feed_disconnect;
-#else
-  Parser parser;
-#endif
-  PyObject* loop;
-  PyObject* handler;
-  PyObject* response;
-  PyObject* transport;
-} Protocol;
-
-#ifndef PARSER_STANDALONE
-Protocol* Protocol_on_headers(Protocol*, PyObject*);
-Protocol* Protocol_on_body(Protocol*, PyObject*);
-Protocol* Protocol_on_error(Protocol*, PyObject*);
-#endif
 
 static PyObject *
 Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -107,10 +84,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(!self->feed_disconnect)
     goto error;
 #else
-  if(Parser_init(&self->parser, self,
-                 Protocol_on_headers,
-                 Protocol_on_body,
-                 Protocol_on_error) == -1)
+  if(Parser_init(&self->parser, self) == -1)
     goto error;
 #endif
 
