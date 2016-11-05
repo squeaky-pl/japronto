@@ -1,9 +1,7 @@
-#include <stdbool.h>
-#include <Python.h>
 #include <sys/param.h>
 
 #include "picohttpparser.h"
-
+#include "impl_cext.h"
 
 static PyObject* Request;
 
@@ -34,49 +32,8 @@ static PyObject* Transfer_Encoding;
 static PyObject* val_close;
 static PyObject* keep_alive;
 
-enum Parser_state {
-  PARSER_HEADERS,
-  PARSER_BODY
-};
-
-enum Parser_transfer {
-  PARSER_UNSET,
-  PARSER_IDENTITY,
-  PARSER_CHUNKED
-};
 
 static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
-
-typedef struct {
-#ifdef PARSER_STANDALONE
-    PyObject_HEAD
-#endif
-
-    enum Parser_state state;
-    enum Parser_transfer transfer;
-
-    unsigned long content_length;
-    struct phr_chunked_decoder chunked_decoder;
-    size_t chunked_offset;
-    bool no_semantics;
-
-    char* buffer;
-    size_t buffer_start;
-    size_t buffer_end;
-    size_t buffer_capacity;
-
-    PyObject* request;
-#ifdef PARSER_STANDALONE
-    PyObject* on_headers;
-    PyObject* on_body;
-    PyObject* on_error;
-#else
-    void* protocol;
-    void (*on_headers)(void*, PyObject*);
-    void (*on_body)(void*, PyObject*);
-    void (*on_error)(void*, PyObject*);
-#endif
-} Parser;
 
 
 static void _reset_state(Parser* self) {
@@ -821,7 +778,7 @@ PyMODINIT_FUNC
 PyInit_impl_cext(void)
 #else
 int
-init_parser(void)
+cparser_init(void)
 #endif
 {
     Request = NULL;
