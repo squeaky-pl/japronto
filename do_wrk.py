@@ -8,6 +8,7 @@ import shlex
 import uvloop
 
 import cpu
+import buggers
 
 
 def run_wrk(loop, endpoint=None):
@@ -38,6 +39,7 @@ def run_wrk(loop, endpoint=None):
 
 if __name__ == '__main__':
     cpu.dump()
+    buggers.silence()
     loop = uvloop.new_event_loop()
 
     argparser = argparse.ArgumentParser('do_wrk')

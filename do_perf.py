@@ -2,12 +2,12 @@ import subprocess
 import os
 import sys
 import argparse
-import atexit
 
 import parsers
 import parts
 import cases
-
+import buggers
+import cpu
 
 def get_http10long():
     return cases.base['10long'].data
@@ -25,11 +25,8 @@ def get_websites(size=2 ** 18):
 if __name__ == '__main__':
     print('pid', os.getpid())
 
-    def cont():
-        subprocess.call(['pkill', '--signal', 'CONT', 'firefox'])
-
-    atexit.register(cont)
-    subprocess.call(['pkill', '--signal', 'STOP', 'firefox'])
+    cpu.dump()
+    buggers.silence()
 
     argparser = argparse.ArgumentParser(description='do_perf')
     argparser.add_argument(
