@@ -144,6 +144,25 @@ Parser_dealloc(Parser* self)
 #endif
 }
 
+#define hex_to_dec(x) \
+  ((x <= '9' ? 0 : 9) + (x & 0x0f))
+#define is_hex(x) ((x >= '0' && x <= '9') || (x >= 'A' && x <= 'F'))
+static size_t percent_decode(char* data, ssize_t length) {
+  char* end = data + length;
+  for(;end - data >= 3; data++) {
+    if(*data == '%' && is_hex(*(data + 1)) && is_hex(*(data + 2))) {
+      *data = (hex_to_dec(*(data + 1)) << 4) + hex_to_dec(*(data + 2));
+      end -= 2;
+      length -= 2;
+      memmove(data + 1, data + 3, length - 1);
+    }
+  }
+
+  return length;
+}
+#undef hex_to_dec
+#undef is_hex
+
 
 static int _parse_headers(Parser* self) {
   PyObject* py_method = NULL;
@@ -155,7 +174,7 @@ static int _parse_headers(Parser* self) {
 
   const char* method;
   size_t method_len;
-  const char* path;
+  char* path;
   size_t path_len;
   int minor_version;
   struct phr_header headers[10];
@@ -164,7 +183,7 @@ static int _parse_headers(Parser* self) {
   result = phr_parse_request(
     self->buffer + self->buffer_start, self->buffer_end - self->buffer_start,
     &method, &method_len,
-    &path, &path_len,
+    (const char**)&path, &path_len,
     &minor_version, headers, &num_headers, 0);
 
   // FIXME: More than 10 headers
@@ -201,6 +220,8 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 
   if(py_method == GET || py_method == DELETE || py_method == HEAD)
     self->no_semantics = true;
+
+  path_len = percent_decode(path, path_len);
 
 #ifdef DEBUG_PRINT
   printf("method: "); PyObject_Print(py_method, stdout, 0); printf("\n");

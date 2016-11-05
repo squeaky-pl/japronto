@@ -48,6 +48,9 @@ def make_class(flavor):
         if flavor == 'block':
             def on_body(self, request):
                 handle_request_block(request, self.transport, self.response)
+        elif flavor == 'dump':
+            def on_body(self, request):
+                handle_dump(request, self.transport, self.response)
         elif flavor == 'task':
             def on_body(self, request):
                 self.loop.create_task(handle_request(request, self.transport))
@@ -97,5 +100,11 @@ async def handle_request(request, transport):
 
 def handle_request_block(request, transport, response):
     response.__init__(404, text='Hello block')
+
+    transport.write(response.render())
+
+def handle_dump(request, transport, response):
+    text = request.path
+    response.__init__(text=text)
 
     transport.write(response.render())
