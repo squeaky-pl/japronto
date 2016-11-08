@@ -7,21 +7,28 @@ import sys
 import protocols.handler
 
 
-def serve(protocol_factory, reuse_port=False):
-    loop = uvloop.new_event_loop()
+from router.cmatcher import Matcher
+from router import Router
+from app import Application
 
-    server_coro = loop.create_server(
-        lambda: protocol_factory(loop, protocols.handler.handle_request_block),
-        '0.0.0.0', 8080, reuse_port=reuse_port)
 
-    server = loop.run_until_complete(server_coro)
+def slash(request, transport, response):
+    response.__init__(text='Hello slash!')
 
-    loop.add_signal_handler(signal.SIGTERM, loop.stop)
-    loop.add_signal_handler(signal.SIGINT, loop.stop)
-    try:
-        loop.run_forever()
-    finally:
-        loop.close()
+    transport.write(response.render())
+
+
+def hello(request, transport, response):
+    response.__init__(text='Hello hello!')
+
+    transport.write(response.render())
+
+
+app = Application()
+
+r = app.get_router()
+r.add_route('/', slash)
+r.add_route('/hello', hello)
 
 
 if __name__ == '__main__':
@@ -30,4 +37,4 @@ if __name__ == '__main__':
         '-p', dest='flavor', default='block')
     args = argparser.parse_args(sys.argv[1:])
 
-    serve(protocols.handler.make_class(args.flavor))
+    app.serve(protocols.handler.make_class(args.flavor))
