@@ -37,8 +37,15 @@ Matcher_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Matcher_dealloc(Matcher* self)
 {
-  if(self->buffer)
+  if(self->buffer) {
+    char* end = self->buffer + self->buffer_len;
+    for(MatcherEntry* entry = (MatcherEntry*)self->buffer;
+        (char*)entry < end;
+        entry = (MatcherEntry*)((char*)entry + sizeof(entry) + entry->pattern_len + entry->methods_len)) {
+      Py_DECREF(entry->route);
+    }
     free(self->buffer);
+  }
 
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
