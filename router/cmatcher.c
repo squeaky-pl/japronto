@@ -34,16 +34,20 @@ Matcher_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
+#define ENTRY_LOOP \
+char* entry_end = self->buffer + self->buffer_len; \
+for(MatcherEntry* entry = (MatcherEntry*)self->buffer; \
+    (char*)entry < entry_end; \
+    entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + \
+      entry->pattern_len + entry->methods_len))
+
+
 static void
 Matcher_dealloc(Matcher* self)
 {
   if(self->buffer) {
-    char* end = self->buffer + self->buffer_len;
-    for(MatcherEntry* entry = (MatcherEntry*)self->buffer;
-        (char*)entry < end;
-        entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + entry->pattern_len + entry->methods_len)) {
+    ENTRY_LOOP
       Py_DECREF(entry->route);
-    }
     free(self->buffer);
   }
 
@@ -166,7 +170,7 @@ Matcher_compile(Matcher* self, PyObject* routes)
 
     cpy_loop_error:
     // FIXME: all the copied route objects leak
-    result = 1;
+    result = -1;
     cpy_loop_finally:
     Py_XDECREF(methods);
     Py_XDECREF(pattern);
@@ -237,10 +241,7 @@ Matcher_match_request(Matcher* self, PyObject* args)
   if(!method_str)
     goto error;
 
-  char* end = self->buffer + self->buffer_len;
-  for(MatcherEntry* entry = (MatcherEntry*)self->buffer;
-      (char*)entry < end;
-      entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + entry->pattern_len + entry->methods_len)) {
+  ENTRY_LOOP {
     if(entry->pattern_len != (size_t)path_len)
       continue;
 
