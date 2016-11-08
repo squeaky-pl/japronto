@@ -41,7 +41,7 @@ Matcher_dealloc(Matcher* self)
     char* end = self->buffer + self->buffer_len;
     for(MatcherEntry* entry = (MatcherEntry*)self->buffer;
         (char*)entry < end;
-        entry = (MatcherEntry*)((char*)entry + sizeof(entry) + entry->pattern_len + entry->methods_len)) {
+        entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + entry->pattern_len + entry->methods_len)) {
       Py_DECREF(entry->route);
     }
     free(self->buffer);
@@ -210,6 +210,73 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 
 
 static PyObject*
+Matcher_match_request(Matcher* self, PyObject* args)
+{
+  PyObject* route = Py_None;
+  PyObject* request;
+  if(!PyArg_ParseTuple(args, "O", &request))
+    goto error;
+
+  PyObject* path = NULL;
+  path = PyObject_GetAttrString(request, "path");
+  if(!path)
+    goto error;
+
+  Py_ssize_t path_len;
+  char* path_str = PyUnicode_AsUTF8AndSize(path, &path_len);
+  if(!path_str)
+    goto error;
+
+  PyObject* method = NULL;
+  method = PyObject_GetAttrString(request, "method");
+  if(!method)
+    goto error;
+
+  Py_ssize_t method_len;
+  char* method_str = PyUnicode_AsUTF8AndSize(method, &method_len);
+  if(!method_str)
+    goto error;
+
+  char* end = self->buffer + self->buffer_len;
+  for(MatcherEntry* entry = (MatcherEntry*)self->buffer;
+      (char*)entry < end;
+      entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + entry->pattern_len + entry->methods_len)) {
+    if(entry->pattern_len != (size_t)path_len)
+      continue;
+
+    if(memcmp(entry->buffer, path_str, (size_t)path_len) != 0)
+      continue;
+
+    if(!entry->methods_len)
+      goto loop_finally;
+
+    char* method_found = memmem(
+      entry->buffer + entry->pattern_len, entry->methods_len,
+      method_str, (size_t)method_len);
+    if(!method_found)
+      continue;
+
+    if(*(method_found + (size_t)method_len) != ' ')
+      continue;
+
+    loop_finally:
+    route = entry->route;
+    goto finally;
+  }
+
+  goto finally;
+
+  error:
+  route = NULL;
+  finally:
+  Py_XDECREF(method);
+  Py_XDECREF(path);
+  if(route == Py_None)
+    Py_INCREF(route);
+  return route;
+}
+
+static PyObject*
 Matcher_dump_buffer(Matcher* self, PyObject* args)
 {
   PyObject* buffer = PyBytes_FromStringAndSize(self->buffer, self->buffer_len);
@@ -225,6 +292,7 @@ Matcher_dump_buffer(Matcher* self, PyObject* args)
 
 static PyMethodDef Matcher_methods[] = {
   {"dump_buffer", (PyCFunction)Matcher_dump_buffer, METH_VARARGS, ""},
+  {"match_request", (PyCFunction)Matcher_match_request, METH_VARARGS, ""},
   {NULL}
 };
 
