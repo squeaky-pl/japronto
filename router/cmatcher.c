@@ -192,12 +192,13 @@ static int
 Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 {
   int result = 0;
+  PyObject* routes = NULL;
 
   PyObject* router;
   if(!PyArg_ParseTuple(args, "O", &router))
     goto error;
 
-  PyObject* routes = PyObject_GetAttrString(router, "_routes");
+  routes = PyObject_GetAttrString(router, "_routes");
   if(!routes)
     goto error;
 
@@ -218,10 +219,12 @@ Matcher_match_request(Matcher* self, PyObject* args)
 {
   PyObject* route = Py_None;
   PyObject* request;
+  PyObject* path = NULL;
+  PyObject* method = NULL;
+
   if(!PyArg_ParseTuple(args, "O", &request))
     goto error;
 
-  PyObject* path = NULL;
   path = PyObject_GetAttrString(request, "path");
   if(!path)
     goto error;
@@ -231,7 +234,6 @@ Matcher_match_request(Matcher* self, PyObject* args)
   if(!path_str)
     goto error;
 
-  PyObject* method = NULL;
   method = PyObject_GetAttrString(request, "method");
   if(!method)
     goto error;
