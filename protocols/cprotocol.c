@@ -206,6 +206,11 @@ Protocol*
 Protocol_on_body(Protocol* self, PyObject* request)
 #endif
 {
+#ifdef PARSER_STANDALONE
+  PyObject* result = Py_None;
+#else
+  Protocol* result = self;
+#endif
   PyObject* route = NULL;
   PyObject* handler = NULL;
 #ifdef PARSER_STANDALONE
@@ -225,32 +230,31 @@ Protocol_on_body(Protocol* self, PyObject* request)
   if(!handler)
     goto error;
 
-  PyObject* result = PyObject_CallFunctionObjArgs(
+  PyObject* handler_result = PyObject_CallFunctionObjArgs(
     handler, request, self->transport, self->response, NULL);
-  if(!result)
+  if(!handler_result)
     goto error;
-  Py_DECREF(result);
+  Py_DECREF(handler_result);
 
   goto finally;
 
   handle_error:
-  result = PyObject_CallFunctionObjArgs(
+  handler_result = PyObject_CallFunctionObjArgs(
     self->error_handler, request, self->transport, self->response, NULL);
-  if(!result)
+  if(!handler_result)
     goto error;
-  Py_DECREF(result);
+  Py_DECREF(handler_result);
   goto finally;
   error:
-  // FIXME leaks handler and route
-  return NULL;
+  result = NULL;
   finally:
   Py_XDECREF(handler);
   Py_XDECREF(route);
 #ifdef PARSER_STANDALONE
-  Py_RETURN_NONE;
-#else
-  return self;
+  if(result)
+    Py_INCREF(result);
 #endif
+  return result;
 }
 
 #ifdef PARSER_STANDALONE
