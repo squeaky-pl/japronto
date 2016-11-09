@@ -1,6 +1,5 @@
 import asyncio
 import uvloop
-import signal
 import argparse
 import sys
 

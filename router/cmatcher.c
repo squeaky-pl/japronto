@@ -274,7 +274,7 @@ Matcher_match_request(Matcher* self, PyObject* args)
   finally:
   Py_XDECREF(method);
   Py_XDECREF(path);
-  if(route == Py_None)
+  if(route)
     Py_INCREF(route);
   return route;
 }

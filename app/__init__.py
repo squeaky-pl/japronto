@@ -22,18 +22,25 @@ class Application:
 
         return self._router
 
-    def error_handler(self, request, trasport, response):
+    def __freeze(self):
+        self.get_loop()
+        self.get_router()
+
+        self._match_request = self._router.get_matcher().match_request
+
+    def error_handler(self, request, transport, response):
         response.__init__(400, text='Something went wrong')
 
         transport.write(response.render())
 
 
     def serve(self, protocol_factory, reuse_port=False):
+        self.__freeze()
+
         loop = self.get_loop()
-        matcher = self.get_router().get_matcher()
 
         server_coro = loop.create_server(
-            lambda: protocol_factory(loop, matcher.match_request),
+            lambda: protocol_factory(self),
             '0.0.0.0', 8080, reuse_port=reuse_port)
 
         server = loop.run_until_complete(server_coro)

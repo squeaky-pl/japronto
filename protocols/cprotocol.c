@@ -26,8 +26,9 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 #else
   Parser_new(&self->parser);
 #endif
-  self->loop = NULL;
-  self->handler = NULL;
+  self->app = NULL;
+  self->match_request = NULL;
+  self->error_handler = NULL;
   self->response = NULL;
   self->transport = NULL;
 
@@ -41,8 +42,9 @@ Protocol_dealloc(Protocol* self)
 {
   Py_XDECREF(self->transport);
   Py_XDECREF(self->response);
-  Py_XDECREF(self->handler);
-  Py_XDECREF(self->loop);
+  Py_XDECREF(self->error_handler);
+  Py_XDECREF(self->match_request);
+  Py_XDECREF(self->app);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(self->feed_disconnect);
   Py_XDECREF(self->feed);
@@ -88,11 +90,17 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
     goto error;
 #endif
 
-  if(!PyArg_ParseTuple(args, "OO", &self->loop, &self->handler))
+  if(!PyArg_ParseTuple(args, "O", &self->app))
     goto error;
-  Py_INCREF(self->loop);
-  Py_INCREF(self->handler);
+  Py_INCREF(self->app);
 
+  self->match_request = PyObject_GetAttrString(self->app, "_match_request");
+  if(!self->match_request)
+    goto error;
+
+  self->error_handler = PyObject_GetAttrString(self->app, "error_handler");
+  if(!self->error_handler)
+    goto error;
 
   self->response = PyObject_CallFunctionObjArgs(Response, NULL);
   if(!self->response)
@@ -198,23 +206,46 @@ Protocol*
 Protocol_on_body(Protocol* self, PyObject* request)
 #endif
 {
+  PyObject* route = NULL;
+  PyObject* handler = NULL;
 #ifdef PARSER_STANDALONE
   PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
     goto error;
 #endif
 
+  route = PyObject_CallFunctionObjArgs(self->match_request, request, NULL);
+  if(!route)
+    goto error;
+
+  if(route == Py_None)
+    goto handle_error;
+
+  handler = PyObject_GetAttrString(route, "handler");
+  if(!handler)
+    goto error;
+
   PyObject* result = PyObject_CallFunctionObjArgs(
-    self->handler, request, self->transport, self->response, NULL);
+    handler, request, self->transport, self->response, NULL);
   if(!result)
     goto error;
   Py_DECREF(result);
 
   goto finally;
 
+  handle_error:
+  result = PyObject_CallFunctionObjArgs(
+    self->error_handler, request, self->transport, self->response, NULL);
+  if(!result)
+    goto error;
+  Py_DECREF(result);
+  goto finally;
   error:
+  // FIXME leaks handler and route
   return NULL;
   finally:
+  Py_XDECREF(handler);
+  Py_XDECREF(route);
 #ifdef PARSER_STANDALONE
   Py_RETURN_NONE;
 #else
