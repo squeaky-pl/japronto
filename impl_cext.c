@@ -845,7 +845,7 @@ cparser_init(void)
 #else
     int m = 0;
 #endif
-    PyObject* impl_cffi = NULL;
+    PyObject* request = NULL;
 
 #ifdef PARSER_STANDALONE
     if (PyType_Ready(&ParserType) < 0)
@@ -856,11 +856,11 @@ cparser_init(void)
       goto error;
 #endif
 
-    impl_cffi = PyImport_ImportModule("impl_cffi");
-    if(!impl_cffi)
+    request = PyImport_ImportModule("request");
+    if(!request)
       goto error;
 
-    Request = PyObject_GetAttrString(impl_cffi, "HttpRequest");
+    Request = PyObject_GetAttrString(request, "HttpRequest");
     if(!Request)
       goto error;
 
@@ -951,6 +951,6 @@ cparser_init(void)
     m = -1;
 #endif
     finally:
-    Py_XDECREF(impl_cffi);
+    Py_XDECREF(request);
     return m;
 }

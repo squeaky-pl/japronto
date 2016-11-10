@@ -26,7 +26,7 @@ class Application:
         self.get_loop()
         self.get_router()
 
-        self._match_request = self._router.get_matcher().match_request
+        self._matcher = self._router.get_matcher()
 
     def error_handler(self, request, transport, response):
         response.__init__(400, text='Something went wrong')

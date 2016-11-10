@@ -1,31 +1,9 @@
-from __future__ import print_function
-
 from libpicohttpparser import ffi, lib
+
+from request import HttpRequest
 
 
 NO_SEMANTICS = ["GET", "HEAD", "DELETE"]
-
-
-class HttpRequest(object):
-    __slots__ = ('path', 'method', 'version', 'headers', 'body')
-
-    def __init__(self, method, path, version, headers):
-        self.path = path
-        self.method = method
-        self.version = version
-        self.headers = headers
-        self.body = None
-
-    def dump_headers(self):
-        print('path', self.path)
-        print('method', self.method)
-        print('version', self.version)
-        for n, v in self.headers.items():
-            print(n, v)
-
-    def __repr__(self):
-        return '<HttpRequest {0.method} {0.path} {0.version}, {1} headers>' \
-            .format(self, len(self.headers))
 
 
 class HttpRequestParser(object):
