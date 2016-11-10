@@ -11,6 +11,7 @@ typedef struct {
 
 typedef struct {
   PyObject* route;
+  PyObject* handler;
   size_t pattern_len;
   size_t methods_len;
   char buffer[];
@@ -46,8 +47,10 @@ static void
 Matcher_dealloc(Matcher* self)
 {
   if(self->buffer) {
-    ENTRY_LOOP
+    ENTRY_LOOP {
+      Py_DECREF(entry->handler);
       Py_DECREF(entry->route);
+    }
     free(self->buffer);
   }
 
@@ -127,6 +130,12 @@ Matcher_compile(Matcher* self, PyObject* routes)
 
     entry->route = route;
 
+    PyObject* handler = PyObject_GetAttrString(route, "handler");
+    if(!handler)
+      goto cpy_loop_error;
+
+    entry->handler = handler;
+
     pattern = PyObject_GetAttrString(route, "pattern");
     if(!pattern)
       goto cpy_loop_error;
@@ -169,7 +178,7 @@ Matcher_compile(Matcher* self, PyObject* routes)
     goto cpy_loop_finally;
 
     cpy_loop_error:
-    // FIXME: all the copied route objects leak
+    // FIXME: all the copied route and handlers objects leak
     result = -1;
     cpy_loop_finally:
     Py_XDECREF(methods);
@@ -213,17 +222,12 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
   return result;
 }
 
-
-static PyObject*
-Matcher_match_request(Matcher* self, PyObject* args)
+// borrows route and handler
+PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler)
 {
   PyObject* route = Py_None;
-  PyObject* request;
   PyObject* path = NULL;
   PyObject* method = NULL;
-
-  if(!PyArg_ParseTuple(args, "O", &request))
-    goto error;
 
   path = PyObject_GetAttrString(request, "path");
   if(!path)
@@ -264,6 +268,8 @@ Matcher_match_request(Matcher* self, PyObject* args)
 
     loop_finally:
     route = entry->route;
+    if(handler)
+      *handler = entry->handler;
     goto finally;
   }
 
@@ -274,6 +280,26 @@ Matcher_match_request(Matcher* self, PyObject* args)
   finally:
   Py_XDECREF(method);
   Py_XDECREF(path);
+  return route;
+}
+
+
+static PyObject*
+_Matcher_match_request(Matcher* self, PyObject* args)
+{
+  PyObject* route;
+  PyObject* request;
+
+  if(!PyArg_ParseTuple(args, "O", &request))
+    goto error;
+
+  route = Matcher_match_request(self, request, NULL);
+
+  goto finally;
+
+  error:
+  route = NULL;
+  finally:
   if(route)
     Py_INCREF(route);
   return route;
@@ -295,7 +321,7 @@ Matcher_dump_buffer(Matcher* self, PyObject* args)
 
 static PyMethodDef Matcher_methods[] = {
   {"dump_buffer", (PyCFunction)Matcher_dump_buffer, METH_VARARGS, ""},
-  {"match_request", (PyCFunction)Matcher_match_request, METH_VARARGS, ""},
+  {"match_request", (PyCFunction)_Matcher_match_request, METH_VARARGS, ""},
   {NULL}
 };
 

@@ -4,6 +4,7 @@
 //#define PARSER_STANDALONE 1
 
 #include "cprotocol.h"
+#include "cmatcher.h"
 
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
@@ -27,7 +28,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   Parser_new(&self->parser);
 #endif
   self->app = NULL;
-  self->match_request = NULL;
+  self->matcher = NULL;
   self->error_handler = NULL;
   self->response = NULL;
   self->transport = NULL;
@@ -43,7 +44,7 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->transport);
   Py_XDECREF(self->response);
   Py_XDECREF(self->error_handler);
-  Py_XDECREF(self->match_request);
+  Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(self->feed_disconnect);
@@ -94,8 +95,8 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
     goto error;
   Py_INCREF(self->app);
 
-  self->match_request = PyObject_GetAttrString(self->app, "_match_request");
-  if(!self->match_request)
+  self->matcher = PyObject_GetAttrString(self->app, "_matcher");
+  if(!self->matcher)
     goto error;
 
   self->error_handler = PyObject_GetAttrString(self->app, "error_handler");
@@ -219,16 +220,12 @@ Protocol_on_body(Protocol* self, PyObject* request)
     goto error;
 #endif
 
-  route = PyObject_CallFunctionObjArgs(self->match_request, request, NULL);
+  route = Matcher_match_request(self->matcher, request, &handler);
   if(!route)
     goto error;
 
   if(route == Py_None)
     goto handle_error;
-
-  handler = PyObject_GetAttrString(route, "handler");
-  if(!handler)
-    goto error;
 
   PyObject* handler_result = PyObject_CallFunctionObjArgs(
     handler, request, self->transport, self->response, NULL);
@@ -248,8 +245,6 @@ Protocol_on_body(Protocol* self, PyObject* request)
   error:
   result = NULL;
   finally:
-  Py_XDECREF(handler);
-  Py_XDECREF(route);
 #ifdef PARSER_STANDALONE
   if(result)
     Py_INCREF(result);
