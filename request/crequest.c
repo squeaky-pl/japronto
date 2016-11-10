@@ -1,23 +1,5 @@
-#include <Python.h>
+#include "crequest.h"
 
-
-typedef struct {
-  PyObject_HEAD
-
-  size_t method_len;
-  size_t path_len;
-  char buffer[512];
-  PyObject* method;
-  PyObject* path;
-  PyObject* version;
-  PyObject* headers;
-} Request;
-
-#define REQUEST_METHOD(r) \
-  r->buffer
-
-#define REQUEST_PATH(r) \
-  r->buffer + r->method_len
 
 static PyObject*
 Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -34,6 +16,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->path = NULL;
   self->version = NULL;
   self->headers = NULL;
+  self->body = NULL;
 
   finally:
   return (PyObject*)self;
@@ -43,6 +26,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Request_dealloc(Request* self)
 {
+  Py_XDECREF(self->body);
   Py_XDECREF(self->headers);
   Py_XDECREF(self->version);
   Py_XDECREF(self->path);
@@ -92,6 +76,11 @@ Request_getattr(Request* self, char* name)
 
   if(strcmp(name, "headers") == 0) {
     result = self->headers;
+    goto finally;
+  }
+
+  if(strcmp(name, "body") == 0) {
+    result = self->body;
     goto finally;
   }
 
