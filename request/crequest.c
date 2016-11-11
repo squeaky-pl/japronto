@@ -38,6 +38,9 @@ Request_dealloc(Request* self)
 static int
 Request_init(Request* self, PyObject *args, PyObject* kw)
 {
+  self->body = Py_None;
+  Py_INCREF(self->body);
+
   return 0;
 }
 

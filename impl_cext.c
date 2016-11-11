@@ -6,7 +6,9 @@
 #include "cprotocol.h"
 #endif
 
-static PyObject* Request;
+#include "crequest.h"
+
+static PyObject* PyRequest;
 
 static PyObject* malformed_headers;
 static PyObject* malformed_body;
@@ -382,15 +384,30 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
 #endif
 
   self->buffer_start += (size_t)result;
-
+#if 0
   PyObject* request = PyObject_CallFunctionObjArgs(
     Request, py_method, py_path, py_version, py_headers, NULL);
+#else
+  Request* request = (Request*)PyObject_CallFunctionObjArgs(PyRequest, NULL);
+#endif
   if(!request) {
     result = -3;
     goto finally;
   }
   Py_DECREF(self->request);
+#if 0
   self->request = request;
+#else
+  self->request = (PyObject*)request;
+  request->method_len = method_len;
+  memcpy(REQUEST_METHOD(request), method, method_len);
+  request->path_len = path_len;
+  memcpy(REQUEST_PATH(request), path, path_len);
+  request->version = py_version;
+  Py_INCREF(py_version);
+  request->headers = py_headers;
+  Py_INCREF(py_headers);
+#endif
 
 #ifdef PARSER_STANDALONE
   PyObject* on_headers_result = PyObject_CallFunctionObjArgs(
@@ -513,10 +530,15 @@ static int _parse_body(Parser* self) {
   on_body:
 
   if(body) {
+#if 0
     if(PyObject_SetAttrString(self->request, "body", body) == -1) {
       result = -3;
       goto finally;
     }
+#else
+    ((Request*)(self->request))->body = body;
+    Py_INCREF(body);
+#endif
 
 #ifdef DEBUG_PRINT
     printf("body: "); PyObject_Print(body, stdout, 0); printf("\n");
@@ -675,8 +697,13 @@ Parser_feed_disconnect(Parser* self)
     if(!body)
       return NULL;
 
+#if 0
     if(PyObject_SetAttrString(self->request, "body", body) == -1)
       return NULL; /* FIXME LEAK */
+#else
+    ((Request*)(self->request))->body = body;
+    Py_INCREF(body);
+#endif
 
     goto on_body;
   }
@@ -815,7 +842,7 @@ int
 cparser_init(void)
 #endif
 {
-    Request = NULL;
+    PyRequest = NULL;
     malformed_headers = NULL;
     invalid_headers = NULL;
     malformed_body = NULL;
@@ -856,6 +883,7 @@ cparser_init(void)
       goto error;
 #endif
 
+#if 0
     request = PyImport_ImportModule("request");
     if(!request)
       goto error;
@@ -863,6 +891,15 @@ cparser_init(void)
     Request = PyObject_GetAttrString(request, "HttpRequest");
     if(!Request)
       goto error;
+#else
+  request = PyImport_ImportModule("request.crequest");
+  if(!request)
+    goto error;
+
+  PyRequest = PyObject_GetAttrString(request, "Request");
+  if(!PyRequest)
+    goto error;
+#endif
 
 #define alloc_static(name) \
     name = PyUnicode_FromString(#name); \
@@ -946,7 +983,7 @@ cparser_init(void)
     Py_XDECREF(malformed_body);
     Py_XDECREF(malformed_headers);
 
-    Py_XDECREF(Request);
+    Py_XDECREF(PyRequest);
 #ifndef PARSER_STANDALONE
     m = -1;
 #endif
