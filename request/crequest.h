@@ -16,8 +16,11 @@ typedef struct {
   PyObject* body;
 } Request;
 
+#define REQUEST(r) \
+  ((Request*)r)
+
 #define REQUEST_METHOD(r) \
-  r->buffer
+  REQUEST(r)->buffer
 
 #define REQUEST_PATH(r) \
-  r->buffer + r->method_len
+  REQUEST(r)->buffer + REQUEST(r)->method_len

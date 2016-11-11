@@ -418,7 +418,7 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   }
   Py_DECREF(on_headers_result);
 #else
-  if(!Protocol_on_headers(self->protocol, request)) {
+  if(!Protocol_on_headers(self->protocol, (PyObject*)request)) {
     result = -3;
     goto finally;
   }

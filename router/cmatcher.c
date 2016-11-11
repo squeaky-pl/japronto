@@ -1,5 +1,7 @@
 #include <Python.h>
 
+#include "crequest.h"
+
 
 typedef struct {
   PyObject_HEAD
@@ -226,6 +228,7 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler)
 {
   PyObject* route = Py_None;
+#if 0
   PyObject* path = NULL;
   PyObject* method = NULL;
 
@@ -246,6 +249,12 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
   char* method_str = PyUnicode_AsUTF8AndSize(method, &method_len);
   if(!method_str)
     goto error;
+#else
+  size_t path_len = REQUEST(request)->path_len;
+  char* path_str = REQUEST_PATH(request);
+  size_t method_len = REQUEST(request)->method_len;
+  char* method_str = REQUEST_METHOD(request);
+#endif
 
   ENTRY_LOOP {
     if(entry->pattern_len != (size_t)path_len)
@@ -275,11 +284,15 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
 
   goto finally;
 
+#if 0
   error:
   route = NULL;
+#endif
   finally:
+#if 0
   Py_XDECREF(method);
   Py_XDECREF(path);
+#endif
   return route;
 }
 
