@@ -37,7 +37,7 @@ typedef struct {
     size_t buffer_end;
     size_t buffer_capacity;
 
-    PyObject* request;
+//    PyObject* request;
 #ifdef PARSER_STANDALONE
     PyObject* on_headers;
     PyObject* on_body;
