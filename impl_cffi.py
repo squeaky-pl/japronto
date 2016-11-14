@@ -1,10 +1,5 @@
 from libpicohttpparser import ffi, lib
 
-from request import HttpRequest
-
-
-NO_SEMANTICS = ["GET", "HEAD", "DELETE"]
-
 
 class HttpRequestParser(object):
     def __init__(self, on_headers, on_body, on_error):
@@ -25,13 +20,13 @@ class HttpRequestParser(object):
         self._reset_state()
 
     def _reset_state(self):
-        self.request = None
         self.state = 'headers'
         self.connection = None
         self.transfer = None
         self.content_length = None
         self.chunked_decoder = None
         self.chunked_offset[0] = 0
+        self.no_semantics = False
 
     def _parse_headers(self):
         self.num_headers[0] = 10
@@ -55,69 +50,83 @@ class HttpRequestParser(object):
         else:
             self._reset_state()
 
-        method = ffi.string(self.c_method[0], self.method_len[0]).decode('ascii')
-        path = ffi.string(self.c_path[0], self.path_len[0]).decode('ascii')
-        version = "1." + str(self.minor_version[0])
+        # method = ffi.string(self.c_method[0], self.method_len[0]).decode('ascii')
+        # path = ffi.string(self.c_path[0], self.path_len[0]).decode('ascii')
+        # version = "1." + str(self.minor_version[0])
+        method = ffi.cast(
+            'char[{}]'.format(self.method_len[0]), self.c_method[0])
+        path = ffi.cast(
+            'char[{}]'.format(self.path_len[0]), self.c_path[0])
+        headers = ffi.cast(
+            "struct phr_header[{}]".format(self.num_headers[0]),
+            self.c_headers)
 
-        headers = {}
-        for idx in range(self.num_headers[0]):
-           header = self.c_headers[idx]
-           name = ffi.string(header.name, header.name_len).decode('ascii').title()
-           value = ffi.string(header.value, header.value_len).decode('latin1')
-           headers[name] = value
-
-        self.buffer = self.buffer[result:]
+        if ffi.buffer(method)[:] in (b'GET', b'DELETE', b'HEAD'):
+            self.no_semantics = True
 
         if self.minor_version[0] == 0:
-            self.connection = headers.get('Connection', 'close')
             self.transfer = 'identity'
         else:
-            self.connection = headers.get('Connection', 'keep-alive')
-            self.transfer = headers.get('Transfer-Encoding', 'chunked')
+            self.transfer = 'chunked'
 
-        self.content_length = headers.get('Content-Length')
-        if self.content_length is not None:
-            content_length_error = False
+        # headers = {}
+        # for idx in range(self.num_headers[0]):
+        #    header = self.c_headers[idx]
+        #    name = ffi.string(header.name, header.name_len).decode('ascii').title()
+        #    value = ffi.string(header.value, header.value_len).decode('latin1')
+        #    headers[name] = value
 
-            if not self.content_length:
-                content_length_error = True
+        for header in headers:
+            header_name = ffi.string(header.name, header.name_len).title()
+            #maybe len + strcasecmp C style is faster?
+            if header_name == b'Transfer-Encoding':
+                self.transfer = ffi.string(
+                    header.value, header.value_len).decode('ascii')
+                # FIXME comma separated and invalid values
+            elif header_name == b'Content-Length':
+                content_length_error = False
 
-            if not content_length_error and self.content_length[0] in '+-':
-                content_length_error = True
-
-            if not content_length_error:
-                try:
-                    self.content_length = int(self.content_length)
-                except ValueError:
+                if not header.value_len:
                     content_length_error = True
 
-            if content_length_error:
-                self.on_error('invalid_headers')
-                self._reset_state()
-                self.buffer = bytearray()
+                if not content_length_error:
+                    content_length = ffi.buffer(header.value, header.value_len)
 
-                return -1
+                if not content_length_error and content_length[0] in b'+-':
+                    content_length_error = True
 
-        self.request = HttpRequest(method, path, version, headers)
+                if not content_length_error:
+                    try:
+                        self.content_length = int(content_length[:])
+                    except ValueError:
+                        content_length_error = True
 
-        self.on_headers(self.request)
+                if content_length_error:
+                    self.on_error('invalid_headers')
+                    self._reset_state()
+                    self.buffer = bytearray()
+
+                    return -1
+
+        self.on_headers(method, path, self.minor_version[0], headers)
+
+        self.buffer = self.buffer[result:]
 
         return result
 
     def _parse_body(self):
-        if self.content_length is None and self.request.method in NO_SEMANTICS:
-            self.on_body(self.request)
+        if self.content_length is None and self.no_semantics:
+            self.on_body(None)
             return 0
         elif self.content_length == 0:
-            self.request.body = b""
-            self.on_body(self.request)
+            self.on_body(ffi.from_buffer(b""))
             return 0
         elif self.content_length is not None:
             if self.content_length > len(self.buffer):
                 return -2
 
-            self.request.body = bytes(self.buffer[:self.content_length])
-            self.on_body(self.request)
+            body = memoryview(self.buffer)[:self.content_length]
+            self.on_body(ffi.from_buffer(body))
             self.buffer = self.buffer[self.content_length:]
 
             result = self.content_length
@@ -148,8 +157,8 @@ class HttpRequestParser(object):
 
                 return result
 
-            self.request.body = bytes(self.buffer[:self.chunked_offset[0]])
-            self.on_body(self.request)
+            body = memoryview(self.buffer)[:self.chunked_offset[0]]
+            self.on_body(ffi.from_buffer(body))
             self.buffer = self.buffer[
                 self.chunked_offset[0]:self.chunked_offset[0] + result]
             self._reset_state()
@@ -183,8 +192,7 @@ class HttpRequestParser(object):
         if not self.transfer:
             self.on_error('incomplete_headers')
         elif self.transfer == 'identity':
-            self.request.body = bytes(self.buffer)
-            self.on_body(self.request)
+            self.on_body(ffi.buffer(self.buffer))
         elif self.transfer == 'chunked':
             self.on_error('incomplete_body')
 
