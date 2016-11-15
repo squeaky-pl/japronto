@@ -725,7 +725,7 @@ Parser_feed_disconnect(Parser* self)
     /*PyObject * body = PyBytes_FromStringAndSize(self->buffer + self->buffer_start, self->buffer_end - self->buffer_start);
     if(!body)
       return NULL;*/
-    body = self->buffer;
+    body = self->buffer + self->buffer_start;
     body_len = self->buffer_end - self->buffer_start;
 
 #if 0
