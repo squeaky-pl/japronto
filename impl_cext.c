@@ -438,6 +438,10 @@ static int _parse_headers(Parser* self) {
 }
 
 static int _parse_body(Parser* self) {
+#ifdef PARSER_STANDALONE
+  PyObject* body_view = NULL;
+#endif
+
   char* body = NULL;
   size_t body_len = 0;
   int result = -2;
@@ -489,7 +493,7 @@ static int _parse_body(Parser* self) {
     }
 
     if(result == -1)
-      goto error;
+      goto on_error;
 
     body = self->buffer + self->buffer_start;
     body_len = self->chunked_offset;
@@ -521,28 +525,22 @@ static int _parse_body(Parser* self) {
   }
 
 #ifdef PARSER_STANDALONE
-  PyObject* body_view;
-  if(body)
+  if(body) {
     body_view = PyMemoryView_FromMemory(body, body_len, PyBUF_READ);
-    /* FIXME above can fail */
-  else {
+    if(!body_view)
+      goto error;
+  } else {
     body_view = Py_None;
     Py_INCREF(body_view);
   }
   PyObject* on_body_result = PyObject_CallFunctionObjArgs(
     self->on_body, body_view, NULL);
-  if(!on_body_result) {
-    result = -3;
-    goto finally;
-  }
+  if(!on_body_result)
+    goto error;
   Py_DECREF(on_body_result);
-  Py_XDECREF(body_view);
 #else
-
-  if(!Protocol_on_body(self->protocol, body, body_len)) {
-    result = -3;
-    goto finally;
-  };
+  if(!Protocol_on_body(self->protocol, body, body_len))
+    goto error;
 #endif
 
   _reset_state(self);
@@ -551,27 +549,31 @@ static int _parse_body(Parser* self) {
 
 #ifdef PARSER_STANDALONE
   PyObject* on_error_result;
-  error:
+  on_error:
   on_error_result = PyObject_CallFunctionObjArgs(
     self->on_error, malformed_body, NULL);
-  if(!on_error_result) {
-    result = -3;
-    goto finally;
-  }
+  if(!on_error_result)
+    goto error;
   Py_DECREF(on_error_result);
 #else
-  error:
-  if(!Protocol_on_error(self->protocol, malformed_body)) {
-    result = -3;
-    goto finally;
-  }
+  on_error:
+  if(!Protocol_on_error(self->protocol, malformed_body))
+    goto error;
 #endif
 
   _reset_state(self);
   self->buffer_start = 0;
   self->buffer_end = 0;
 
+  goto finally;
+
+  error:
+  result = -3;
+
   finally:
+#ifdef PARSER_STANDALONE
+  Py_XDECREF(body_view);
+#endif
   return result;
 }
 
