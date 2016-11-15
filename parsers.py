@@ -61,6 +61,21 @@ def _body_from_cprotocol(body: memoryview):
     return body.tobytes()
 
 
+def _request_from_cffiprotocol(method: "char[]", path: "char[]", version: int,
+                              headers: "struct phr_header[]"):
+    method = ffi.buffer(method)[:].decode('ascii')
+    path = ffi.buffer(path)[:].decode('ascii')
+    version = "1.0" if version == 0 else "1.1"
+
+    headers = _extract_headers(headers)
+
+    return HttpRequest(method, path, version, headers)
+
+
+def _body_from_cffiprotocol(body: "char[]"):
+    return ffi.buffer(body)[:]
+
+
 def _extract_headers(headers_cdata: "struct phr_header[]"):
     headers = {}
     for header in headers_cdata:
@@ -74,6 +89,11 @@ def _extract_headers(headers_cdata: "struct phr_header[]"):
 CTestProtocol = partial(
     TestProtocol, on_headers_adapter=_request_from_cprotocol,
     on_body_adapter=_body_from_cprotocol)
+
+
+CffiTestProtocol = partial(
+    TestProtocol, on_headers_adapter=_request_from_cffiprotocol,
+    on_body_adapter=_body_from_cffiprotocol)
 
 
 def silent_callback(*args):
