@@ -21,8 +21,6 @@ static PyObject* GET;
 static PyObject* POST;
 static PyObject* DELETE;
 static PyObject* HEAD;
-static PyObject* HTTP10;
-static PyObject* HTTP11;
 static PyObject* Host;
 static PyObject* User_Agent;
 static PyObject* Accept;
@@ -139,25 +137,6 @@ Parser_dealloc(Parser* self)
 #endif
 }
 
-#define hex_to_dec(x) \
-  ((x <= '9' ? 0 : 9) + (x & 0x0f))
-#define is_hex(x) ((x >= '0' && x <= '9') || (x >= 'A' && x <= 'F'))
-static size_t percent_decode(char* data, ssize_t length) {
-  char* end = data + length;
-  for(;end - data >= 3; data++) {
-    if(*data == '%' && is_hex(*(data + 1)) && is_hex(*(data + 2))) {
-      *data = (hex_to_dec(*(data + 1)) << 4) + hex_to_dec(*(data + 2));
-      end -= 2;
-      length -= 2;
-      memmove(data + 1, data + 3, length - 1);
-    }
-  }
-
-  return length;
-}
-#undef hex_to_dec
-#undef is_hex
-
 
 static int _parse_headers(Parser* self) {
 #ifdef PARSER_STANDALONE
@@ -202,31 +181,6 @@ static int _parse_headers(Parser* self) {
 
   if(method_equal(GET) || method_equal(DELETE) || method_equal(HEAD))
     self->no_semantics = true;
-
-  path_len = percent_decode(path, path_len);
-
-/*#ifdef DEBUG_PRINT
-  printf("method: "); PyObject_Print(py_method, stdout, 0); printf("\n");
-#endif
-  // TODO: probably static for "/", maybe "/index.html"
-  py_path = PyUnicode_FromStringAndSize(path, path_len);
-  if(!py_path) {
-    result = -3;
-    goto finally;
-  }
-#ifdef DEBUG_PRINT
-  printf("path: "); PyObject_Print(py_path, stdout, 0); printf("\n");
-#endif
-  PyObject* py_version;
-  if(minor_version == 0)
-    py_version = HTTP10;
-  else
-    py_version = HTTP11;
-
-#ifdef DEBUG_PRINT
-  printf("version: "); PyObject_Print(py_version, stdout, 0); printf("\n");
-#endif*/
-
 
   if(minor_version == 0)
     self->transfer = PARSER_IDENTITY;
@@ -398,10 +352,8 @@ static int _parse_headers(Parser* self) {
   // FIXME the functions above can fail
   PyObject* on_headers_result = PyObject_CallFunctionObjArgs(
     self->on_headers, method_view, path_view, minor_version_long, headers_view, NULL);
-  if(!on_headers_result) {
-    result = -3;
-    goto finally;
-  }
+  if(!on_headers_result)
+    goto error;
   Py_DECREF(on_headers_result);
 #else
   if(!Protocol_on_headers(
@@ -841,8 +793,6 @@ cparser_init(void)
     POST = NULL;
     DELETE = NULL;
     HEAD = NULL;
-    HTTP10 = NULL;
-    HTTP11 = NULL;
     Host = NULL;
     User_Agent = NULL;
     Accept = NULL;
@@ -860,7 +810,6 @@ cparser_init(void)
 #else
     int m = 0;
 #endif
-    //PyObject* request = NULL;
 
 #ifdef PARSER_STANDALONE
     if (PyType_Ready(&ParserType) < 0)
@@ -894,9 +843,6 @@ cparser_init(void)
     alloc_static(POST)
     alloc_static(DELETE)
     alloc_static(HEAD)
-
-    alloc_static2(HTTP10, "1.0")
-    alloc_static2(HTTP11, "1.1")
 
     alloc_static(Host)
     alloc_static2(User_Agent, "User-Agent")
@@ -942,9 +888,6 @@ cparser_init(void)
     Py_XDECREF(DELETE);
     Py_XDECREF(POST);
     Py_XDECREF(GET);
-
-    Py_XDECREF(HTTP10);
-    Py_XDECREF(HTTP11);
 
     Py_XDECREF(empty_body);
     Py_XDECREF(incomplete_body);

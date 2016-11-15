@@ -8,7 +8,7 @@ shared_path = os.path.abspath(
 
 impl_cext = Extension(
     'impl_cext', sources=['impl_cext.c'],
-    libraries=['picohttpparser'], include_dirs=[shared_path, 'request'],
+    libraries=['picohttpparser'], include_dirs=[shared_path],
     library_dirs=[shared_path], extra_link_args=['-Wl,-rpath,' + shared_path],
     extra_compile_args=['-DPARSER_STANDALONE'] + sys.argv[2:])
 

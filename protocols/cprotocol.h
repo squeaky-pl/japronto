@@ -17,12 +17,15 @@ typedef struct {
   PyObject* matcher;
   PyObject* error_handler;
   PyObject* response;
+  PyObject* request;
   PyObject* transport;
 } Protocol;
 
 
 #ifndef PARSER_STANDALONE
-Protocol* Protocol_on_headers(Protocol*, PyObject*);
-Protocol* Protocol_on_body(Protocol*, PyObject*);
+Protocol* Protocol_on_headers(Protocol*, char* method, size_t method_len,
+                              char* path, size_t path_len, int minor_version,
+                              void* headers, size_t num_headers);
+Protocol* Protocol_on_body(Protocol*, char* body, size_t body_len);
 Protocol* Protocol_on_error(Protocol*, PyObject*);
 #endif

@@ -250,10 +250,10 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
   if(!method_str)
     goto error;
 #else
-  size_t path_len = REQUEST(request)->path_len;
-  char* path_str = REQUEST_PATH(request);
   size_t method_len = REQUEST(request)->method_len;
   char* method_str = REQUEST_METHOD(request);
+  size_t path_len;
+  char* path_str = Request_get_decoded_path(REQUEST(request), &path_len);
 #endif
 
   ENTRY_LOOP {

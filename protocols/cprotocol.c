@@ -5,11 +5,13 @@
 
 #include "cprotocol.h"
 #include "cmatcher.h"
+#include "crequest.h"
 
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
 static PyObject* Response;
+static PyObject* PyRequest;
 
 
 static PyObject *
@@ -31,6 +33,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->matcher = NULL;
   self->error_handler = NULL;
   self->response = NULL;
+  self->request = NULL;
   self->transport = NULL;
 
   finally:
@@ -42,6 +45,7 @@ static void
 Protocol_dealloc(Protocol* self)
 {
   Py_XDECREF(self->transport);
+  Py_XDECREF(self->request);
   Py_XDECREF(self->response);
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
@@ -106,6 +110,9 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   self->response = PyObject_CallFunctionObjArgs(Response, NULL);
   if(!self->response)
     goto error;
+
+  self->request = Py_None;
+  Py_INCREF(self->request);
 
   goto finally;
 
@@ -192,9 +199,28 @@ Protocol_on_headers(Protocol* self, PyObject *args)
 }
 #else
 Protocol*
-Protocol_on_headers(Protocol* self, PyObject *request)
+Protocol_on_headers(Protocol* self, char* method, size_t method_len,
+                    char* path, size_t path_len, int minor_version,
+                    void* headers, size_t num_headers)
 {
-  return self;
+  Protocol* result = self;
+
+  Py_DECREF(self->request);
+  self->request = PyObject_CallFunctionObjArgs(PyRequest, NULL);
+  if(!self->request)
+    goto error;
+
+  Request_from_raw(
+    (Request*)self->request, method, method_len, path, path_len, minor_version,
+    headers, num_headers);
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  return result;
 }
 #endif
 
@@ -204,7 +230,7 @@ static PyObject*
 Protocol_on_body(Protocol* self, PyObject *args)
 #else
 Protocol*
-Protocol_on_body(Protocol* self, PyObject* request)
+Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
 {
 #ifdef PARSER_STANDALONE
@@ -215,12 +241,13 @@ Protocol_on_body(Protocol* self, PyObject* request)
   PyObject* route = NULL;
   PyObject* handler = NULL;
 #ifdef PARSER_STANDALONE
-  PyObject* request;
+/*  PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
     goto error;
+*/ // FIXME implement body setting
 #endif
 
-  route = Matcher_match_request(self->matcher, request, &handler);
+  route = Matcher_match_request(self->matcher, self->request, &handler);
   if(!route)
     goto error;
 
@@ -228,7 +255,7 @@ Protocol_on_body(Protocol* self, PyObject* request)
     goto handle_error;
 
   PyObject* handler_result = PyObject_CallFunctionObjArgs(
-    handler, request, self->transport, self->response, NULL);
+    handler, self->request, self->transport, self->response, NULL);
   if(!handler_result)
     goto error;
   Py_DECREF(handler_result);
@@ -237,7 +264,7 @@ Protocol_on_body(Protocol* self, PyObject* request)
 
   handle_error:
   handler_result = PyObject_CallFunctionObjArgs(
-    self->error_handler, request, self->transport, self->response, NULL);
+    self->error_handler, self->request, self->transport, self->response, NULL);
   if(!handler_result)
     goto error;
   Py_DECREF(handler_result);
@@ -340,6 +367,7 @@ PyInit_cprotocol(void)
   Parser = NULL;
 #endif
   PyObject* cresponse = NULL;
+  PyObject* crequest = NULL;
   Response = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
@@ -362,6 +390,14 @@ PyInit_cprotocol(void)
     goto error;
 #endif
 
+  crequest = PyImport_ImportModule("request.crequest");
+  if(!crequest)
+    goto error;
+
+  PyRequest = PyObject_GetAttrString(crequest, "Request");
+  if(!PyRequest)
+    goto error;
+
   cresponse = PyImport_ImportModule("responses.cresponse");
   if(!cresponse)
     goto error;
@@ -377,11 +413,13 @@ PyInit_cprotocol(void)
 
   error:
   Py_XDECREF(Response);
+  Py_XDECREF(PyRequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(Parser);
 #endif
   finally:
   Py_XDECREF(cresponse);
+  Py_XDECREF(crequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(impl_cext);
 #endif
