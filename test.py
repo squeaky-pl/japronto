@@ -1,5 +1,6 @@
 from functools import partial
 from unittest.mock import Mock
+from itertools import zip_longest
 
 import pytest
 
@@ -36,10 +37,10 @@ def parametrize_make_parser():
     ids = []
     factories = []
     if hasattr(parsers, 'make_cext'):
-        factories.append(partial(parsers.make_cext, Mock))
+        factories.append(parsers.make_cext)
         ids.append('cext')
 
-    factories.append(partial(parsers.make_cffi, Mock))
+    factories.append(parsers.make_cffi)
     ids.append('cffi')
 
     return pytest.mark.parametrize('make_parser', factories, ids=ids)
@@ -55,7 +56,7 @@ def parametrize_make_parser():
     '10short+10malformed_headers1', '10short+10malformed_headers2')
 @parametrize_make_parser()
 def test_http10(make_parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = make_parser()
+    parser, protocol = make_parser()
     for i, case in enumerate(cases, 1):
         parts = do_parts(case.data)
 
@@ -66,17 +67,17 @@ def test_http10(make_parser, do_parts, cases):
         header_errors = 1 if case.error and 'headers' in case.error else 0
         body_errors = 1 if case.error and 'body' in case.error else 0
 
-        assert on_headers.call_count == i - header_errors
-        assert on_error.call_count == header_errors + body_errors
-        assert on_body.call_count == i - header_errors - body_errors
+        assert protocol.on_headers_call_count == i - header_errors
+        assert protocol.on_error_call_count == header_errors + body_errors
+        assert protocol.on_body_call_count == i - header_errors - body_errors
 
-        if on_error.called:
-            assert on_error.call_args[0][0] == case.error
+        if protocol.on_error_call_count:
+            assert protocol.error == case.error
 
         if header_errors:
             continue
 
-        request = on_headers.call_args[0][0]
+        request = protocol.request
 
         assert request.method == case.method
         assert request.path == case.path
@@ -91,7 +92,7 @@ def test_http10(make_parser, do_parts, cases):
 
 @parametrize_make_parser()
 def test_empty(make_parser):
-    parser, on_headers, on_error, on_body = make_parser()
+    parser, protocol = make_parser()
 
     parser.feed_disconnect()
     parser.feed(b'')
@@ -100,9 +101,9 @@ def test_empty(make_parser):
     parser.feed_disconnect()
     parser.feed(b'')
 
-    assert not on_headers.called
-    assert not on_error.called
-    assert not on_body.called
+    assert not protocol.on_headers_call_count
+    assert not protocol.on_error_call_count
+    assert not protocol.on_body_call_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -131,7 +132,7 @@ def test_empty(make_parser):
 )
 @parametrize_make_parser()
 def test_http11_contentlength(make_parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = make_parser()
+    parser, protocol = make_parser()
 
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
@@ -144,13 +145,12 @@ def test_http11_contentlength(make_parser, do_parts, cases):
     error_count = 0
     body_count = 0
 
-    for i, case in enumerate(cases):
+    for case, request in zip_longest(cases, protocol.requests):
         if case.error and 'headers' in case.error:
             error_count += 1
             continue
 
         header_count += 1
-        request = on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
@@ -165,9 +165,9 @@ def test_http11_contentlength(make_parser, do_parts, cases):
 
         assert request.body == case.body
 
-    assert on_headers.call_count == header_count
-    assert on_error.call_count == error_count
-    assert on_body.call_count == body_count
+    assert protocol.on_headers_call_count == header_count
+    assert protocol.on_error_call_count == error_count
+    assert protocol.on_body_call_count == body_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -192,13 +192,13 @@ def test_http11_contentlength(make_parser, do_parts, cases):
 )
 @parametrize_make_parser()
 def test_http11_chunked(make_parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = make_parser()
+    parser, protocol = make_parser()
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
     for part in parts:
         parser.feed(part)
-        if on_error.called:
+        if protocol.error:
             break
     parser.feed_disconnect()
 
@@ -206,13 +206,12 @@ def test_http11_chunked(make_parser, do_parts, cases):
     error_count = 0
     body_count = 0
 
-    for i, case in enumerate(cases):
+    for case, request in zip_longest(cases, protocol.requests):
         if case.error and 'headers' in case.error:
             error_count += 1
             continue
 
         header_count += 1
-        request = on_headers.call_args_list[i][0][0]
 
         assert request.method == case.method
         assert request.path == case.path
@@ -227,9 +226,9 @@ def test_http11_chunked(make_parser, do_parts, cases):
 
         assert request.body == case.body
 
-    assert on_headers.call_count == header_count
-    assert on_error.call_count == error_count
-    assert on_body.call_count == body_count
+    assert protocol.on_headers_call_count == header_count
+    assert protocol.on_error_call_count == error_count
+    assert protocol.on_body_call_count == body_count
 
 
 @pytest.mark.parametrize('do_parts', make_part_functions())
@@ -245,7 +244,7 @@ def test_http11_chunked(make_parser, do_parts, cases):
 )
 @parametrize_make_parser()
 def test_http11_mixed(make_parser, do_parts, cases):
-    parser, on_headers, on_error, on_body = make_parser()
+    parser, protocol = make_parser()
     data = b''.join(c.data for c in cases)
     parts = do_parts(data)
 
@@ -253,13 +252,11 @@ def test_http11_mixed(make_parser, do_parts, cases):
         parser.feed(part)
     parser.feed_disconnect()
 
-    assert on_headers.call_count == len(cases)
-    assert not on_error.called
-    assert on_body.call_count == len(cases)
+    assert protocol.on_headers_call_count == len(cases)
+    assert not protocol.on_error_call_count
+    assert protocol.on_body_call_count == len(cases)
 
-    for i, case in enumerate(cases):
-        request = on_headers.call_args_list[i][0][0]
-
+    for case, request in zip(cases, protocol.requests):
         assert request.method == case.method
         assert request.path == case.path
         assert request.version == case.version
