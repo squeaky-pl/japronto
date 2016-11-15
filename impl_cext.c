@@ -17,6 +17,8 @@ static PyObject* invalid_headers;
 static PyObject* incomplete_body;
 static PyObject* empty_body;
 
+const char zero_body[] = "";
+
 static PyObject* GET;
 static PyObject* POST;
 static PyObject* DELETE;
@@ -483,6 +485,7 @@ static int _parse_body(Parser* self) {
   if(self->content_length == 0) {
     /*Py_INCREF(empty_body);
     body = empty_body;*/
+    body = (char*)zero_body;
     result = 0;
     goto on_body;
   }
@@ -568,8 +571,14 @@ static int _parse_body(Parser* self) {
 #ifdef PARSER_STANDALONE
   /*PyObject* on_body_result = PyObject_CallFunctionObjArgs(
     self->on_body, self->request, NULL);*/
-  PyObject* body_view = PyMemoryView_FromMemory(body, body_len, PyBUF_READ);
-  /* FIXME above can fail */
+  PyObject* body_view;
+  if(body)
+    body_view = PyMemoryView_FromMemory(body, body_len, PyBUF_READ);
+    /* FIXME above can fail */
+  else {
+    body_view = Py_None;
+    Py_INCREF(body_view);
+  }
   PyObject* on_body_result = PyObject_CallFunctionObjArgs(
     self->on_body, body_view, NULL);
   if(!on_body_result) {
