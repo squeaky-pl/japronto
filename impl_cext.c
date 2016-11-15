@@ -8,8 +8,6 @@
 
 #include "crequest.h"
 
-//static PyObject* PyRequest;
-
 static PyObject* malformed_headers;
 static PyObject* malformed_body;
 static PyObject* incomplete_headers;
@@ -43,10 +41,6 @@ static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 
 
 static void _reset_state(Parser* self) {
-    /*Py_XDECREF(self->request);
-    self->request = Py_None;
-    Py_INCREF(self->request);*/
-
     self->state = PARSER_HEADERS;
     self->transfer = PARSER_UNSET;
     self->content_length = CONTENT_LENGTH_UNSET;
@@ -75,7 +69,6 @@ Parser_new(Parser* self)
     self->on_body = NULL;
     self->on_error = NULL;
 #endif
-    //self->request = NULL;
 
 #ifdef PARSER_STANDALONE
     finally:
@@ -142,7 +135,6 @@ Parser_dealloc(Parser* self)
     Py_XDECREF(self->on_error);
     Py_XDECREF(self->on_body);
     Py_XDECREF(self->on_headers);
-//    Py_XDECREF(self->request);
     Py_TYPE(self)->tp_free((PyObject*)self);
 #endif
 }
@@ -168,9 +160,6 @@ static size_t percent_decode(char* data, ssize_t length) {
 
 
 static int _parse_headers(Parser* self) {
-/*  PyObject* py_method = NULL;
-  PyObject* py_path = NULL;
-  PyObject* py_headers = NULL;*/
   PyObject* error;
 
   int result;
@@ -202,31 +191,11 @@ static int _parse_headers(Parser* self) {
     goto on_error;
   }
 
-/*#define if_method_equal(m) \
-if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
-{ \
-  py_method = m; \
-  Py_INCREF(m); \
-}
-  if_method_equal(GET)
-  else if_method_equal(POST)
-  else if_method_equal(DELETE)
-  else if_method_equal(HEAD)
-  else {
-    py_method = PyUnicode_FromStringAndSize(method, method_len);
-    if(!py_method) {
-      result = -3;
-      goto finally;
-    }
-  }
-#undef if_method_equal*/
-
 #define method_equal(m) \
 (method_len == strlen(#m) && memcmp(method, #m, method_len) == 0)
 
-/*  if(py_method == GET || py_method == DELETE || py_method == HEAD)*/
-    if(method_equal(GET) || method_equal(DELETE) || method_equal(HEAD))
-      self->no_semantics = true;
+  if(method_equal(GET) || method_equal(DELETE) || method_equal(HEAD))
+    self->no_semantics = true;
 
   path_len = percent_decode(path, path_len);
 
@@ -433,7 +402,6 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   Py_XDECREF(path_view);
   Py_XDECREF(method_view);
 #else
-  /*if(!Protocol_on_headers(self->protocol, (PyObject*)request)) {*/
   if(!Protocol_on_headers(self->protocol, method, method_len, path, path_len, minor_version, headers, num_headers)) {
     result = -3;
     goto finally;
@@ -465,15 +433,11 @@ if(method_len == strlen(#m) && strncmp(method, #m, method_len) == 0) \
   self->buffer_end = 0;
 
   finally:
-  /*Py_XDECREF(py_headers);
-  Py_XDECREF(py_path);
-  Py_XDECREF(py_method);*/
 
   return result;
 }
 
 static int _parse_body(Parser* self) {
-  //PyObject* body = NULL;
   char* body = NULL;
   size_t body_len = 0;
   int result = -2;
@@ -483,8 +447,6 @@ static int _parse_body(Parser* self) {
   }
 
   if(self->content_length == 0) {
-    /*Py_INCREF(empty_body);
-    body = empty_body;*/
     body = (char*)zero_body;
     result = 0;
     goto on_body;
@@ -496,11 +458,6 @@ static int _parse_body(Parser* self) {
       goto finally;
     }
 
-    /*body = PyBytes_FromStringAndSize(self->buffer + self->buffer_start, self->content_length);
-    if(!body) {
-      result = -3;
-      goto finally;
-    }*/
     body = self->buffer + self->buffer_start;
     body_len = self->content_length;
 
@@ -534,11 +491,6 @@ static int _parse_body(Parser* self) {
     if(result == -1)
       goto error;
 
-    /*body = PyBytes_FromStringAndSize(self->buffer + self->buffer_start, self->chunked_offset);
-    if(!body) {
-      result = -3;
-      goto finally;
-    }*/
     body = self->buffer + self->buffer_start;
     body_len = self->chunked_offset;
 
@@ -569,8 +521,6 @@ static int _parse_body(Parser* self) {
   }
 
 #ifdef PARSER_STANDALONE
-  /*PyObject* on_body_result = PyObject_CallFunctionObjArgs(
-    self->on_body, self->request, NULL);*/
   PyObject* body_view;
   if(body)
     body_view = PyMemoryView_FromMemory(body, body_len, PyBUF_READ);
@@ -589,13 +539,11 @@ static int _parse_body(Parser* self) {
   Py_XDECREF(body_view);
 #else
 
-  // if(!Protocol_on_body(self->protocol, self->request)) {
   if(!Protocol_on_body(self->protocol, body, body_len)) {
     result = -3;
     goto finally;
   };
 #endif
-  //Py_XDECREF(body);
 
   _reset_state(self);
 
@@ -715,8 +663,6 @@ Parser_feed_disconnect(Parser* self)
 #endif
 
   PyObject* error;
-
-  //PyObject* body = NULL;
   char* body = NULL;
   size_t body_len = 0;
 
@@ -731,19 +677,8 @@ Parser_feed_disconnect(Parser* self)
   }
 
   if(self->transfer == PARSER_IDENTITY) {
-    /*PyObject * body = PyBytes_FromStringAndSize(self->buffer + self->buffer_start, self->buffer_end - self->buffer_start);
-    if(!body)
-      return NULL;*/
     body = self->buffer + self->buffer_start;
     body_len = self->buffer_end - self->buffer_start;
-
-#if 0
-    if(PyObject_SetAttrString(self->request, "body", body) == -1)
-      return NULL; /* FIXME LEAK */
-#else
-    /*((Request*)(self->request))->body = body;
-    Py_INCREF(body);*/
-#endif
 
     goto on_body;
   }
@@ -759,8 +694,6 @@ Parser_feed_disconnect(Parser* self)
   PyObject* on_body_result;
   PyObject* body_view;
   on_body:
-  /*on_body_result = PyObject_CallFunctionObjArgs(
-    self->on_body, self->request, NULL);*/
   body_view = PyMemoryView_FromMemory(body, body_len, PyBUF_READ);
   on_body_result = PyObject_CallFunctionObjArgs(
     self->on_body, body_view, NULL);
@@ -770,7 +703,6 @@ Parser_feed_disconnect(Parser* self)
   Py_XDECREF(body_view);
 #else
   on_body:
-  // if(!Protocol_on_body(self->protocol, self->request)) {
   if(!Protocol_on_body(self->protocol, body, body_len)) {
     return NULL; /*FIXME LEAK*/
   }
@@ -794,7 +726,6 @@ Parser_feed_disconnect(Parser* self)
 #endif
 
   finally:
-  //Py_XDECREF(body);
   _reset_state(self);
   self->buffer_start = 0;
   self->buffer_end = 0;
@@ -929,24 +860,6 @@ cparser_init(void)
       goto error;
 #endif
 
-#if 0
-    request = PyImport_ImportModule("request");
-    if(!request)
-      goto error;
-
-    Request = PyObject_GetAttrString(request, "HttpRequest");
-    if(!Request)
-      goto error;
-#else
-  /*request = PyImport_ImportModule("request.crequest");
-  if(!request)
-    goto error;
-
-  PyRequest = PyObject_GetAttrString(request, "Request");
-  if(!PyRequest)
-    goto error;*/
-#endif
-
 #define alloc_static(name) \
     name = PyUnicode_FromString(#name); \
     if(!name) \
@@ -1029,11 +942,9 @@ cparser_init(void)
     Py_XDECREF(malformed_body);
     Py_XDECREF(malformed_headers);
 
-    //Py_XDECREF(PyRequest);
 #ifndef PARSER_STANDALONE
     m = -1;
 #endif
     finally:
-    //Py_XDECREF(request);
     return m;
 }
