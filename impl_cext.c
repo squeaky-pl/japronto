@@ -160,6 +160,12 @@ static size_t percent_decode(char* data, ssize_t length) {
 
 
 static int _parse_headers(Parser* self) {
+#ifdef PARSER_STANDALONE
+  PyObject* method_view = NULL;
+  PyObject* path_view = NULL;
+  PyObject* minor_version_long = NULL;
+  PyObject* headers_view = NULL;
+#endif
   PyObject* error;
 
   int result;
@@ -385,10 +391,10 @@ static int _parse_headers(Parser* self) {
 #endif
 
 #ifdef PARSER_STANDALONE
-  PyObject* method_view = PyMemoryView_FromMemory(method, method_len, PyBUF_READ);
-  PyObject* path_view = PyMemoryView_FromMemory(path, path_len, PyBUF_READ);
-  PyObject* minor_version_long = PyLong_FromLong(minor_version);
-  PyObject* headers_view = PyMemoryView_FromMemory((char*)headers, sizeof(struct phr_header) * num_headers, PyBUF_READ);
+  method_view = PyMemoryView_FromMemory(method, method_len, PyBUF_READ);
+  path_view = PyMemoryView_FromMemory(path, path_len, PyBUF_READ);
+  minor_version_long = PyLong_FromLong(minor_version);
+  headers_view = PyMemoryView_FromMemory((char*)headers, sizeof(struct phr_header) * num_headers, PyBUF_READ);
   // FIXME the functions above can fail
   PyObject* on_headers_result = PyObject_CallFunctionObjArgs(
     self->on_headers, method_view, path_view, minor_version_long, headers_view, NULL);
@@ -397,15 +403,11 @@ static int _parse_headers(Parser* self) {
     goto finally;
   }
   Py_DECREF(on_headers_result);
-  Py_XDECREF(headers_view);
-  Py_XDECREF(minor_version_long);
-  Py_XDECREF(path_view);
-  Py_XDECREF(method_view);
 #else
-  if(!Protocol_on_headers(self->protocol, method, method_len, path, path_len, minor_version, headers, num_headers)) {
-    result = -3;
-    goto finally;
-  }
+  if(!Protocol_on_headers(
+      self->protocol, method, method_len,
+      path, path_len, minor_version, headers, num_headers))
+    goto error;
 #endif
 
   goto finally;
@@ -415,24 +417,31 @@ static int _parse_headers(Parser* self) {
   on_error:
   on_error_result = PyObject_CallFunctionObjArgs(
     self->on_error, error, NULL);
-  if(!on_error_result) {
-    result = -3;
-    goto finally;
-  }
+  if(!on_error_result)
+    goto error;
   Py_DECREF(on_error_result);
 #else
   on_error:
-  if(!Protocol_on_error(self->protocol, error)) {
-    result = -3;
-    goto finally;
-  };
+  if(!Protocol_on_error(self->protocol, error))
+    goto error;
 #endif
 
   _reset_state(self);
   self->buffer_start = 0;
   self->buffer_end = 0;
 
+  goto finally;
+
+  error:
+  result = -3;
+
   finally:
+#ifdef PARSER_STANDALONE
+  Py_XDECREF(headers_view);
+  Py_XDECREF(minor_version_long);
+  Py_XDECREF(path_view);
+  Py_XDECREF(method_view);
+#endif
 
   return result;
 }
