@@ -192,7 +192,7 @@ class HttpRequestParser(object):
         if not self.transfer:
             self.on_error('incomplete_headers')
         elif self.transfer == 'identity':
-            self.on_body(ffi.buffer(self.buffer))
+            self.on_body(ffi.from_buffer(self.buffer))
         elif self.transfer == 'chunked':
             self.on_error('incomplete_body')
 

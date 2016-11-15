@@ -58,7 +58,8 @@ def _request_from_cprotocol(method: memoryview, path: memoryview, version: int,
 
 
 def _body_from_cprotocol(body: memoryview):
-    return body.tobytes()
+    return None if body is None else body.tobytes()
+
 
 
 def _request_from_cffiprotocol(method: "char[]", path: "char[]", version: int,
@@ -73,7 +74,7 @@ def _request_from_cffiprotocol(method: "char[]", path: "char[]", version: int,
 
 
 def _body_from_cffiprotocol(body: "char[]"):
-    return ffi.buffer(body)[:]
+    return None if body is None else ffi.buffer(body)[:]
 
 
 def _extract_headers(headers_cdata: "struct phr_header[]"):
@@ -107,20 +108,17 @@ def debug_callback(*args):
 
 
 if impl_cext:
-    def make_cext(cb_factory):
-        on_headers = cb_factory()
-        on_error = cb_factory()
-        on_body = cb_factory()
-        parser_cext = \
-            impl_cext.HttpRequestParser(on_headers, on_body, on_error)
+    def make_cext():
+        protocol = CTestProtocol()
+        parser = impl_cext.HttpRequestParser(
+            protocol.on_headers, protocol.on_body, protocol.on_error)
 
-        return parser_cext, on_headers, on_error, on_body
+        return parser, protocol
 
 
-def make_cffi(cb_factory):
-    on_headers = cb_factory()
-    on_error = cb_factory()
-    on_body = cb_factory()
-    parser_cffi = impl_cffi.HttpRequestParser(on_headers, on_body, on_error)
+def make_cffi():
+    protocol = CffiTestProtocol()
+    parser = impl_cffi.HttpRequestParser(
+        protocol.on_headers, protocol.on_body, protocol.on_error)
 
-    return parser_cffi, on_headers, on_error, on_body
+    return parser, protocol
