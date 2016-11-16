@@ -6,8 +6,6 @@
 #include "cprotocol.h"
 #endif
 
-#include "crequest.h"
-
 static PyObject* malformed_headers;
 static PyObject* malformed_body;
 static PyObject* incomplete_headers;
@@ -187,16 +185,10 @@ static int _parse_headers(Parser* self) {
   else
     self->transfer = PARSER_CHUNKED;
 
-/*  py_headers = PyDict_New();
-  if(!py_headers) {
-    result = -3;
-    goto finally;
-  }*/
-
 #define header_name_equal(val) \
-  header.name_len == strlen(val) && strncasecmp(header.name, val, header.name_len) == 0
+  header->name_len == strlen(val) && strncasecmp(header->name, val, header->name_len) == 0
 #define header_value_equal(val) \
-  header.value_len == strlen(val) && strncasecmp(header.value, val, header.value_len) == 0
+  header->value_len == strlen(val) && strncasecmp(header->value, val, header->value_len) == 0
 /*#define cmp_and_set_header_name(name, val) \
   if(header_name_equal(val)) { \
       py_header_name = name; \
@@ -208,8 +200,9 @@ static int _parse_headers(Parser* self) {
       Py_INCREF(name); \
   }*/
 
-  for(size_t i = 0; i < num_headers; i++) {
-    struct phr_header header = headers[i];
+  for(struct phr_header* header = headers;
+      header < headers + num_headers;
+      header++) {
 
     // TODO: common names and values static
     /*PyObject* py_header_name = NULL;
@@ -226,21 +219,21 @@ static int _parse_headers(Parser* self) {
       /*py_header_name = Transfer_Encoding;
       Py_INCREF(Transfer_Encoding);*/
     } else if(header_name_equal("Content-Length")) {
-      if(!header.value_len) {
+      if(!header->value_len) {
         error = invalid_headers;
         goto on_error;
       }
 
-      if(*header.value == '+' || *header.value == '-') {
+      if(*header->value == '+' || *header->value == '-') {
         error = invalid_headers;
         goto on_error;
       }
 
-      char * endptr = (char *)header.value + header.value_len;
-      self->content_length = strtol(header.value, &endptr, 10);
+      char * endptr = (char *)header->value + header->value_len;
+      self->content_length = strtol(header->value, &endptr, 10);
       // FIXME: overflow?
 
-      if(endptr != (char*)header.value + header.value_len) {
+      if(endptr != (char*)header->value + header->value_len) {
         error = invalid_headers;
         goto on_error;
       }
@@ -317,33 +310,6 @@ static int _parse_headers(Parser* self) {
     printf("self->transfer: chunked\n");
 #endif
 
-  // FIXME in the future this should be moved after callback to be safe from SEGFAULT
-  self->buffer_start += (size_t)result;
-#if 0
-  PyObject* request = PyObject_CallFunctionObjArgs(
-    Request, py_method, py_path, py_version, py_headers, NULL);
-#else
-  //Request* request = (Request*)PyObject_CallFunctionObjArgs(PyRequest, NULL);
-#endif
-  /*if(!request) {
-    result = -3;
-    goto finally;
-  }
-  Py_DECREF(self->request);*/
-#if 0
-  self->request = request;
-#else
-  /*self->request = (PyObject*)request;
-  request->method_len = method_len;
-  memcpy(REQUEST_METHOD(request), method, method_len);
-  request->path_len = path_len;
-  memcpy(REQUEST_PATH(request), path, path_len);
-  request->version = py_version;
-  Py_INCREF(py_version);
-  request->headers = py_headers;
-  Py_INCREF(py_headers);*/
-#endif
-
 #ifdef PARSER_STANDALONE
   method_view = PyMemoryView_FromMemory(method, method_len, PyBUF_READ);
   path_view = PyMemoryView_FromMemory(path, path_len, PyBUF_READ);
@@ -361,6 +327,8 @@ static int _parse_headers(Parser* self) {
       path, path_len, minor_version, headers, num_headers))
     goto error;
 #endif
+
+  self->buffer_start += (size_t)result;
 
   goto finally;
 
