@@ -113,17 +113,73 @@ Request_get_decoded_path(Request* self, size_t* path_len) {
 }
 
 
+static void title_case(char* data, size_t len)
+{
+  bool prev_alpha = false;
+  for(char* c = data; c < data + len; c++) {
+    if(*c >= 'A' && *c <= 'Z') {
+      if(prev_alpha)
+        *c ^= 0x20;
+      prev_alpha = true;
+    } else if (*c >= 'a' && *c <= 'z') {
+      if(!prev_alpha)
+        *c ^= 0x20;
+      prev_alpha = true;
+    } else
+      prev_alpha = false;
+  }
+}
+
+
 static PyObject*
 Request_decode_headers(Request* self)
 {
-  PyObject* result = PyDict_New();
-  if(!result)
+  PyObject* result = NULL;
+  PyObject* headers = PyDict_New();
+  if(!headers)
     goto error;
+  result = headers;
+
+  for(struct phr_header* header = self->headers;
+      header < self->headers + self->num_headers;
+      header++) {
+
+      PyObject* name = NULL;
+      PyObject* value = NULL;
+
+      title_case((char*)header->name, header->name_len);
+      // TODO by inserting 0 byte we could call PyDict_SetItemString
+
+      // FIXME check ASCII
+      name = PyUnicode_FromStringAndSize(header->name, header->name_len);
+      if(!name)
+        goto loop_error;
+
+      // FIXME this can fail on codec errors
+      value = PyUnicode_DecodeLatin1(header->value, header->value_len, NULL);
+      if(!value)
+        goto loop_error;
+
+      if(PyDict_SetItem(headers, name, value) == -1)
+        goto loop_error;
+
+      goto loop_finally;
+
+      loop_error:
+      result = NULL;
+
+      loop_finally:
+      Py_XDECREF(name);
+      Py_XDECREF(value);
+
+      if(!result)
+        goto error;
+  }
 
   goto finally;
 
   error:
-  Py_XDECREF(result);
+  Py_XDECREF(headers);
   result = NULL;
 
   finally:
