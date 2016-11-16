@@ -11,11 +11,11 @@ static PyObject* malformed_body;
 static PyObject* incomplete_headers;
 static PyObject* invalid_headers;
 static PyObject* incomplete_body;
-static PyObject* empty_body;
+//static PyObject* empty_body;
 
 const char zero_body[] = "";
 
-static PyObject* GET;
+/*static PyObject* GET;
 static PyObject* POST;
 static PyObject* DELETE;
 static PyObject* HEAD;
@@ -30,7 +30,7 @@ static PyObject* Cookie;
 static PyObject* Content_Length;
 static PyObject* Transfer_Encoding;
 static PyObject* val_close;
-static PyObject* keep_alive;
+static PyObject* keep_alive;*/
 
 
 static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
@@ -750,13 +750,12 @@ int
 cparser_init(void)
 #endif
 {
-//    PyRequest = NULL;
     malformed_headers = NULL;
     invalid_headers = NULL;
     malformed_body = NULL;
     incomplete_headers = NULL;
     incomplete_body = NULL;
-    empty_body = NULL;
+    /*empty_body = NULL;
     GET = NULL;
     POST = NULL;
     DELETE = NULL;
@@ -772,7 +771,7 @@ cparser_init(void)
     Content_Length = NULL;
     Transfer_Encoding = NULL;
     val_close = NULL;
-    keep_alive = NULL;
+    keep_alive = NULL;*/
 #ifdef PARSER_STANDALONE
     PyObject* m = NULL;
 #else
@@ -803,7 +802,7 @@ cparser_init(void)
     alloc_static(invalid_headers)
     alloc_static(incomplete_body)
 
-    empty_body = PyBytes_FromString("");
+    /*empty_body = PyBytes_FromString("");
     if(!empty_body)
       goto error;
 
@@ -824,7 +823,7 @@ cparser_init(void)
     alloc_static2(Transfer_Encoding, "Transfer-Encoding")
 
     alloc_static2(val_close, "close")
-    alloc_static2(keep_alive, "keep-alive")
+    alloc_static2(keep_alive, "keep-alive")*/
 
 #undef alloc_static
 #undef alloc_static2
@@ -838,7 +837,7 @@ cparser_init(void)
     goto finally;
 
     error:
-    Py_XDECREF(keep_alive);
+    /*Py_XDECREF(keep_alive);
     Py_XDECREF(val_close);
 
     Py_XDECREF(Transfer_Encoding);
@@ -857,7 +856,7 @@ cparser_init(void)
     Py_XDECREF(POST);
     Py_XDECREF(GET);
 
-    Py_XDECREF(empty_body);
+    Py_XDECREF(empty_body);*/
     Py_XDECREF(incomplete_body);
     Py_XDECREF(invalid_headers);
     Py_XDECREF(incomplete_headers);
