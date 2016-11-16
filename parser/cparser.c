@@ -1,6 +1,6 @@
 #include <sys/param.h>
 
-#include "impl_cext.h"
+#include "cparser.h"
 
 #ifndef PARSER_STANDALONE
 #include "cprotocol.h"
@@ -744,7 +744,7 @@ static PyModuleDef impl_cext = {
 
 #ifdef PARSER_STANDALONE
 PyMODINIT_FUNC
-PyInit_impl_cext(void)
+PyInit_cparser(void)
 #else
 int
 cparser_init(void)

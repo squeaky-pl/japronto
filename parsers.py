@@ -6,9 +6,9 @@ from request import HttpRequest
 
 import impl_cffi
 try:
-    import impl_cext
+    from parser import cparser
 except ImportError:
-    impl_cext = None
+    cparser = None
 
 
 class NullProtocol:
@@ -108,20 +108,10 @@ CffiTestProtocol = partial(
     on_body_adapter=_body_from_cffiprotocol)
 
 
-def silent_callback(*args):
-    pass
-
-
-def debug_callback(*args):
-    print(args)
-    if isinstance(args[0], impl_cffi.HttpRequest):
-        print(args[0].body)
-
-
-if impl_cext:
+if cparser:
     def make_cext(protocol_factory=CTestProtocol):
         protocol = protocol_factory()
-        parser = impl_cext.HttpRequestParser(
+        parser = cparser.HttpRequestParser(
             protocol.on_headers, protocol.on_body, protocol.on_error)
 
         return parser, protocol

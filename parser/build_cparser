@@ -4,6 +4,6 @@ set -ex
 
 mkdir -p build/temp.linux-x86_64-3.5
 find build -name "*.[so]*" | xargs rm || true
-cp impl_cext.gcda build/temp.linux-x86_64-3.5
-python build_impl_cext.py build $@
+cp cparser.gcda build/temp.linux-x86_64-3.5
+python build_cparser.py build $@
 cp build/lib.linux-x86_64-3.5/*.so .
