@@ -114,6 +114,24 @@ Request_get_decoded_path(Request* self, size_t* path_len) {
 
 
 static PyObject*
+Request_decode_headers(Request* self)
+{
+  PyObject* result = PyDict_New();
+  if(!result)
+    goto error;
+
+  goto finally;
+
+  error:
+  Py_XDECREF(result);
+  result = NULL;
+
+  finally:
+  return result;
+}
+
+
+static PyObject*
 Request_getattr(Request* self, char* name)
 {
   PyObject* result;
@@ -147,13 +165,18 @@ Request_getattr(Request* self, char* name)
     goto finally;
   }
 
-/*  if(strcmp(name, "headers") == 0) {
-    // FIXME
-    result = self->headers;
+  if(strcmp(name, "headers") == 0) {
+    if(!self->py_headers) {
+      self->py_headers = Request_decode_headers(self);
+      if(!self->py_headers)
+        goto error;
+    }
+
+    result = self->py_headers;
     goto finally;
   }
 
-  if(strcmp(name, "body") == 0) {
+/*  if(strcmp(name, "body") == 0) {
     // FIXME
     result = self->body;
     goto finally;
