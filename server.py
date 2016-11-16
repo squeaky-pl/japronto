@@ -23,11 +23,25 @@ def hello(request, transport, response):
     transport.write(response.render())
 
 
+def dump(request, transport, response):
+    text = """
+Method: {0.method}
+Path: {0.path}
+Version: {0.version}
+Headers: {0.headers}
+""".strip().format(request)
+
+    response.__init__(text=text)
+
+    transport.write(response.render())
+
+
 app = Application()
 
 r = app.get_router()
 r.add_route('/', slash)
 r.add_route('/hello', hello)
+r.add_route('/dump', dump)
 
 
 if __name__ == '__main__':
