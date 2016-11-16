@@ -44,7 +44,7 @@ if __name__ == '__main__':
     setup = """
 import parsers
 import do_perf
-parser, *_ = parsers.make_{}(lambda: parsers.silent_callback)
+parser, _ = parsers.make_{}(parsers.NullProtocol)
 data = do_perf.get_{}()
 """
 

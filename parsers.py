@@ -11,6 +11,17 @@ except ImportError:
     impl_cext = None
 
 
+class NullProtocol:
+    def on_headers(self, *args):
+        pass
+
+    def on_body(self, body):
+        pass
+
+    def on_error(self, error):
+        pass
+
+
 class TestProtocol:
     def __init__(self, on_headers_adapter: callable,
                  on_body_adapter: callable):
@@ -108,16 +119,16 @@ def debug_callback(*args):
 
 
 if impl_cext:
-    def make_cext():
-        protocol = CTestProtocol()
+    def make_cext(protocol_factory=CTestProtocol):
+        protocol = protocol_factory()
         parser = impl_cext.HttpRequestParser(
             protocol.on_headers, protocol.on_body, protocol.on_error)
 
         return parser, protocol
 
 
-def make_cffi():
-    protocol = CffiTestProtocol()
+def make_cffi(protocol_factory=CffiTestProtocol):
+    protocol = protocol_factory()
     parser = impl_cffi.HttpRequestParser(
         protocol.on_headers, protocol.on_body, protocol.on_error)
 
