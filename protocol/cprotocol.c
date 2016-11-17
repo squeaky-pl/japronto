@@ -1,17 +1,21 @@
 #include <Python.h>
 
 
-//#define PARSER_STANDALONE 1
-
 #include "cprotocol.h"
 #include "cmatcher.h"
 #include "crequest.h"
+#include "capsule.h"
+
 
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
 static PyObject* Response;
 static PyObject* PyRequest;
+
+
+static Request_CAPI* request_capi;
+static Matcher_CAPI* matcher_capi;
 
 
 static PyObject *
@@ -210,7 +214,7 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
   if(!self->request)
     goto error;
 
-  Request_from_raw(
+  request_capi->Request_from_raw(
     (Request*)self->request, method, method_len, path, path_len, minor_version,
     headers, num_headers);
 
@@ -247,7 +251,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 */ // FIXME implement body setting
 #endif
 
-  route = Matcher_match_request(self->matcher, self->request, &handler);
+  route = matcher_capi->Matcher_match_request(
+    (Matcher*)self->matcher, self->request, &handler);
   if(!route)
     goto error;
 
@@ -406,6 +411,14 @@ PyInit_cprotocol(void)
   if(!Response)
     goto error;
 
+  request_capi = import_capi("request.crequest");
+  if(!request_capi)
+    goto error;
+
+  matcher_capi = import_capi("router.cmatcher");
+  if(!matcher_capi)
+    goto error;
+
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
@@ -417,6 +430,7 @@ PyInit_cprotocol(void)
 #ifdef PARSER_STANDALONE
   Py_XDECREF(Parser);
 #endif
+  m = NULL;
   finally:
   Py_XDECREF(cresponse);
   Py_XDECREF(crequest);

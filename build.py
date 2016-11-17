@@ -1,13 +1,14 @@
 import distutils
-from distutils.command.build_ext import build_ext
+from distutils.command.build_ext import build_ext, CompileError
 from distutils.core import Distribution
 from glob import glob
 import os.path
 import shutil
 from importlib import import_module
 import os.path
+import sys
 
-ext_dirs = ['parser', 'request', 'response', 'router']
+ext_dirs = ['parser', 'request', 'response', 'router', 'protocol']
 
 
 def discover_extensions():
@@ -41,7 +42,11 @@ def main():
 
     cmd = build_ext(dist)
     cmd.finalize_options()
-    cmd.run()
+
+    try:
+        cmd.run()
+    except CompileError:
+        sys.exit(1)
 
     for ext_module in ext_modules:
         shutil.copy(
