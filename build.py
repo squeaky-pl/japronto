@@ -45,6 +45,12 @@ def main():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
         '-d', dest='debug', const=True, action='store_const', default=False)
+    argparser.add_argument(
+        '--profile-generate', dest='profile_generate', const=True,
+        action='store_const', default=False)
+    argparser.add_argument(
+        '--profile-use', dest='profile_use', const=True,
+        action='store_const', default=False)
     args = argparser.parse_args(sys.argv[1:])
 
     distutils.log.set_verbosity(1)
@@ -55,6 +61,15 @@ def main():
     if args.debug:
         for ext_module in ext_modules:
             ext_module.extra_compile_args.extend(['-g', '-O0'])
+    if args.profile_generate:
+        for ext_module in ext_modules:
+            ext_module.extra_compile_args.append('--profile-generate')
+            ext_module.extra_link_args.append('-lgcov')
+    if args.profile_use:
+        for ext_module in ext_modules:
+            if ext_module.name == 'parser.cparser':
+                continue
+            ext_module.extra_compile_args.append('--profile-use')
 
     for ext_module in ext_modules:
         ext_module.extra_compile_args.append('-flto')
