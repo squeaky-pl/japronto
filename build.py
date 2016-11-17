@@ -6,7 +6,7 @@ from glob import glob
 import os.path
 import shutil
 from importlib import import_module
-import os.path
+import os
 import sys
 
 
@@ -34,6 +34,13 @@ def dest_folder(mod_name):
     return '/'.join(mod_name.split('.')[:-1])
 
 
+def prune():
+    paths = glob('build/**/*.o', recursive=True)
+    paths.extend(glob('build/**/*.so', recursive=True))
+    for path in paths:
+        os.remove(path)
+
+
 def main():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
@@ -53,7 +60,7 @@ def main():
         ext_module.extra_compile_args.append('-flto')
         ext_module.extra_link_args.append('-flto')
 
-    shutil.rmtree('build')
+    prune()
 
     cmd = build_ext(dist)
     cmd.finalize_options()
