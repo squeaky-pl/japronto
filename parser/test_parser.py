@@ -15,7 +15,7 @@ except ImportError:
 
 
 if cparser:
-    def make_cext(protocol_factory=CTracingProtocol):
+    def make_c(protocol_factory=CTracingProtocol):
         protocol = protocol_factory()
         parser = cparser.HttpRequestParser(
             protocol.on_headers, protocol.on_body, protocol.on_error)
@@ -29,16 +29,6 @@ def make_cffi(protocol_factory=CffiTracingProtocol):
         protocol.on_headers, protocol.on_body, protocol.on_error)
 
     return parser, protocol
-
-
-def make_part_functions():
-    return [
-        one_part,
-        partial(make_parts, get_size=15),
-        partial(make_parts, get_size=geometric_series()),
-        partial(make_parts, get_size=geometric_series(), dir=-1),
-        partial(make_parts, get_size=fancy_series())
-    ]
 
 
 @pytest.mark.parametrize('data,get_size,dir,parts',
@@ -57,9 +47,9 @@ def test_make_parts(data, get_size, dir, parts):
 def parametrize_make_parser():
     ids = []
     factories = []
-    if 'make_cext' in globals():
-        factories.append(make_cext)
-        ids.append('cext')
+    if 'make_c' in globals():
+        factories.append(make_c)
+        ids.append('c')
 
     factories.append(make_cffi)
     ids.append('cffi')
@@ -67,7 +57,21 @@ def parametrize_make_parser():
     return pytest.mark.parametrize('make_parser', factories, ids=ids)
 
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
+def parametrize_do_parts():
+    funcs = [
+        one_part,
+        partial(make_parts, get_size=15),
+        partial(make_parts, get_size=geometric_series()),
+        partial(make_parts, get_size=geometric_series(), dir=-1),
+        partial(make_parts, get_size=fancy_series())
+    ]
+
+    ids = ['one', 'const', 'geom', 'invgeom', 'fancy']
+
+    return pytest.mark.parametrize('do_parts', funcs, ids=ids)
+
+
+@parametrize_do_parts()
 @parametrize_cases(
     'base',
     '10long', '10short', '10long+10short', '10short+10long',
@@ -127,7 +131,7 @@ def test_empty(make_parser):
     assert not protocol.on_body_call_count
 
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
+@parametrize_do_parts()
 @parametrize_cases(
     'base',
     '11get', '11clget', '11clkeep', '11clzero', '11clclose',
@@ -191,7 +195,7 @@ def test_http11_contentlength(make_parser, do_parts, cases):
     assert protocol.on_body_call_count == body_count
 
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
+@parametrize_do_parts()
 @parametrize_cases(
     'base',
     '11chunked1', '11chunked2', '11chunked3', '11chunkedzero',
@@ -252,7 +256,7 @@ def test_http11_chunked(make_parser, do_parts, cases):
     assert protocol.on_body_call_count == body_count
 
 
-@pytest.mark.parametrize('do_parts', make_part_functions())
+@parametrize_do_parts()
 @parametrize_cases(
     'base',
     '11chunked1+11clzero',
