@@ -363,7 +363,7 @@ PyInit_cprotocol(void)
 {
   PyObject* m = NULL;
 #ifdef PARSER_STANDALONE
-  PyObject* impl_cext = NULL;
+  PyObject* cparser = NULL;
   Parser = NULL;
 #endif
   PyObject* cresponse = NULL;
@@ -378,11 +378,11 @@ PyInit_cprotocol(void)
     goto error;
 
 #ifdef PARSER_STANDALONE
-  impl_cext = PyImport_ImportModule("impl_cext");
-  if(!impl_cext)
+  cparser = PyImport_ImportModule("parser.cparser");
+  if(!cparser)
     goto error;
 
-  Parser = PyObject_GetAttrString(impl_cext, "HttpRequestParser");
+  Parser = PyObject_GetAttrString(cparser, "HttpRequestParser");
   if(!Parser)
     goto error;
 #else
@@ -421,7 +421,7 @@ PyInit_cprotocol(void)
   Py_XDECREF(cresponse);
   Py_XDECREF(crequest);
 #ifdef PARSER_STANDALONE
-  Py_XDECREF(impl_cext);
+  Py_XDECREF(cparser);
 #endif
   return m;
 }

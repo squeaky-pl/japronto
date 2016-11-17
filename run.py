@@ -1,7 +1,7 @@
 import impl_cffi
 
 try:
-    import impl_cext
+    from parser import cparser
 except ImportError:
     pass
 

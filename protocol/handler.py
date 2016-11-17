@@ -19,10 +19,10 @@ def make_class(flavor):
     if flavor == 'c':
         return CProtocol
 
-    import impl_cext
+    from parser import cparser
     class HttpProtocol(asyncio.Protocol):
         def __init__(self, loop, handler):
-            self.parser = impl_cext.HttpRequestParser(
+            self.parser = cparser.HttpRequestParser(
                 self.on_headers, self.on_body, self.on_error)
             self.loop = loop
             self.response = Response()

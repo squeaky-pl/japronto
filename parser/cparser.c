@@ -694,7 +694,7 @@ static PyMethodDef Parser_methods[] = {
 
 static PyTypeObject ParserType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "impl_cext.HttpRequestParser",       /* tp_name */
+    "cparser.HttpRequestParser",       /* tp_name */
     sizeof(Parser), /* tp_basicsize */
     0,                         /* tp_itemsize */
     (destructor)Parser_dealloc, /* tp_dealloc */
@@ -733,10 +733,10 @@ static PyTypeObject ParserType = {
     Parser_new,                /* tp_new */
 };
 
-static PyModuleDef impl_cext = {
+static PyModuleDef cparser = {
     PyModuleDef_HEAD_INIT,
-    "impl_cext",
-    "impl_cext",
+    "cparser",
+    "cparser",
     -1,
     NULL, NULL, NULL, NULL, NULL
 };
@@ -782,7 +782,7 @@ cparser_init(void)
     if (PyType_Ready(&ParserType) < 0)
         goto error;
 
-    m = PyModule_Create(&impl_cext);
+    m = PyModule_Create(&cparser);
     if (!m)
       goto error;
 #endif
