@@ -3,6 +3,7 @@
 #include "crequest.h"
 
 #include "picohttpparser.h"
+#include "capsule.h"
 
 
 
@@ -302,6 +303,7 @@ PyMODINIT_FUNC
 PyInit_crequest(void)
 {
   PyObject* m = NULL;
+  PyObject* api_capsule = NULL;
 
   HTTP10 = NULL;
   HTTP11 = NULL;
@@ -324,12 +326,22 @@ PyInit_crequest(void)
   Py_INCREF(&RequestType);
   PyModule_AddObject(m, "Request", (PyObject*)&RequestType);
 
+  static Request_CAPI capi = {
+    Request_from_raw,
+    Request_get_decoded_path
+  };
+  api_capsule = export_capi(m, "request.crequest", &capi);
+  if(!api_capsule)
+    goto error;
+
   goto finally;
 
   error:
   Py_XDECREF(HTTP10);
   Py_XDECREF(HTTP11);
+  m = NULL;
 
   finally:
+  Py_XDECREF(api_capsule);
   return m;
 }

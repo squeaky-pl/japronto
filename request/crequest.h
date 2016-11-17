@@ -31,10 +31,13 @@ typedef struct {
   REQUEST(r)->path
 
 
-void
-Request_from_raw(Request* self, char* method, size_t method_len, char* path, size_t path_len,
-                 int minor_version,
-                 struct phr_header* headers, size_t num_headers);
+typedef struct {
+  void (*Request_from_raw)
+    (Request* self, char* method, size_t method_len,
+     char* path, size_t path_len,
+     int minor_version,
+     struct phr_header* headers, size_t num_headers);
 
-char*
-Request_get_decoded_path(Request* self, size_t* path_len);
+  char* (*Request_get_decoded_path)
+    (Request* self, size_t* path_len);
+} Request_CAPI;

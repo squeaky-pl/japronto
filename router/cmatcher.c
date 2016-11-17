@@ -1,14 +1,16 @@
 #include <Python.h>
 
+#include "cmatcher.h"
 #include "crequest.h"
+#include "capsule.h"
 
 
-typedef struct {
+struct _Matcher {
   PyObject_HEAD
 
   char* buffer;
   size_t buffer_len;
-} Matcher;
+};
 
 
 typedef struct {
@@ -18,6 +20,9 @@ typedef struct {
   size_t methods_len;
   char buffer[];
 } MatcherEntry;
+
+
+static Request_CAPI* request_capi;
 
 
 static PyObject *
@@ -253,7 +258,8 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
   size_t method_len = REQUEST(request)->method_len;
   char* method_str = REQUEST_METHOD(request);
   size_t path_len;
-  char* path_str = Request_get_decoded_path(REQUEST(request), &path_len);
+  char* path_str = request_capi->Request_get_decoded_path(
+    REQUEST(request), &path_len);
 #endif
 
   ENTRY_LOOP {
@@ -394,6 +400,7 @@ PyMODINIT_FUNC
 PyInit_cmatcher(void)
 {
   PyObject* m = NULL;
+  PyObject* api_capsule = NULL;
 
   if (PyType_Ready(&MatcherType) < 0)
     goto error;
@@ -402,12 +409,24 @@ PyInit_cmatcher(void)
   if(!m)
     goto error;
 
+  request_capi = import_capi("request.crequest");
+  if(!request_capi)
+    goto error;
+
   Py_INCREF(&MatcherType);
   PyModule_AddObject(m, "Matcher", (PyObject*)&MatcherType);
+
+  static Matcher_CAPI capi = { Matcher_match_request };
+  api_capsule = export_capi(m, "router.cmatcher", &capi);
+  if(!api_capsule)
+    goto error;
 
   goto finally;
 
   error:
+  m = NULL;
+
   finally:
+  Py_XDECREF(api_capsule);
   return m;
 }
