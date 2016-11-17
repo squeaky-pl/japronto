@@ -1,3 +1,4 @@
+import argparse
 import distutils
 from distutils.command.build_ext import build_ext, CompileError
 from distutils.core import Distribution
@@ -7,6 +8,7 @@ import shutil
 from importlib import import_module
 import os.path
 import sys
+
 
 ext_dirs = ['parser', 'request', 'response', 'router', 'protocol']
 
@@ -33,10 +35,19 @@ def dest_folder(mod_name):
 
 
 def main():
+    argparser = argparse.ArgumentParser('build')
+    argparser.add_argument(
+        '-d', dest='debug', const=True, action='store_const', default=False)
+    args = argparser.parse_args(sys.argv[1:])
+
     distutils.log.set_verbosity(1)
 
     ext_modules = discover_extensions()
     dist = Distribution(dict(ext_modules=ext_modules))
+
+    if args.debug:
+        for ext_module in ext_modules:
+            ext_module.extra_compile_args.extend(['-g', '-O0'])
 
     shutil.rmtree('build')
 
