@@ -1,4 +1,4 @@
-from libpicohttpparser import ffi, lib
+from parser.libpicohttpparser import ffi, lib
 
 
 class HttpRequestParser(object):

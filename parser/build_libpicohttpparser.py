@@ -3,7 +3,7 @@ import os.path
 import cffi
 ffibuilder = cffi.FFI()
 
-shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'picohttpparser'))
+shared_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../picohttpparser'))
 
 
 ffibuilder.set_source("libpicohttpparser", """

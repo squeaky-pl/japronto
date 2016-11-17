@@ -1,10 +1,10 @@
 from functools import partial
 
-from libpicohttpparser import ffi
+from parser.libpicohttpparser import ffi
 from request import HttpRequest
 
 
-import impl_cffi
+from parser import cffiparser
 try:
     from parser import cparser
 except ImportError:
@@ -119,7 +119,7 @@ if cparser:
 
 def make_cffi(protocol_factory=CffiTestProtocol):
     protocol = protocol_factory()
-    parser = impl_cffi.HttpRequestParser(
+    parser = cffiparser.HttpRequestParser(
         protocol.on_headers, protocol.on_body, protocol.on_error)
 
     return parser, protocol
