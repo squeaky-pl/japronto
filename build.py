@@ -49,6 +49,10 @@ def main():
         for ext_module in ext_modules:
             ext_module.extra_compile_args.extend(['-g', '-O0'])
 
+    for ext_module in ext_modules:
+        ext_module.extra_compile_args.append('-flto')
+        ext_module.extra_link_args.append('-flto')
+
     shutil.rmtree('build')
 
     cmd = build_ext(dist)
