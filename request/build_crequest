@@ -1,8 +1,0 @@
-#!/bin/bash
-
-set -ex
-
-mkdir -p build/temp.linux-x86_64-3.5
-find build -name "*.[so]*" | xargs rm || true
-python build_crequest.py build $@
-cp build/lib.linux-x86_64-3.5/*.so .
