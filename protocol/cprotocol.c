@@ -398,7 +398,7 @@ PyInit_cprotocol(void)
   if(!PyRequest)
     goto error;
 
-  cresponse = PyImport_ImportModule("responses.cresponse");
+  cresponse = PyImport_ImportModule("response.cresponse");
   if(!cresponse)
     goto error;
 

@@ -3,7 +3,7 @@ import uvloop
 import argparse
 import sys
 
-import protocols.handler
+import protocol.handler
 
 
 from router.cmatcher import Matcher
@@ -50,4 +50,4 @@ if __name__ == '__main__':
         '-p', dest='flavor', default='block')
     args = argparser.parse_args(sys.argv[1:])
 
-    app.serve(protocols.handler.make_class(args.flavor))
+    app.serve(protocol.handler.make_class(args.flavor))

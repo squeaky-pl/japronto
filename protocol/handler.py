@@ -3,8 +3,8 @@ from asyncio.queues import Queue
 
 
 #from responses.py import factory, dispose, Response
-from responses.cresponse import Response
-from protocols.cprotocol import Protocol as CProtocol
+from response.cresponse import Response
+from protocol.cprotocol import Protocol as CProtocol
 
 static_response = b"""HTTP/1.1 200 OK\r
 Connection: keep-alive\r
