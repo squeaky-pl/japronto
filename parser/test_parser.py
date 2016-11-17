@@ -4,10 +4,31 @@ from itertools import zip_longest
 
 import pytest
 
-
 from cases import base, parametrize_cases
 from parts import one_part, make_parts, geometric_series, fancy_series
-import parsers
+from protocol.tracing import CTracingProtocol, CffiTracingProtocol
+from parser import cffiparser
+try:
+    from parser import cparser
+except ImportError:
+    cparser = None
+
+
+if cparser:
+    def make_cext(protocol_factory=CTracingProtocol):
+        protocol = protocol_factory()
+        parser = cparser.HttpRequestParser(
+            protocol.on_headers, protocol.on_body, protocol.on_error)
+
+        return parser, protocol
+
+
+def make_cffi(protocol_factory=CffiTracingProtocol):
+    protocol = protocol_factory()
+    parser = cffiparser.HttpRequestParser(
+        protocol.on_headers, protocol.on_body, protocol.on_error)
+
+    return parser, protocol
 
 
 def make_part_functions():
@@ -36,11 +57,11 @@ def test_make_parts(data, get_size, dir, parts):
 def parametrize_make_parser():
     ids = []
     factories = []
-    if hasattr(parsers, 'make_cext'):
-        factories.append(parsers.make_cext)
+    if 'make_cext' in globals():
+        factories.append(make_cext)
         ids.append('cext')
 
-    factories.append(parsers.make_cffi)
+    factories.append(make_cffi)
     ids.append('cffi')
 
     return pytest.mark.parametrize('make_parser', factories, ids=ids)
