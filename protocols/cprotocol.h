@@ -1,7 +1,7 @@
 #pragma once
 
 #ifndef PARSER_STANDALONE
-#include "impl_cext.h"
+#include "cparser.h"
 #endif
 
 typedef struct {
