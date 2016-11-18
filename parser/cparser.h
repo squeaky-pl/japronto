@@ -13,9 +13,15 @@ enum Parser_state {
 
 
 enum Parser_transfer {
-  PARSER_UNSET,
+  PARSER_TRANSFER_UNSET,
   PARSER_IDENTITY,
   PARSER_CHUNKED
+};
+
+enum Parser_connection {
+  PARSER_CONNECTION_UNSET,
+  PARSER_CLOSE,
+  PARSER_KEEP_ALIVE
 };
 
 
@@ -26,6 +32,7 @@ typedef struct {
 
     enum Parser_state state;
     enum Parser_transfer transfer;
+    enum Parser_connection connection;
 
     unsigned long content_length;
     struct phr_chunked_decoder chunked_decoder;

@@ -38,7 +38,7 @@ static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 
 static void _reset_state(Parser* self) {
     self->state = PARSER_HEADERS;
-    self->transfer = PARSER_UNSET;
+    self->transfer = PARSER_TRANSFER_UNSET;
     self->content_length = CONTENT_LENGTH_UNSET;
     memset(&self->chunked_decoder, 0, sizeof(struct phr_chunked_decoder));
     self->chunked_decoder.consume_trailer = 1;
@@ -99,6 +99,7 @@ Parser_init(Parser* self, void* protocol)
 #endif
 
     _reset_state(self);
+    self->connection = PARSER_CONNECTION_UNSET;
 
     self->buffer_start = 0;
     self->buffer_end = 0;
@@ -180,10 +181,13 @@ static int _parse_headers(Parser* self) {
   if(method_equal(GET) || method_equal(DELETE) || method_equal(HEAD))
     self->no_semantics = true;
 
-  if(minor_version == 0)
+  if(minor_version == 0) {
     self->transfer = PARSER_IDENTITY;
-  else
+    self->connection = PARSER_CLOSE;
+  } else {
     self->transfer = PARSER_CHUNKED;
+    self->connection = PARSER_KEEP_ALIVE;
+  }
 
 #define header_name_equal(val) \
   header->name_len == strlen(val) && strncasecmp(header->name, val, header->name_len) == 0
@@ -237,7 +241,13 @@ static int _parse_headers(Parser* self) {
         error = invalid_headers;
         goto on_error;
       }
-
+    } else if(header_name_equal("Connection")) {
+      if(header_value_equal("close"))
+        self->connection = PARSER_CLOSE;
+      else if(header_value_equal("keep-alive"))
+        self->connection = PARSER_KEEP_ALIVE;
+      else
+        /* FIXME: on_error*/;
       /*py_header_name = Content_Length;
       Py_INCREF(Content_Length);*/
     }
@@ -601,8 +611,7 @@ Parser_feed_disconnect(Parser* self)
       goto finally;
   }
 
-
-  if(self->transfer == PARSER_UNSET) {
+  if(self->transfer == PARSER_TRANSFER_UNSET) {
     error = incomplete_headers;
     goto on_error;
   }
