@@ -71,9 +71,10 @@ def main():
                 continue
             ext_module.extra_compile_args.append('--profile-use')
 
-    for ext_module in ext_modules:
-        ext_module.extra_compile_args.append('-flto')
-        ext_module.extra_link_args.append('-flto')
+    if not args.debug:
+        for ext_module in ext_modules:
+            ext_module.extra_compile_args.append('-flto')
+            ext_module.extra_link_args.append('-flto')
 
     prune()
 
