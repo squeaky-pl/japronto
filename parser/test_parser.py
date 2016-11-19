@@ -4,10 +4,10 @@ from itertools import zip_longest
 
 import pytest
 
-from cases import base, parametrize_cases
+from cases import base, parametrize_cases, should_keep_alive
 from parts import one_part, make_parts, geometric_series, fancy_series
 from protocol.tracing import CTracingProtocol, CffiTracingProtocol
-from parser import cffiparser
+from parser import cffiparser, header_errors, body_errors
 try:
     from parser import cparser
 except ImportError:
@@ -71,48 +71,79 @@ def parametrize_do_parts():
     return pytest.mark.parametrize('do_parts', funcs, ids=ids)
 
 
+_begin = object()
+_end = object()
+
+
 @parametrize_do_parts()
 @parametrize_cases(
     'base',
-    '10long', '10short', '10long+10short', '10short+10long',
+    '10msg', '10msg!', '10get', '10get!', 'keep:10msg+10get', 'keep:10get+10msg',
 
-    '10malformed_headers1', '10malformed_headers2', '10incomplete_headers',
-    '10long+10malformed_headers2', '10long+10incomplete_headers',
-    '10short+10malformed_headers1', '10short+10malformed_headers2')
+    '10malformed_headers1', '10malformed_headers2', '10incomplete_headers!',
+    'keep:10msg+10malformed_headers2', 'keep:10msg+10incomplete_headers!',
+    'keep:10get+10malformed_headers1', 'keep:10get+10malformed_headers2',
+
+    '10msg!+10get!', '10get!+10msg!',
+    '10msg!+keep:10get+keep:10msg+10get',
+    '10msg+e excessive_data:10get', '10get+e excessive_data:10msg')
 @parametrize_make_parser()
 def test_http10(make_parser, do_parts, cases):
     parser, protocol = make_parser()
-    for i, case in enumerate(cases, 1):
-        parts = do_parts(case.data)
+
+    def flush():
+        nonlocal data
+        if not data:
+            return
+
+        parts = do_parts(data)
 
         for part in parts:
             parser.feed(part)
-        parser.feed_disconnect()
+            if protocol.error:
+                break
 
-        header_errors = 1 if case.error and 'headers' in case.error else 0
-        body_errors = 1 if case.error and 'body' in case.error else 0
+        data = b''
 
-        assert protocol.on_headers_call_count == i - header_errors
-        assert protocol.on_error_call_count == header_errors + body_errors
-        assert protocol.on_body_call_count == i - header_errors - body_errors
+    data = b''
+    for case in cases:
+        data += case.data
 
-        if protocol.on_error_call_count:
+        if case.disconnect:
+            flush()
+            parser.feed_disconnect()
+    flush()
+
+    header_count = 0
+    error_count = 0
+    body_count = 0
+
+    for case, request in zip_longest(cases, protocol.requests):
+        if case.error:
             assert protocol.error == case.error
 
-        if header_errors:
-            continue
+        if case.error in header_errors:
+            error_count += 1
+            break
 
-        request = protocol.request
+        header_count += 1
 
         assert request.method == case.method
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
 
-        if body_errors:
-            continue
+        if case.error in body_errors:
+            error_count += 1
+            break
+
+        body_count += 1
 
         assert request.body == case.body
+
+    assert protocol.on_headers_call_count == header_count
+    assert protocol.on_error_call_count == error_count
+    assert protocol.on_body_call_count == body_count
 
 
 @parametrize_make_parser()
@@ -134,46 +165,72 @@ def test_empty(make_parser):
 @parametrize_do_parts()
 @parametrize_cases(
     'base',
-    '11get', '11clget', '11clkeep', '11clzero', '11clclose',
-    '11clkeep+11clclose', '11clkeep+11clkeep',
-    '11clclose+11clkeep', '11clclose+11clclose',
-    '11get+11clclose', '11clkeep+11get', '11clget+11get',
-    '11clclose+11clclose+11clkeep',
-    '11clkeep+11clclose+11clkeep',
-    '11clclose+11clzero+11clkeep',
-    '11clzero+11clclose+11clzero',
-    '11clkeep+11get+11clzero',
-    '11clzero+11clzero',
-    '11get+11clget+11get',
+    '11get', '11getmsg', '11msg', '11msgzero', 'close:11get', 'close:11msg',
+    '11get!', '11getmsg!', '11msg!', 'close:11msgzero!',
+    '11msg+close:11msg', '11msg+11msg',
+    'close:11msg!+11msg', 'close:11msg!+close:11msg',
+    '11msg!+close:11msg', '11msg!+11msg',
+    '11get+close:11msg', '11msg+11get', '11getmsg+11get',
+    '11get+close:11msg!', '11msg!+11get', '11getmsg!+11get!',
+    '11msg+11msg+close:11msg',
+    '11msg+11msg+11msg',
+    '11msg+11msgzero+11msg',
+    '11msgzero+11msg+11msgzero',
+    '11msg+11get+11msgzero',
+    '11msgzero+11msgzero',
+    '11get+11getmsg+11get',
 
-    '11clincomplete_headers', '11clincomplete_body',
+    'close:11msg+e excessive_data:11msg', 'close:11msg+e excessive_data:close:11msg',
+    'close:11msg+e excessive_data:close:11msg+11msg',
+    '11msg+close:11msgzero+e excessive_data:11get',
+
+    '11clincomplete_headers!', '11clincomplete_body!',
     '11clinvalid1', '11clinvalid2', '11clinvalid3',
     '11clinvalid4', '11clinvalid5',
-    '11clkeep+11clincomplete_headers', '11clkeep+11clincomplete_body',
-    '11clzero+11clincomplete_headers', '11clzero+11clincomplete_body',
-    '11clclose+11clkeep+11clincomplete_body',
-    '11get+11clincomplete_body',
-    '11clget+11clincomplete_headers'
+    '11msg+11clincomplete_headers!', 'close:11msg!+11clincomplete_body!',
+    '11msgzero+11clincomplete_headers!', '11msgzero+11clincomplete_body!',
+    'close:11msg!+11msg+11clincomplete_body!',
+    '11get+11clincomplete_body!',
+    '11getmsg+11clincomplete_headers!'
 )
 @parametrize_make_parser()
-def test_http11_contentlength(make_parser, do_parts, cases):
+def test_http11(make_parser, do_parts, cases):
     parser, protocol = make_parser()
 
-    data = b''.join(c.data for c in cases)
-    parts = do_parts(data)
+    def flush():
+        nonlocal data
+        if not data:
+            return
 
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
+        parts = do_parts(data)
+
+        for part in parts:
+            parser.feed(part)
+            if protocol.error:
+                break
+
+        data = b''
+
+    data = b''
+    for case in cases:
+        data += case.data
+
+        if case.disconnect:
+            flush()
+            parser.feed_disconnect()
+    flush()
 
     header_count = 0
     error_count = 0
     body_count = 0
 
     for case, request in zip_longest(cases, protocol.requests):
-        if case.error and 'headers' in case.error:
+        if case.error:
+            assert protocol.error == case.error
+
+        if case.error in header_errors:
             error_count += 1
-            continue
+            break
 
         header_count += 1
 
@@ -182,9 +239,9 @@ def test_http11_contentlength(make_parser, do_parts, cases):
         assert request.version == case.version
         assert request.headers == case.headers
 
-        if case.error and 'body' in case.error:
+        if case.error in body_errors:
             error_count += 1
-            continue
+            break
 
         body_count += 1
 
@@ -207,34 +264,52 @@ def test_http11_contentlength(make_parser, do_parts, cases):
     '11chunked3+11chunked2+11chunked1',
     '11chunked3+11chunked3+11chunked3',
 
-    '11chunkedincomplete_body', '11chunkedmalformed_body',
-    '11chunked1+11chunkedincomplete_body',
+    '11chunkedincomplete_body!', '11chunkedmalformed_body',
+    '11chunked1+11chunkedincomplete_body!',
     '11chunked1+11chunkedmalformed_body',
-    '11chunked2+11chunkedincomplete_body',
+    '11chunked2+11chunkedincomplete_body!',
     '11chunked2+11chunkedmalformed_body',
-    '11chunked2+11chunked2+11chunkedincomplete_body',
+    '11chunked2+11chunked2+11chunkedincomplete_body!',
     '11chunked3+11chunked1+11chunkedmalformed_body'
 )
 @parametrize_make_parser()
 def test_http11_chunked(make_parser, do_parts, cases):
     parser, protocol = make_parser()
-    data = b''.join(c.data for c in cases)
-    parts = do_parts(data)
 
-    for part in parts:
-        parser.feed(part)
-        if protocol.error:
-            break
-    parser.feed_disconnect()
+    def flush():
+        nonlocal data
+        if not data:
+            return
+
+        parts = do_parts(data)
+
+        for part in parts:
+            parser.feed(part)
+            if protocol.error:
+                break
+
+        data = b''
+
+    data = b''
+    for case in cases:
+        data += case.data
+
+        if case.disconnect:
+            flush()
+            parser.feed_disconnect()
+    flush()
 
     header_count = 0
     error_count = 0
     body_count = 0
 
     for case, request in zip_longest(cases, protocol.requests):
-        if case.error and 'headers' in case.error:
+        if case.error:
+            assert protocol.error == case.error
+
+        if case.error in header_errors:
             error_count += 1
-            continue
+            break
 
         header_count += 1
 
@@ -243,9 +318,9 @@ def test_http11_chunked(make_parser, do_parts, cases):
         assert request.version == case.version
         assert request.headers == case.headers
 
-        if case.error and 'body' in case.error:
+        if case.error in body_errors:
             error_count += 1
-            continue
+            break
 
         body_count += 1
 
@@ -259,31 +334,68 @@ def test_http11_chunked(make_parser, do_parts, cases):
 @parametrize_do_parts()
 @parametrize_cases(
     'base',
-    '11chunked1+11clzero',
-    '11clkeep+11chunked2',
-    '11chunked2+11clclose',
-    '11clzero+11chunked3',
-    '11clclose+11chunked1+11chunked3',
-    '11chunked3+11clkeep+11clclose',
-    '11chunked3+11chunked3+11clclose'
+    '11chunked1+11msgzero',
+    '11msg+11chunked2',
+    '11chunked2+close:11msg',
+    '11msgzero+11chunked3',
+    'close:11msg+e excessive_data:11chunked1+11chunked3',
+    '11chunked3+11msg+close:11msg',
+    '11chunked3+11chunked3+close:11msg'
 )
 @parametrize_make_parser()
 def test_http11_mixed(make_parser, do_parts, cases):
     parser, protocol = make_parser()
-    data = b''.join(c.data for c in cases)
-    parts = do_parts(data)
 
-    for part in parts:
-        parser.feed(part)
-    parser.feed_disconnect()
+    def flush():
+        nonlocal data
+        if not data:
+            return
 
-    assert protocol.on_headers_call_count == len(cases)
-    assert not protocol.on_error_call_count
-    assert protocol.on_body_call_count == len(cases)
+        parts = do_parts(data)
 
-    for case, request in zip(cases, protocol.requests):
+        for part in parts:
+            parser.feed(part)
+            if protocol.error:
+                break
+
+        data = b''
+
+    data = b''
+    for case in cases:
+        data += case.data
+
+        if case.disconnect:
+            flush()
+            parser.feed_disconnect()
+    flush()
+
+    header_count = 0
+    error_count = 0
+    body_count = 0
+
+    for case, request in zip_longest(cases, protocol.requests):
+        if case.error:
+            assert protocol.error == case.error
+
+        if case.error in header_errors:
+            error_count += 1
+            break
+
+        header_count += 1
+
         assert request.method == case.method
         assert request.path == case.path
         assert request.version == case.version
         assert request.headers == case.headers
+
+        if case.error in body_errors:
+            error_count += 1
+            break
+
+        body_count += 1
+
         assert request.body == case.body
+
+    assert protocol.on_headers_call_count == header_count
+    assert protocol.on_error_call_count == error_count
+    assert protocol.on_body_call_count == body_count
