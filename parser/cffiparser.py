@@ -16,19 +16,25 @@ class HttpRequestParser(object):
         self.num_headers = ffi.new('size_t *')
         self.chunked_offset = ffi.new('size_t*')
 
-        self.buffer = bytearray()
-        self._reset_state()
+        self._reset_state(True)
 
-    def _reset_state(self):
+    def _reset_state(self, disconnect=False):
         self.state = 'headers'
-        self.connection = None
         self.transfer = None
         self.content_length = None
         self.chunked_decoder = None
         self.chunked_offset[0] = 0
-        self.no_semantics = False
+        if disconnect:
+            self.connection = None
+            self.buffer = bytearray()
 
     def _parse_headers(self):
+        if self.connection == 'close':
+            self.on_error('excessive_data')
+            self._reset_state(True)
+
+            return -1
+
         self.num_headers[0] = 10
 
         # FIXME: More than 10 headers
@@ -43,8 +49,7 @@ class HttpRequestParser(object):
             return result
         elif result == -1:
             self.on_error('malformed_headers')
-            self._reset_state()
-            self.buffer = bytearray()
+            self._reset_state(True)
 
             return result
         else:
@@ -65,9 +70,9 @@ class HttpRequestParser(object):
             self.no_semantics = True
 
         if self.minor_version[0] == 0:
-            self.transfer = 'identity'
+            self.connection = 'close'
         else:
-            self.transfer = 'chunked'
+            self.connection = 'keep-alive'
 
         # headers = {}
         # for idx in range(self.num_headers[0]):
@@ -83,6 +88,10 @@ class HttpRequestParser(object):
                 self.transfer = ffi.string(
                     header.value, header.value_len).decode('ascii')
                 # FIXME comma separated and invalid values
+            elif header_name == b'Connection':
+                self.connection = ffi.string(
+                    header.value, header.value_len).decode('ascii')
+                # FIXME other options for Connection like updgrade
             elif header_name == b'Content-Length':
                 content_length_error = False
 
@@ -103,8 +112,7 @@ class HttpRequestParser(object):
 
                 if content_length_error:
                     self.on_error('invalid_headers')
-                    self._reset_state()
-                    self.buffer = bytearray()
+                    self._reset_state(True)
 
                     return -1
 
@@ -115,7 +123,7 @@ class HttpRequestParser(object):
         return result
 
     def _parse_body(self):
-        if self.content_length is None and self.no_semantics:
+        if self.content_length is None and self.transfer is None:
             self.on_body(None)
             return 0
         elif self.content_length == 0:
@@ -132,8 +140,6 @@ class HttpRequestParser(object):
             result = self.content_length
 
             return result
-        elif self.transfer == 'identity':
-            return -2
         elif self.transfer == 'chunked':
             if not self.chunked_decoder:
                 self.chunked_decoder = ffi.new('struct phr_chunked_decoder*')
@@ -152,8 +158,7 @@ class HttpRequestParser(object):
                 return result
             elif result == -1:
                 self.on_error('malformed_body')
-                self._reset_state()
-                self.buffer = bytearray()
+                self._reset_state(True)
 
                 return result
 
@@ -168,7 +173,7 @@ class HttpRequestParser(object):
     def feed(self, data):
         self.buffer += data
 
-        while 1:
+        while self.buffer:
             if self.state == 'headers':
                 result = self._parse_headers()
 
@@ -186,15 +191,9 @@ class HttpRequestParser(object):
                 self.state = 'headers'
 
     def feed_disconnect(self):
-        if not self.buffer:
-            return
-
-        if not self.transfer:
+        if self.state == 'headers' and self.buffer:
             self.on_error('incomplete_headers')
-        elif self.transfer == 'identity':
-            self.on_body(ffi.from_buffer(self.buffer))
-        elif self.transfer == 'chunked':
+        elif self.state == 'body':
             self.on_error('incomplete_body')
 
-        self._reset_state()
-        self.buffer = bytearray()
+        self._reset_state(True)
