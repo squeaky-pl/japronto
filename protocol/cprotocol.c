@@ -7,12 +7,16 @@
 #include "capsule.h"
 
 
+const long CHECK_INTERVAL = 10;
+const unsigned long IDLE_TIMEOUT = 60;
+
+
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
 static PyObject* Response;
 static PyObject* PyRequest;
-
+static PyObject* check_interval;
 
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
@@ -41,6 +45,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->transport = NULL;
   self->call_later = NULL;
   self->check_idle = NULL;
+  self->check_idle_task = NULL;
 
   finally:
   return (PyObject*)self;
@@ -50,6 +55,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
+  Py_XDECREF(self->check_idle_task);
   Py_XDECREF(self->check_idle);
   Py_XDECREF(self->call_later);
   Py_XDECREF(self->transport);
@@ -148,6 +154,17 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 }
 
 
+static inline PyObject*
+Protocol_schedule_check_idle(Protocol* self)
+{
+  Py_XDECREF(self->check_idle_task);
+  self->check_idle_task = PyObject_CallFunctionObjArgs(
+    self->call_later, check_interval, self->check_idle, NULL);
+
+  return self->check_idle_task;
+}
+
+
 static PyObject*
 Protocol_connection_made(Protocol* self, PyObject* args)
 {
@@ -155,14 +172,12 @@ Protocol_connection_made(Protocol* self, PyObject* args)
     goto error;
   Py_INCREF(self->transport);
 
-  if(clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_active) == -1)
-    goto error;
+  self->idle_time = 0;
+  self->read_ops = 0;
+  self->last_read_ops = 0;
 
-  PyObject* tmp = PyObject_CallFunction(
-    self->call_later, "iO", 10, self->check_idle);
-  if(!tmp)
+  if(!Protocol_schedule_check_idle(self))
     goto error;
-  Py_DECREF(tmp);
 
   goto finally;
 
@@ -176,11 +191,28 @@ Protocol_connection_made(Protocol* self, PyObject* args)
 static PyObject*
 Protocol__check_idle(Protocol* self, PyObject* args)
 {
-  struct timespec now;
-  if(clock_gettime(CLOCK_MONOTONIC_COARSE, &now) == -1)
-    goto error;
+  PyObject* close = NULL;
 
-  printf("Elapsed %ld\n", now.tv_sec - self->last_active.tv_sec);
+  if(self->read_ops == self->last_read_ops) {
+    self->idle_time += CHECK_INTERVAL;
+
+    if(self->idle_time >= IDLE_TIMEOUT) {
+      close = PyObject_GetAttrString(self->transport, "close");
+      if(!close)
+        goto error;
+      PyObject* tmp = PyObject_CallFunctionObjArgs(close, NULL);
+      if(!tmp)
+        goto error;
+      Py_DECREF(tmp);
+      goto finally;
+    }
+  } else {
+    self->idle_time = 0;
+    self->last_read_ops = self->read_ops;
+  }
+
+  if(!Protocol_schedule_check_idle(self))
+    goto error;
 
   goto finally;
 
@@ -188,6 +220,7 @@ Protocol__check_idle(Protocol* self, PyObject* args)
   return NULL;
 
   finally:
+  Py_XDECREF(close);
   Py_RETURN_NONE;
 }
 
@@ -222,8 +255,7 @@ Protocol_data_received(Protocol* self, PyObject* args)
   if(!PyArg_ParseTuple(args, "O", &data))
     goto error;
 
-  if(clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_active) == -1)
-    goto error;
+  self->read_ops++;
 
 #ifdef PARSER_STANDALONE
   PyObject* result = PyObject_CallFunctionObjArgs(
@@ -424,6 +456,7 @@ PyInit_cprotocol(void)
   PyObject* cresponse = NULL;
   PyObject* crequest = NULL;
   Response = NULL;
+  check_interval = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -469,12 +502,17 @@ PyInit_cprotocol(void)
   if(!matcher_capi)
     goto error;
 
+  check_interval = PyLong_FromLong(CHECK_INTERVAL);
+  if(!check_interval)
+    goto error;
+
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
   goto finally;
 
   error:
+  Py_XDECREF(check_interval);
   Py_XDECREF(Response);
   Py_XDECREF(PyRequest);
 #ifdef PARSER_STANDALONE

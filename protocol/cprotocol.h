@@ -1,10 +1,10 @@
 #pragma once
 
-#include <time.h>
-
 #ifndef PARSER_STANDALONE
 #include "cparser.h"
 #endif
+
+
 
 typedef struct {
   PyObject_HEAD
@@ -15,7 +15,9 @@ typedef struct {
 #else
   Parser parser;
 #endif
-  struct timespec last_active;
+  unsigned long idle_time;
+  unsigned long read_ops;
+  unsigned long last_read_ops;
 
   PyObject* app;
   PyObject* matcher;
@@ -25,6 +27,7 @@ typedef struct {
   PyObject* transport;
   PyObject* call_later;
   PyObject* check_idle;
+  PyObject* check_idle_task;
 } Protocol;
 
 
