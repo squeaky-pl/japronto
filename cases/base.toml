@@ -1,4 +1,4 @@
-[10long]
+[10msg]
 data = """\
 POST \
 /wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg \
@@ -16,6 +16,7 @@ Cookie: wp_ozh_wsa_visits=2; \
   wp_ozh_wsa_visit_lasttime=xxxxxxxxxx; \
   __utma=xxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.x; \
   __utmz=xxxxxxxxx.xxxxxxxxxx.x.x.utmccn=(referral)|utmcsr=reader.livedoor.com|utmcct=/reader/|utmcmd=referral\r\n\
+Content-Length: 11\r\n\
 \r\n\
 Hello there\
 """
@@ -24,7 +25,7 @@ method = "POST"
 path = "/wp-content/uploads/2010/03/hello-kitty-darth-vader-pink.jpg"
 version = "1.0"
 body = "Hello there"
-[10long.headers]
+[10msg.headers]
 Host = "www.kittyhell.com"
 User-Agent = """Mozilla/5.0 \
   (Macintosh; U; Intel Mac OS X 10.6; ja-JP-mac; rv:1.9.2.3) \
@@ -38,14 +39,13 @@ Cookie = """wp_ozh_wsa_visits=2; \
   wp_ozh_wsa_visit_lasttime=xxxxxxxxxx; \
   __utma=xxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.xxxxxxxxxx.x; \
   __utmz=xxxxxxxxx.xxxxxxxxxx.x.x.utmccn=(referral)|utmcsr=reader.livedoor.com|utmcct=/reader/|utmcmd=referral"""
+Content-Length = "11"
 
-
-[10short]
-data = "POST / HTTP/1.0\r\nHost: www.example.com\r\n\r\nHi!"
-method = "POST"
+[10get]
+data = "GET / HTTP/1.0\r\nHost: www.example.com\r\n\r\n"
+method = "GET"
 path = "/"
 version = "1.0"
-body = "Hi!"
 headers = { Host = "www.example.com" }
 
 
@@ -73,7 +73,7 @@ headers = {}
 # body = null
 
 
-[11clget]
+[11getmsg]
 data = """\
 GET /body HTTP/1.1\r\n\
 Content-Length: 12\r\n\
@@ -87,7 +87,7 @@ headers = { Content-Length = "12" }
 body = "Hello World!"
 
 
-[11clkeep]
+[11msg]
 data = "POST /login HTTP/1.1\r\nContent-Length: 5\r\n\r\nHello"
 method = "POST"
 path = "/login"
@@ -96,28 +96,13 @@ headers = { Content-Length = "5" }
 body = "Hello"
 
 
-[11clzero]
+[11msgzero]
 data = "POST /zero HTTP/1.1\r\nContent-Length: 0\r\n\r\n"
 method = "POST"
 path = "/zero"
 version = "1.1"
 headers = { Content-Length = "0" }
 body = ""
-
-
-[11clclose]
-data = """\
-POST /logout HTTP/1.1\r\n\
-Content-Length: 003\r\n\
-Connection: close\r\n\
-\r\n\
-Bye\
-"""
-method = "POST"
-path = "/logout"
-version = "1.1"
-headers = { Content-Length = "003", Connection = "close" }
-body = "Bye"
 
 
 [11clincomplete_headers]
@@ -180,6 +165,7 @@ error = "invalid_headers"
 [11chunked1]
 data = """\
 POST /chunked HTTP/1.1\r\n\
+Transfer-Encoding: chunked\r\n\
 \r\n\
 4\r\n\
 Wiki\r\n\
@@ -194,13 +180,13 @@ chunks.\r\n\
 method = "POST"
 path = "/chunked"
 version = "1.1"
-headers = {}
+headers = { Transfer-Encoding = "chunked" }
 body = "Wikipedia in\r\n\r\nchunks."
 
 [11chunkedzero]
 data = """
 PUT /zero HTTP/1.1\r\n\
-Connection: close\r\n\
+Transfer-Encoding: chunked\r\n\
 \r\n\
 0\r\n\
 \r\n\
@@ -208,7 +194,7 @@ Connection: close\r\n\
 method = "PUT"
 path = "/zero"
 version = "1.1"
-headers = { Connection = "close" }
+headers = { Transfer-Encoding = "chunked" }
 body = ""
 
 [11chunked2]
@@ -231,6 +217,7 @@ body = "r"
 [11chunked3]
 data = """\
 POST / HTTP/1.1\r\n\
+Transfer-Encoding: chunked\r\n\
 \r\n\
 000002\r\n\
 ab\r\n\
@@ -241,23 +228,23 @@ This: is trailer header\r\n\
 method = "POST"
 path = "/"
 version = "1.1"
-headers = {}
+headers = { Transfer-Encoding = "chunked" }
 body = "ab"
 
 
 [11chunkedincomplete_body]
-data = "POST / HTTP/1.1\r\n\r\n10\r\nasd"
+data = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n10\r\nasd"
 method = "POST"
 path = "/"
 version = "1.1"
-headers = {}
+headers = { Transfer-Encoding = "chunked" }
 error = "incomplete_body"
 
 
 [11chunkedmalformed_body]
-data = "POST / HTTP/1.1\r\n\r\n1x\r\nhello"
+data = "POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1x\r\nhello"
 method = "POST"
 path = "/"
 version = "1.1"
-headers =  {}
+headers = { Transfer-Encoding = "chunked" }
 error = "malformed_body"
