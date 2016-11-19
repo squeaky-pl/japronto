@@ -609,8 +609,6 @@ Parser_feed_disconnect(Parser* self)
 #endif
 
   PyObject* error;
-  char* body = NULL;
-  size_t body_len = 0;
 
   if(self->buffer_start == self->buffer_end) {
       goto finally;
@@ -625,26 +623,6 @@ Parser_feed_disconnect(Parser* self)
     error = incomplete_body;
     goto on_error;
   }
-
-  goto finally;
-
-#ifdef PARSER_STANDALONE
-  PyObject* on_body_result;
-  PyObject* body_view;
-  on_body:
-  body_view = PyMemoryView_FromMemory(body, body_len, PyBUF_READ);
-  on_body_result = PyObject_CallFunctionObjArgs(
-    self->on_body, body_view, NULL);
-  if(!on_body_result)
-    return NULL; /*FIXME LEAK*/
-  Py_DECREF(on_body_result);
-  Py_XDECREF(body_view);
-#else
-  on_body:
-  if(!Protocol_on_body(self->protocol, body, body_len)) {
-    return NULL; /*FIXME LEAK*/
-  }
-#endif
 
   goto finally;
 
