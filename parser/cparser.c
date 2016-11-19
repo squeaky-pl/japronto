@@ -610,11 +610,8 @@ Parser_feed_disconnect(Parser* self)
 
   PyObject* error;
 
-  if(self->buffer_start == self->buffer_end) {
-      goto finally;
-  }
-
-  if(self->state == PARSER_HEADERS) {
+  if(self->state == PARSER_HEADERS
+     && self->buffer_start != self->buffer_end) {
     error = incomplete_headers;
     goto on_error;
   }
