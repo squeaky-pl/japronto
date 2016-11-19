@@ -11,6 +11,7 @@ static PyObject* malformed_body;
 static PyObject* incomplete_headers;
 static PyObject* invalid_headers;
 static PyObject* incomplete_body;
+static PyObject* excessive_data;
 //static PyObject* empty_body;
 
 const char zero_body[] = "";
@@ -36,14 +37,18 @@ static PyObject* keep_alive;*/
 static unsigned long const CONTENT_LENGTH_UNSET = ULONG_MAX;
 
 
-static void _reset_state(Parser* self) {
+static void _reset_state(Parser* self, bool disconnect) {
     self->state = PARSER_HEADERS;
     self->transfer = PARSER_TRANSFER_UNSET;
     self->content_length = CONTENT_LENGTH_UNSET;
     memset(&self->chunked_decoder, 0, sizeof(struct phr_chunked_decoder));
     self->chunked_decoder.consume_trailer = 1;
     self->chunked_offset = 0;
-    self->no_semantics = false;
+    if(disconnect) {
+      self->connection = PARSER_CONNECTION_UNSET;
+      self->buffer_start = 0;
+      self->buffer_end = 0;
+    }
 }
 
 #ifdef PARSER_STANDALONE
@@ -98,11 +103,8 @@ Parser_init(Parser* self, void* protocol)
     self->protocol = protocol;
 #endif
 
-    _reset_state(self);
-    self->connection = PARSER_CONNECTION_UNSET;
+    _reset_state(self, true);
 
-    self->buffer_start = 0;
-    self->buffer_end = 0;
     self->buffer_capacity = 4096;
     self->buffer = malloc(self->buffer_capacity);
     if(!self->buffer)
@@ -146,7 +148,11 @@ static int _parse_headers(Parser* self) {
 #endif
   PyObject* error;
 
-  int result;
+  int result = -1;
+  if(self->connection == PARSER_CLOSE) {
+    error = excessive_data;
+    goto on_error;
+  }
 
   char* method;
   size_t method_len;
@@ -175,17 +181,9 @@ static int _parse_headers(Parser* self) {
     goto on_error;
   }
 
-#define method_equal(m) \
-(method_len == strlen(#m) && memcmp(method, #m, method_len) == 0)
-
-  if(method_equal(GET) || method_equal(DELETE) || method_equal(HEAD))
-    self->no_semantics = true;
-
   if(minor_version == 0) {
-    self->transfer = PARSER_IDENTITY;
     self->connection = PARSER_CLOSE;
   } else {
-    self->transfer = PARSER_CHUNKED;
     self->connection = PARSER_KEEP_ALIVE;
   }
 
@@ -356,9 +354,9 @@ static int _parse_headers(Parser* self) {
     goto error;
 #endif
 
-  _reset_state(self);
-  self->buffer_start = 0;
-  self->buffer_end = 0;
+  _reset_state(self, true);
+
+  result = -1;
 
   goto finally;
 
@@ -384,7 +382,8 @@ static int _parse_body(Parser* self) {
   char* body = NULL;
   size_t body_len = 0;
   int result = -2;
-  if(self->content_length == CONTENT_LENGTH_UNSET && self->no_semantics) {
+  if(self->content_length == CONTENT_LENGTH_UNSET
+     && self->transfer == PARSER_TRANSFER_UNSET) {
     result = 0;
     goto on_body;
   }
@@ -410,11 +409,6 @@ static int _parse_body(Parser* self) {
     result = 1;
 
     goto on_body;
-  }
-
-  if(self->transfer == PARSER_IDENTITY) {
-    result = -2;
-    goto finally;
   }
 
   if(self->transfer == PARSER_CHUNKED) {
@@ -482,7 +476,7 @@ static int _parse_body(Parser* self) {
     goto error;
 #endif
 
-  _reset_state(self);
+  _reset_state(self, false);
 
   goto finally;
 
@@ -500,9 +494,9 @@ static int _parse_body(Parser* self) {
     goto error;
 #endif
 
-  _reset_state(self);
-  self->buffer_start = 0;
-  self->buffer_end = 0;
+  _reset_state(self, true);
+
+  result = -1;
 
   goto finally;
 
@@ -526,18 +520,21 @@ Parser_feed(Parser* self, PyObject* py_data)
 #endif
 {
   char* data;
+  int iresult = 0;
 #ifdef PARSER_STANDALONE
+  PyObject* result = Py_None;
   // FIXME: can be called without __init__
 #ifdef DEBUG_PRINT
   printf("feed\n");
 #endif
   int data_len;
   if(!PyArg_ParseTuple(args, "y#", &data, &data_len))
-    return NULL;
+    goto error;
 #else
+  Parser* result = self;
   Py_ssize_t data_len;
   if(PyBytes_AsStringAndSize(py_data, &data, &data_len) == -1)
-    return NULL;
+    goto error;
 #endif
 
   if(self->buffer_start == self->buffer_end) {
@@ -555,39 +552,47 @@ Parser_feed(Parser* self, PyObject* py_data)
       self->buffer_end - self->buffer_start + data_len);
     self->buffer = realloc(self->buffer, self->buffer_capacity);
     if(!self->buffer)
-      /* FIXME: alloc error */;
+      goto error;
   }
 
   memcpy(self->buffer + self->buffer_end, data, (size_t)data_len);
   self->buffer_end += (size_t)data_len;
 
-  int result;
-
-  while(1) {
+  while(self->buffer_start != self->buffer_end) {
     if(self->state == PARSER_HEADERS) {
-      result = _parse_headers(self);
-      if(result <= 0)
+      iresult = _parse_headers(self);
+      if(iresult == -3)
+        goto error;
+
+      if(iresult <= 0)
         goto finally;
 
       self->state = PARSER_BODY;
     }
 
     if(self->state == PARSER_BODY) {
-      result = _parse_body(self);
+      iresult = _parse_body(self);
+      if(iresult == -3)
+        goto error;
 
-      if(result < 0)
+      if(iresult < 0)
         goto finally;
 
       self->state = PARSER_HEADERS;
     }
   }
 
+  goto finally;
+
+  error:
+  result = NULL;
+
   finally:
 #ifdef PARSER_STANDALONE
-  Py_RETURN_NONE;
-#else
-  return self;
+  if(result)
+    Py_INCREF(result);
 #endif
+  return result;
 }
 
 #ifdef PARSER_STANDALONE
@@ -611,19 +616,12 @@ Parser_feed_disconnect(Parser* self)
       goto finally;
   }
 
-  if(self->transfer == PARSER_TRANSFER_UNSET) {
+  if(self->state == PARSER_HEADERS) {
     error = incomplete_headers;
     goto on_error;
   }
 
-  if(self->transfer == PARSER_IDENTITY) {
-    body = self->buffer + self->buffer_start;
-    body_len = self->buffer_end - self->buffer_start;
-
-    goto on_body;
-  }
-
-  if(self->transfer == PARSER_CHUNKED) {
+  if(self->state == PARSER_BODY) {
     error = incomplete_body;
     goto on_error;
   }
@@ -666,9 +664,7 @@ Parser_feed_disconnect(Parser* self)
 #endif
 
   finally:
-  _reset_state(self);
-  self->buffer_start = 0;
-  self->buffer_end = 0;
+  _reset_state(self, true);
 
   #ifdef PARSER_STANDALONE
   Py_RETURN_NONE;
@@ -764,6 +760,7 @@ cparser_init(void)
     malformed_body = NULL;
     incomplete_headers = NULL;
     incomplete_body = NULL;
+    excessive_data = NULL;
     /*empty_body = NULL;
     GET = NULL;
     POST = NULL;
@@ -810,6 +807,7 @@ cparser_init(void)
     alloc_static(incomplete_headers)
     alloc_static(invalid_headers)
     alloc_static(incomplete_body)
+    alloc_static(excessive_data)
 
     /*empty_body = PyBytes_FromString("");
     if(!empty_body)

@@ -18,6 +18,7 @@ enum Parser_transfer {
   PARSER_CHUNKED
 };
 
+
 enum Parser_connection {
   PARSER_CONNECTION_UNSET,
   PARSER_CLOSE,
@@ -37,14 +38,12 @@ typedef struct {
     unsigned long content_length;
     struct phr_chunked_decoder chunked_decoder;
     size_t chunked_offset;
-    bool no_semantics;
 
     char* buffer;
     size_t buffer_start;
     size_t buffer_end;
     size_t buffer_capacity;
 
-//    PyObject* request;
 #ifdef PARSER_STANDALONE
     PyObject* on_headers;
     PyObject* on_body;
