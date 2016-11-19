@@ -1,5 +1,7 @@
 #pragma once
 
+#include <time.h>
+
 #ifndef PARSER_STANDALONE
 #include "cparser.h"
 #endif
@@ -13,12 +15,16 @@ typedef struct {
 #else
   Parser parser;
 #endif
+  struct timespec last_active;
+
   PyObject* app;
   PyObject* matcher;
   PyObject* error_handler;
   PyObject* response;
   PyObject* request;
   PyObject* transport;
+  PyObject* call_later;
+  PyObject* check_idle;
 } Protocol;
 
 

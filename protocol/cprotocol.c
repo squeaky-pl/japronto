@@ -39,6 +39,8 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->response = NULL;
   self->request = NULL;
   self->transport = NULL;
+  self->call_later = NULL;
+  self->check_idle = NULL;
 
   finally:
   return (PyObject*)self;
@@ -48,6 +50,8 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
+  Py_XDECREF(self->check_idle);
+  Py_XDECREF(self->call_later);
   Py_XDECREF(self->transport);
   Py_XDECREF(self->request);
   Py_XDECREF(self->response);
@@ -69,6 +73,7 @@ static int
 Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 {
   int result = 0;
+  PyObject* loop;
 #ifdef PARSER_STANDALONE
   PyObject* parser = NULL;
 
@@ -118,11 +123,24 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   self->request = Py_None;
   Py_INCREF(self->request);
 
+  loop = PyObject_GetAttrString(self->app, "_loop");
+  if(!loop)
+    goto error;
+
+  self->call_later = PyObject_GetAttrString(loop, "call_later");
+  if(!self->call_later)
+    goto error;
+
+  self->check_idle = PyObject_GetAttrString((PyObject*)self, "_check_idle");
+  if(!self->check_idle)
+    goto error;
+
   goto finally;
 
   error:
   result = -1;
   finally:
+  Py_XDECREF(loop);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(parser);
 #endif
@@ -137,10 +155,38 @@ Protocol_connection_made(Protocol* self, PyObject* args)
     goto error;
   Py_INCREF(self->transport);
 
+  if(clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_active) == -1)
+    goto error;
+
+  PyObject* tmp = PyObject_CallFunction(
+    self->call_later, "iO", 10, self->check_idle);
+  if(!tmp)
+    goto error;
+  Py_DECREF(tmp);
+
   goto finally;
 
   error:
   return NULL;
+  finally:
+  Py_RETURN_NONE;
+}
+
+
+static PyObject*
+Protocol__check_idle(Protocol* self, PyObject* args)
+{
+  struct timespec now;
+  if(clock_gettime(CLOCK_MONOTONIC_COARSE, &now) == -1)
+    goto error;
+
+  printf("Elapsed %ld\n", now.tv_sec - self->last_active.tv_sec);
+
+  goto finally;
+
+  error:
+  return NULL;
+
   finally:
   Py_RETURN_NONE;
 }
@@ -174,6 +220,9 @@ Protocol_data_received(Protocol* self, PyObject* args)
 {
   PyObject* data = NULL;
   if(!PyArg_ParseTuple(args, "O", &data))
+    goto error;
+
+  if(clock_gettime(CLOCK_MONOTONIC_COARSE, &self->last_active) == -1)
     goto error;
 
 #ifdef PARSER_STANDALONE
@@ -303,6 +352,7 @@ static PyMethodDef Protocol_methods[] = {
   {"connection_made", (PyCFunction)Protocol_connection_made, METH_VARARGS, ""},
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_VARARGS, ""},
+  {"_check_idle", (PyCFunction)Protocol__check_idle, METH_NOARGS, ""},
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
