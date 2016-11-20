@@ -29,11 +29,8 @@ class Application:
 
         self._matcher = self._router.get_matcher()
 
-    def error_handler(self, request, transport):
-        response = request.Response(400, text='Something went wrong')
-
-        transport.write(response.render())
-
+    def error_handler(self, request):
+        return request.Response(400, text='Something went wrong')
 
     def serve(self, protocol_factory, reuse_port=False):
         self.__freeze()

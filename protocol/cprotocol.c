@@ -472,11 +472,13 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   handle_error:
   handler_result = PyObject_CallFunctionObjArgs(
-    self->error_handler, self->request, self->transport, NULL);
+    self->error_handler, self->request, NULL);
   if(!handler_result)
     goto error;
-  Py_DECREF(handler_result);
-  handler_result = NULL;
+
+  if(!Protocol_write_response(self, (RESPONSE*)handler_result))
+    goto error;
+
   goto finally;
 
   error:
