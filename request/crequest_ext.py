@@ -5,4 +5,4 @@ def get_extension():
     return Extension(
         'request.crequest',
         sources=['crequest.c', '../capsule.c'],
-        include_dirs=['../picohttpparser', '..'])
+        include_dirs=['../picohttpparser', '..', '../response'])

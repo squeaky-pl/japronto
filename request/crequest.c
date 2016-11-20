@@ -2,13 +2,16 @@
 
 #include "crequest.h"
 
+#include "cresponse.h"
 #include "picohttpparser.h"
 #include "capsule.h"
 
-
+static PyObject* Response;
 
 static PyObject* HTTP10;
 static PyObject* HTTP11;
+
+static Response_CAPI* response_capi;
 
 
 static PyObject*
@@ -24,6 +27,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->py_path = NULL;
   self->py_headers = NULL;
   self->py_body = NULL;
+  self->response = NULL;
 
   finally:
   return (PyObject*)self;
@@ -33,6 +37,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Request_dealloc(Request* self)
 {
+  Py_XDECREF(self->response);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_headers);
   Py_XDECREF(self->py_path);
@@ -44,10 +49,41 @@ Request_dealloc(Request* self)
 static int
 Request_init(Request* self, PyObject *args, PyObject* kw)
 {
+  int result = 0;
+
   self->py_body = Py_None;
   Py_INCREF(self->py_body);
 
-  return 0;
+  self->response = PyObject_CallFunctionObjArgs(Response, NULL);
+  if(!self->response)
+    goto error;
+
+  goto finally;
+
+  error:
+  result = -1;
+
+  finally:
+  return result;
+}
+
+
+static PyObject*
+Request_Response(Request* self, PyObject *args, PyObject* kw)
+{
+  PyObject* result = self->response;
+
+  if(response_capi->Response_init((RESPONSE*)self->response, args, kw) == -1)
+    goto error;
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XINCREF(result);
+  return result;
 }
 
 
@@ -85,7 +121,7 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
 #define hex_to_dec(x) \
   ((x <= '9' ? 0 : 9) + (x & 0x0f))
 #define is_hex(x) ((x >= '0' && x <= '9') || (x >= 'A' && x <= 'F'))
-static size_t percent_decode(char* data, ssize_t length) {
+static inline size_t percent_decode(char* data, ssize_t length) {
   char* end = data + length;
   for(;end - data >= 3; data++) {
     if(*data == '%' && is_hex(*(data + 1)) && is_hex(*(data + 2))) {
@@ -114,7 +150,7 @@ Request_get_decoded_path(Request* self, size_t* path_len) {
 }
 
 
-static void title_case(char* data, size_t len)
+static inline void title_case(char* data, size_t len)
 {
   bool prev_alpha = false;
   for(char* c = data; c < data + len; c++) {
@@ -132,7 +168,7 @@ static void title_case(char* data, size_t len)
 }
 
 
-static PyObject*
+static inline PyObject*
 Request_decode_headers(Request* self)
 {
   PyObject* result = NULL;
@@ -189,63 +225,63 @@ Request_decode_headers(Request* self)
 
 
 static PyObject*
-Request_getattr(Request* self, char* name)
+Request_get_method(Request* self, void* closure)
 {
-  PyObject* result;
-  if(strcmp(name, "method") == 0) {
-    if(!self->py_method) {
-      self->py_method = PyUnicode_FromStringAndSize(
-        REQUEST_METHOD(self), self->method_len);
-      if(!self->py_method)
-        goto error;
-    }
+  if(!self->py_method)
+    self->py_method = PyUnicode_FromStringAndSize(
+      REQUEST_METHOD(self), self->method_len);
 
-    result = self->py_method;
-    goto finally;
+  Py_XINCREF(self->py_method);
+  return self->py_method;
+}
+
+
+static PyObject*
+Request_get_path(Request* self, void* closure)
+{
+  if(!self->py_path) {
+    size_t path_len;
+    char* path = Request_get_decoded_path(self, &path_len);
+    self->py_path = PyUnicode_FromStringAndSize(path, path_len);
   }
 
-  if(strcmp(name, "path") == 0) {
-    if(!self->py_path) {
-      size_t path_len;
-      char* path = Request_get_decoded_path(self, &path_len);
-      self->py_path = PyUnicode_FromStringAndSize(path, path_len);
-      if(!self->py_path)
-        goto error;
-    }
+  Py_XINCREF(self->py_path);
+  return self->py_path;
+}
 
-    result = self->py_path;
-    goto finally;
-  }
 
-  if(strcmp(name, "version") == 0) {
-    result = self->minor_version ? HTTP11 : HTTP10;
-    goto finally;
-  }
+static PyObject*
+Request_get_version(Request* self, void* closure) {
+  PyObject* result = self->minor_version ? HTTP11 : HTTP10;
 
-  if(strcmp(name, "headers") == 0) {
-    if(!self->py_headers) {
-      self->py_headers = Request_decode_headers(self);
-      if(!self->py_headers)
-        goto error;
-    }
-
-    result = self->py_headers;
-    goto finally;
-  }
-
-/*  if(strcmp(name, "body") == 0) {
-    // FIXME
-    result = self->body;
-    goto finally;
-  }*/
-
-  error:
-  result = NULL;
-  finally:
-  if(result)
-    Py_INCREF(result);
+  Py_INCREF(result);
   return result;
 }
+
+
+static PyObject*
+Request_get_headers(Request* self, void* closure) {
+  if(!self->py_headers)
+    self->py_headers = Request_decode_headers(self);
+
+  Py_XINCREF(self->py_headers);
+  return self->py_headers;
+}
+
+
+static PyGetSetDef Request_getset[] = {
+  {"method", (getter)Request_get_method, NULL, "", NULL},
+  {"path", (getter)Request_get_path, NULL, "", NULL},
+  {"version", (getter)Request_get_version, NULL, "", NULL},
+  {"headers", (getter)Request_get_headers, NULL, "", NULL},
+  {NULL}
+};
+
+
+static PyMethodDef Request_methods[] = {
+  {"Response", (PyCFunction)Request_Response, METH_VARARGS | METH_KEYWORDS, ""},
+  {NULL}
+};
 
 
 static PyTypeObject RequestType = {
@@ -255,7 +291,7 @@ static PyTypeObject RequestType = {
   0,                         /* tp_itemsize */
   (destructor)Request_dealloc, /* tp_dealloc */
   0,                         /* tp_print */
-  (getattrfunc)Request_getattr, /* tp_getattr */
+  0,                         /* tp_getattr */
   0,                         /* tp_setattr */
   0,                         /* tp_reserved */
   0,                         /* tp_repr */
@@ -276,9 +312,9 @@ static PyTypeObject RequestType = {
   0,                         /* tp_weaklistoffset */
   0,                         /* tp_iter */
   0,                         /* tp_iternext */
-  0,                         /* tp_methods */
+  Request_methods,           /* tp_methods */
   0,                         /* tp_members */
-  0,                         /* tp_getset */
+  Request_getset,            /* tp_getset */
   0,                         /* tp_base */
   0,                         /* tp_dict */
   0,                         /* tp_descr_get */
@@ -302,11 +338,14 @@ static PyModuleDef crequest = {
 PyMODINIT_FUNC
 PyInit_crequest(void)
 {
+
   PyObject* m = NULL;
   PyObject* api_capsule = NULL;
+  PyObject* cresponse = NULL;
 
   HTTP10 = NULL;
   HTTP11 = NULL;
+  Response = NULL;
 
   if (PyType_Ready(&RequestType) < 0)
     goto error;
@@ -323,6 +362,14 @@ PyInit_crequest(void)
   if(!m)
     goto error;
 
+  cresponse = PyImport_ImportModule("response.cresponse");
+  if(!cresponse)
+    goto error;
+
+  Response = PyObject_GetAttrString(cresponse, "Response");
+  if(!Response)
+    goto error;
+
   Py_INCREF(&RequestType);
   PyModule_AddObject(m, "Request", (PyObject*)&RequestType);
 
@@ -334,14 +381,20 @@ PyInit_crequest(void)
   if(!api_capsule)
     goto error;
 
+  response_capi = import_capi("response.cresponse");
+  if(!response_capi)
+    goto error;
+
   goto finally;
 
   error:
+  Py_XDECREF(Response);
   Py_XDECREF(HTTP10);
   Py_XDECREF(HTTP11);
   m = NULL;
 
   finally:
+  Py_XDECREF(cresponse);
   Py_XDECREF(api_capsule);
   return m;
 }

@@ -57,7 +57,7 @@ Response_dealloc(Response* self)
 
 static const size_t code_offset = 9;
 
-static int
+int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
   static char *kwlist[] = {"status_code", "text", "mime_type", "encoding", NULL};
@@ -269,7 +269,8 @@ PyInit_cresponse(void)
   PyModule_AddObject(m, "Response", (PyObject*)&ResponseType);
 
   static Response_CAPI capi = {
-    Response_render
+    Response_render,
+    Response_init
   };
   api_capsule = export_capi(m, "response.cresponse", &capi);
   if(!api_capsule)

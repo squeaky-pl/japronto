@@ -29,8 +29,8 @@ class Application:
 
         self._matcher = self._router.get_matcher()
 
-    def error_handler(self, request, transport, response):
-        response.__init__(400, text='Something went wrong')
+    def error_handler(self, request, transport):
+        response = request.Response(400, text='Something went wrong')
 
         transport.write(response.render())
 

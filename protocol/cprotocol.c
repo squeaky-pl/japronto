@@ -16,7 +16,6 @@ const unsigned long IDLE_TIMEOUT = 60;
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
-static PyObject* Response;
 static PyObject* PyRequest;
 
 #ifdef REAPER_ENABLED
@@ -46,7 +45,6 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->app = NULL;
   self->matcher = NULL;
   self->error_handler = NULL;
-  self->response = NULL;
   self->request = NULL;
   self->transport = NULL;
   self->write = NULL;
@@ -76,7 +74,6 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->write);
   Py_XDECREF(self->transport);
   Py_XDECREF(self->request);
-  Py_XDECREF(self->response);
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
@@ -136,10 +133,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 
   self->error_handler = PyObject_GetAttrString(self->app, "error_handler");
   if(!self->error_handler)
-    goto error;
-
-  self->response = PyObject_CallFunctionObjArgs(Response, NULL);
-  if(!self->response)
     goto error;
 
   self->request = Py_None;
@@ -463,8 +456,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   if(route == Py_None)
     goto handle_error;
 
-  handler_result = PyObject_CallFunctionObjArgs(
-    handler, self->request, self->response, NULL);
+  handler_result = PyObject_CallFunctionObjArgs(handler, self->request, NULL);
   if(!handler_result)
     goto error;
 
@@ -480,7 +472,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   handle_error:
   handler_result = PyObject_CallFunctionObjArgs(
-    self->error_handler, self->request, self->transport, self->response, NULL);
+    self->error_handler, self->request, self->transport, NULL);
   if(!handler_result)
     goto error;
   Py_DECREF(handler_result);
@@ -590,9 +582,7 @@ PyInit_cprotocol(void)
   PyObject* cparser = NULL;
   Parser = NULL;
 #endif
-  PyObject* cresponse = NULL;
   PyObject* crequest = NULL;
-  Response = NULL;
 #ifdef REAPER_ENABLED
   check_interval = NULL;
 #endif
@@ -625,14 +615,6 @@ PyInit_cprotocol(void)
   if(!PyRequest)
     goto error;
 
-  cresponse = PyImport_ImportModule("response.cresponse");
-  if(!cresponse)
-    goto error;
-
-  Response = PyObject_GetAttrString(cresponse, "Response");
-  if(!Response)
-    goto error;
-
   request_capi = import_capi("request.crequest");
   if(!request_capi)
     goto error;
@@ -660,14 +642,12 @@ PyInit_cprotocol(void)
 #ifdef REAPER_ENABLED
   Py_XDECREF(check_interval);
 #endif
-  Py_XDECREF(Response);
   Py_XDECREF(PyRequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(Parser);
 #endif
   m = NULL;
   finally:
-  Py_XDECREF(cresponse);
   Py_XDECREF(crequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(cparser);

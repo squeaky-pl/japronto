@@ -19,6 +19,7 @@ typedef struct {
   PyObject* py_path;
   PyObject* py_headers;
   PyObject* py_body;
+  PyObject* response;
 } Request;
 
 #define REQUEST(r) \

@@ -23,7 +23,6 @@ typedef struct {
   PyObject* app;
   PyObject* matcher;
   PyObject* error_handler;
-  PyObject* response;
   PyObject* request;
   PyObject* transport;
   PyObject* write;
