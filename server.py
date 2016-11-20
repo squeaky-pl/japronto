@@ -30,6 +30,18 @@ async def sleep(request, transport, response):
     transport.write(response.render())
 
 
+async def loop(request, transport, response):
+    i = 0
+    while i < 10:
+        await asyncio.sleep(1)
+        print(i)
+        i += 1
+
+    response.__init__(text='Loop finished')
+    transport.write(response.render())
+
+
+
 def dump(request, transport, response):
     text = """
 Method: {0.method}
@@ -50,6 +62,7 @@ r.add_route('/', slash)
 r.add_route('/hello', hello)
 r.add_route('/dump', dump)
 r.add_route('/sleep', sleep)
+r.add_route('/loop', loop)
 
 
 if __name__ == '__main__':
