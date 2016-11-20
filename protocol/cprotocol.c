@@ -7,16 +7,20 @@
 #include "capsule.h"
 
 
+#ifdef REAPER_ENABLED
 const long CHECK_INTERVAL = 10;
 const unsigned long IDLE_TIMEOUT = 60;
-
+#endif
 
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
 static PyObject* Response;
 static PyObject* PyRequest;
+
+#ifdef REAPER_ENABLED
 static PyObject* check_interval;
+#endif
 
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
@@ -43,9 +47,11 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->response = NULL;
   self->request = NULL;
   self->transport = NULL;
+#ifdef REAPER_ENABLED
   self->call_later = NULL;
   self->check_idle = NULL;
   self->check_idle_task = NULL;
+#endif
 
   finally:
   return (PyObject*)self;
@@ -55,9 +61,11 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
+#ifdef REAPER_ENABLED
   Py_XDECREF(self->check_idle_task);
   Py_XDECREF(self->check_idle);
   Py_XDECREF(self->call_later);
+#endif
   Py_XDECREF(self->transport);
   Py_XDECREF(self->request);
   Py_XDECREF(self->response);
@@ -133,6 +141,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(!loop)
     goto error;
 
+#ifdef REAPER_ENABLED
   self->call_later = PyObject_GetAttrString(loop, "call_later");
   if(!self->call_later)
     goto error;
@@ -140,6 +149,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   self->check_idle = PyObject_GetAttrString((PyObject*)self, "_check_idle");
   if(!self->check_idle)
     goto error;
+#endif
 
   goto finally;
 
@@ -154,6 +164,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 }
 
 
+#ifdef REAPER_ENABLED
 static inline PyObject*
 Protocol_schedule_check_idle(Protocol* self)
 {
@@ -163,6 +174,7 @@ Protocol_schedule_check_idle(Protocol* self)
 
   return self->check_idle_task;
 }
+#endif
 
 
 static PyObject*
@@ -172,12 +184,14 @@ Protocol_connection_made(Protocol* self, PyObject* args)
     goto error;
   Py_INCREF(self->transport);
 
+#ifdef REAPER_ENABLED
   self->idle_time = 0;
   self->read_ops = 0;
   self->last_read_ops = 0;
 
   if(!Protocol_schedule_check_idle(self))
     goto error;
+#endif
 
   goto finally;
 
@@ -188,6 +202,7 @@ Protocol_connection_made(Protocol* self, PyObject* args)
 }
 
 
+#ifdef REAPER_ENABLED
 static PyObject*
 Protocol__check_idle(Protocol* self, PyObject* args)
 {
@@ -223,6 +238,7 @@ Protocol__check_idle(Protocol* self, PyObject* args)
   Py_XDECREF(close);
   Py_RETURN_NONE;
 }
+#endif
 
 
 static PyObject*
@@ -255,7 +271,9 @@ Protocol_data_received(Protocol* self, PyObject* args)
   if(!PyArg_ParseTuple(args, "O", &data))
     goto error;
 
+#ifdef REAPER_ENABLED
   self->read_ops++;
+#endif
 
 #ifdef PARSER_STANDALONE
   PyObject* result = PyObject_CallFunctionObjArgs(
@@ -384,7 +402,9 @@ static PyMethodDef Protocol_methods[] = {
   {"connection_made", (PyCFunction)Protocol_connection_made, METH_VARARGS, ""},
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_VARARGS, ""},
+#ifdef REAPER_ENABLED
   {"_check_idle", (PyCFunction)Protocol__check_idle, METH_NOARGS, ""},
+#endif
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
@@ -456,7 +476,9 @@ PyInit_cprotocol(void)
   PyObject* cresponse = NULL;
   PyObject* crequest = NULL;
   Response = NULL;
+#ifdef REAPER_ENABLED
   check_interval = NULL;
+#endif
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -502,9 +524,11 @@ PyInit_cprotocol(void)
   if(!matcher_capi)
     goto error;
 
+#ifdef REAPER_ENABLED
   check_interval = PyLong_FromLong(CHECK_INTERVAL);
   if(!check_interval)
     goto error;
+#endif
 
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
@@ -512,7 +536,9 @@ PyInit_cprotocol(void)
   goto finally;
 
   error:
+#ifdef REAPER_ENABLED
   Py_XDECREF(check_interval);
+#endif
   Py_XDECREF(Response);
   Py_XDECREF(PyRequest);
 #ifdef PARSER_STANDALONE

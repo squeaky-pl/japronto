@@ -1,0 +1,3 @@
+Currently the connection reaper is per connection that is there is call_later
+per connection, probably it could be per app holding references to all active
+connections and then walking all of them

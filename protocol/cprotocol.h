@@ -15,19 +15,22 @@ typedef struct {
 #else
   Parser parser;
 #endif
+#ifdef REAPER_ENABLED
   unsigned long idle_time;
   unsigned long read_ops;
   unsigned long last_read_ops;
-
+#endif
   PyObject* app;
   PyObject* matcher;
   PyObject* error_handler;
   PyObject* response;
   PyObject* request;
   PyObject* transport;
+#ifdef REAPER_ENABLED
   PyObject* call_later;
   PyObject* check_idle;
   PyObject* check_idle_task;
+#endif
 } Protocol;
 
 
