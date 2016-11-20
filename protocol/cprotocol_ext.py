@@ -13,7 +13,7 @@ def get_extension():
         'protocol.cprotocol',
         sources=['cprotocol.c', '../capsule.c', *cparser.sources],
         include_dirs=['.', '..', '../parser', '../router', '../request',
-                      *cparser.include_dirs],
+                      '../response', *cparser.include_dirs],
         libraries=cparser.libraries, library_dirs=cparser.library_dirs,
         extra_link_args=cparser.extra_link_args,
         define_macros=define_macros)

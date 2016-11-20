@@ -4,6 +4,7 @@
 #include "cprotocol.h"
 #include "cmatcher.h"
 #include "crequest.h"
+#include "cresponse.h"
 #include "capsule.h"
 
 
@@ -24,6 +25,7 @@ static PyObject* check_interval;
 
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
+static Response_CAPI* response_capi;
 
 
 static PyObject *
@@ -47,6 +49,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->response = NULL;
   self->request = NULL;
   self->transport = NULL;
+  self->write = NULL;
 #ifdef REAPER_ENABLED
   self->call_later = NULL;
   self->check_idle = NULL;
@@ -68,6 +71,7 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->check_idle);
   Py_XDECREF(self->call_later);
 #endif
+  Py_XDECREF(self->write);
   Py_XDECREF(self->transport);
   Py_XDECREF(self->request);
   Py_XDECREF(self->response);
@@ -189,6 +193,9 @@ Protocol_connection_made(Protocol* self, PyObject* args)
   if(!PyArg_ParseTuple(args, "O", &self->transport))
     goto error;
   Py_INCREF(self->transport);
+
+  if(!(self->write = PyObject_GetAttrString(self->transport, "write")))
+    goto error;
 
 #ifdef REAPER_ENABLED
   self->idle_time = 0;
@@ -347,9 +354,10 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #else
   Protocol* result = self;
 #endif
-  PyObject* route = NULL;
-  PyObject* handler = NULL;
+  PyObject* route = NULL; // stolen
+  PyObject* handler = NULL; // stolen
   PyObject* handler_result = NULL;
+  PyObject* memory_view = NULL;
 #ifdef PARSER_STANDALONE
 /*  PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
@@ -366,7 +374,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     goto handle_error;
 
   handler_result = PyObject_CallFunctionObjArgs(
-    handler, self->request, self->transport, self->response, NULL);
+    handler, self->request, self->response, NULL);
   if(!handler_result)
     goto error;
 
@@ -375,6 +383,14 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     if(!task)
       goto error;
     Py_DECREF(task);
+  } else {
+    if(!(memory_view = response_capi->Response_render((RESPONSE*)handler_result)))
+      goto error;
+
+    PyObject* tmp;
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, memory_view, NULL)))
+      goto error;
+    Py_DECREF(tmp);
   }
 
   goto finally;
@@ -385,10 +401,14 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   if(!handler_result)
     goto error;
   Py_DECREF(handler_result);
+  handler_result = NULL;
   goto finally;
+
   error:
   result = NULL;
+
   finally:
+  Py_XDECREF(memory_view);
   Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE
   if(result)
@@ -536,6 +556,10 @@ PyInit_cprotocol(void)
 
   matcher_capi = import_capi("router.cmatcher");
   if(!matcher_capi)
+    goto error;
+
+  response_capi = import_capi("response.cresponse");
+  if(!response_capi)
     goto error;
 
 #ifdef REAPER_ENABLED

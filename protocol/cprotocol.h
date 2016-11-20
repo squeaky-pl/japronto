@@ -26,6 +26,7 @@ typedef struct {
   PyObject* response;
   PyObject* request;
   PyObject* transport;
+  PyObject* write;
 #ifdef REAPER_ENABLED
   PyObject* call_later;
   PyObject* check_idle;

@@ -1,7 +1,9 @@
 #include <Python.h>
 
+#include "cresponse.h"
+#include "capsule.h"
 
-typedef struct {
+typedef struct _Response {
   PyObject_HEAD
 
   PyObject* status_code;
@@ -102,7 +104,7 @@ static const char charset[] = "; charset=";
 static const char utf8[] = "utf-8";
 static const char text_plain[] = "text/plain";
 
-static PyObject*
+PyObject*
 Response_render(Response* self)
 {
   if(self->status_code != Py_None) {
@@ -194,7 +196,7 @@ Response_render(Response* self)
 
 
 static PyMethodDef Response_methods[] = {
-  {"render", (PyCFunction)Response_render, METH_NOARGS, "render"},
+  //{"render", (PyCFunction)Response_render, METH_NOARGS, "render"},
   {NULL}
 };
 
@@ -254,6 +256,7 @@ PyMODINIT_FUNC
 PyInit_cresponse(void)
 {
   PyObject* m = NULL;
+  PyObject* api_capsule = NULL;
 
   if (PyType_Ready(&ResponseType) < 0)
     goto error;
@@ -265,7 +268,18 @@ PyInit_cresponse(void)
   Py_INCREF(&ResponseType);
   PyModule_AddObject(m, "Response", (PyObject*)&ResponseType);
 
+  static Response_CAPI capi = {
+    Response_render
+  };
+  api_capsule = export_capi(m, "response.cresponse", &capi);
+  if(!api_capsule)
+    goto error;
+
+  goto finally;
+
   error:
+  m = NULL;
   finally:
+  Py_XDECREF(api_capsule);
   return m;
 }

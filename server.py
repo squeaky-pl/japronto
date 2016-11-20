@@ -11,26 +11,26 @@ from router import Router
 from app import Application
 
 
-def slash(request, transport, response):
+def slash(request, response):
     response.__init__(text='Hello slash!')
 
-    transport.write(response.render())
+    return response
 
 
-def hello(request, transport, response):
+def hello(request, response):
     response.__init__(text='Hello hello!')
 
-    transport.write(response.render())
+    return response
 
 
-async def sleep(request, transport, response):
+async def sleep(request, response):
     await asyncio.sleep(3)
     response.__init__(text='I am sleepy')
 
-    transport.write(response.render())
+    return response
 
 
-async def loop(request, transport, response):
+async def loop(request, response):
     i = 0
     while i < 10:
         await asyncio.sleep(1)
@@ -38,11 +38,12 @@ async def loop(request, transport, response):
         i += 1
 
     response.__init__(text='Loop finished')
-    transport.write(response.render())
+
+    return response
 
 
 
-def dump(request, transport, response):
+def dump(request, response):
     text = """
 Method: {0.method}
 Path: {0.path}
@@ -52,7 +53,7 @@ Headers: {0.headers}
 
     response.__init__(text=text)
 
-    transport.write(response.render())
+    return response
 
 
 app = Application()
