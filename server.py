@@ -23,6 +23,13 @@ def hello(request, transport, response):
     transport.write(response.render())
 
 
+async def sleep(request, transport, response):
+    await asyncio.sleep(3)
+    response.__init__(text='I am sleepy')
+
+    transport.write(response.render())
+
+
 def dump(request, transport, response):
     text = """
 Method: {0.method}
@@ -42,6 +49,7 @@ r = app.get_router()
 r.add_route('/', slash)
 r.add_route('/hello', hello)
 r.add_route('/dump', dump)
+r.add_route('/sleep', sleep)
 
 
 if __name__ == '__main__':

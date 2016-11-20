@@ -1,4 +1,5 @@
 import signal
+import asyncio
 
 import router
 import uvloop
@@ -38,6 +39,8 @@ class Application:
         self.__freeze()
 
         loop = self.get_loop()
+
+        asyncio.set_event_loop(loop)
 
         server_coro = loop.create_server(
             lambda: protocol_factory(self),

@@ -52,6 +52,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->check_idle = NULL;
   self->check_idle_task = NULL;
 #endif
+  self->create_task = NULL;
 
   finally:
   return (PyObject*)self;
@@ -62,6 +63,7 @@ static void
 Protocol_dealloc(Protocol* self)
 {
 #ifdef REAPER_ENABLED
+  Py_XDECREF(self->create_task);
   Py_XDECREF(self->check_idle_task);
   Py_XDECREF(self->check_idle);
   Py_XDECREF(self->call_later);
@@ -150,6 +152,10 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(!self->check_idle)
     goto error;
 #endif
+
+  self->create_task = PyObject_GetAttrString(loop, "create_task");
+  if(!self->create_task)
+    goto error;
 
   goto finally;
 
@@ -343,6 +349,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
   PyObject* route = NULL;
   PyObject* handler = NULL;
+  PyObject* handler_result = NULL;
 #ifdef PARSER_STANDALONE
 /*  PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
@@ -358,11 +365,17 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   if(route == Py_None)
     goto handle_error;
 
-  PyObject* handler_result = PyObject_CallFunctionObjArgs(
+  handler_result = PyObject_CallFunctionObjArgs(
     handler, self->request, self->transport, self->response, NULL);
   if(!handler_result)
     goto error;
-  Py_DECREF(handler_result);
+
+  if(PyCoro_CheckExact(handler_result)) {
+    PyObject* task = PyObject_CallFunctionObjArgs(self->create_task, handler_result, NULL);
+    if(!task)
+      goto error;
+    Py_DECREF(task);
+  }
 
   goto finally;
 
@@ -376,6 +389,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   error:
   result = NULL;
   finally:
+  Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE
   if(result)
     Py_INCREF(result);
