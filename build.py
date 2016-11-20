@@ -13,7 +13,12 @@ import sys
 ext_dirs = ['parser', 'request', 'response', 'router', 'protocol']
 
 
-def discover_extensions():
+class BuildSystem:
+    def __init__(self, args):
+        self.args = args
+
+
+def discover_extensions(system):
     extensions = []
 
     for directory in ext_dirs:
@@ -24,7 +29,10 @@ def discover_extensions():
         for f in ext_files:
             print('Collected: ', f)
         ext_modules = [os.path.splitext(f)[0].replace('/', '.') for f in ext_files]
-        dir_extensions = [import_module(m).get_extension(fix_path) for m in ext_modules]
+        ext_modules = [import_module(m) for m in ext_modules]
+        for m in ext_modules:
+            m.system = system
+        dir_extensions = [m.get_extension(fix_path) for m in ext_modules]
         extensions.extend(dir_extensions)
 
     return extensions
@@ -51,11 +59,16 @@ def main():
     argparser.add_argument(
         '--profile-use', dest='profile_use', const=True,
         action='store_const', default=False)
+    argparser.add_argument(
+        '--disable-reaper', dest='enable_reaper', const=False,
+        action='store_const', default=True)
     args = argparser.parse_args(sys.argv[1:])
 
     distutils.log.set_verbosity(1)
 
-    ext_modules = discover_extensions()
+    system = BuildSystem(args)
+
+    ext_modules = discover_extensions(system)
     dist = Distribution(dict(ext_modules=ext_modules))
 
     if args.debug:
