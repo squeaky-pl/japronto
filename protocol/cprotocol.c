@@ -56,6 +56,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->check_idle_task = NULL;
 #endif
   self->create_task = NULL;
+  self->done_callback = NULL;
 
   finally:
   return (PyObject*)self;
@@ -65,8 +66,9 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
-#ifdef REAPER_ENABLED
+  Py_XDECREF(self->done_callback);
   Py_XDECREF(self->create_task);
+#ifdef REAPER_ENABLED
   Py_XDECREF(self->check_idle_task);
   Py_XDECREF(self->check_idle);
   Py_XDECREF(self->call_later);
@@ -159,6 +161,10 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 
   self->create_task = PyObject_GetAttrString(loop, "create_task");
   if(!self->create_task)
+    goto error;
+
+  self->done_callback = PyObject_GetAttrString((PyObject*)self, "_done_callback");
+  if(!self->done_callback)
     goto error;
 
   goto finally;
@@ -341,6 +347,91 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 #endif
 
 
+static inline Protocol* Protocol_write_response(Protocol* self, RESPONSE* response)
+{
+    Protocol* result = self;
+    PyObject* memory_view = NULL;
+
+    if(!(memory_view = response_capi->Response_render(response)))
+      goto error;
+
+    PyObject* tmp;
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, memory_view, NULL)))
+      goto error;
+    Py_DECREF(tmp);
+
+    goto finally;
+
+    error:
+    result = NULL;
+
+    finally:
+    Py_XDECREF(memory_view);
+    return result;
+}
+
+
+static PyObject* Protocol__done_callback(Protocol* self, PyObject* args)
+{
+  PyObject* result = Py_None;
+  PyObject* future;
+  PyObject* get_result = NULL;
+  PyObject* response = NULL;
+  if(!PyArg_ParseTuple(args, "O", &future))
+    goto error;
+
+  if(!(get_result = PyObject_GetAttrString(future, "result")))
+    goto error;
+
+  if(!(response = PyObject_CallFunctionObjArgs(get_result, NULL)))
+    goto error;
+
+  if(!Protocol_write_response(self, (RESPONSE*)response))
+    goto error;
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XDECREF(response);
+  Py_XDECREF(get_result);
+  if(result)
+    Py_INCREF(result);
+  return result;
+}
+
+
+static Protocol* Protocol_handle_coro(Protocol* self, PyObject* coro)
+{
+  Protocol* result = self;
+  PyObject* task = NULL;
+  PyObject* add_done_callback = NULL;
+
+  if(!(task = PyObject_CallFunctionObjArgs(self->create_task, coro, NULL)))
+    goto error;
+
+  if(!(add_done_callback = PyObject_GetAttrString(task, "add_done_callback")))
+    goto error;
+
+  PyObject* tmp;
+  if(!(tmp = PyObject_CallFunctionObjArgs(add_done_callback, self->done_callback, NULL)))
+    goto error;
+  Py_DECREF(tmp);
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XDECREF(add_done_callback);
+  Py_XDECREF(task);
+  return result;
+}
+
+
 #ifdef PARSER_STANDALONE
 static PyObject*
 Protocol_on_body(Protocol* self, PyObject *args)
@@ -357,7 +448,6 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   PyObject* route = NULL; // stolen
   PyObject* handler = NULL; // stolen
   PyObject* handler_result = NULL;
-  PyObject* memory_view = NULL;
 #ifdef PARSER_STANDALONE
 /*  PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
@@ -379,18 +469,11 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     goto error;
 
   if(PyCoro_CheckExact(handler_result)) {
-    PyObject* task = PyObject_CallFunctionObjArgs(self->create_task, handler_result, NULL);
-    if(!task)
+    if(!Protocol_handle_coro(self, handler_result))
       goto error;
-    Py_DECREF(task);
   } else {
-    if(!(memory_view = response_capi->Response_render((RESPONSE*)handler_result)))
+    if(!Protocol_write_response(self, (RESPONSE*)handler_result))
       goto error;
-
-    PyObject* tmp;
-    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, memory_view, NULL)))
-      goto error;
-    Py_DECREF(tmp);
   }
 
   goto finally;
@@ -408,7 +491,6 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   result = NULL;
 
   finally:
-  Py_XDECREF(memory_view);
   Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE
   if(result)
@@ -439,6 +521,7 @@ static PyMethodDef Protocol_methods[] = {
 #ifdef REAPER_ENABLED
   {"_check_idle", (PyCFunction)Protocol__check_idle, METH_NOARGS, ""},
 #endif
+  {"_done_callback", (PyCFunction)Protocol__done_callback, METH_VARARGS, ""},
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},

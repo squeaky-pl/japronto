@@ -33,6 +33,7 @@ typedef struct {
   PyObject* check_idle_task;
 #endif
   PyObject* create_task;
+  PyObject* done_callback;
 } Protocol;
 
 
