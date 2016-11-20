@@ -1,7 +1,7 @@
 from distutils.core import Extension
 
 
-def get_extension(fix_path):
+def get_extension():
     return Extension(
         'response.cresponse',
-        sources=[fix_path('cresponse.c')])
+        sources=['cresponse.c'])

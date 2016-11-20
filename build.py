@@ -10,32 +10,46 @@ import os
 import sys
 
 
-ext_dirs = ['parser', 'request', 'response', 'router', 'protocol']
-
-
 class BuildSystem:
     def __init__(self, args):
         self.args = args
 
+    def get_extension_by_path(self, path):
+        module_import = os.path.splitext(path)[0].replace('/', '.')
+        module = import_module(module_import)
+        module.system = self
+        extension = module.get_extension()
 
-def discover_extensions(system):
-    extensions = []
+        base_path = os.path.dirname(path)
 
-    for directory in ext_dirs:
-        def fix_path(path):
-            return os.path.abspath(os.path.join(directory, path))
+        def fix_path(p):
+            if os.path.isabs(p):
+                return p
 
-        ext_files = glob(os.path.join(directory, '*_ext.py'))
-        for f in ext_files:
-            print('Collected: ', f)
-        ext_modules = [os.path.splitext(f)[0].replace('/', '.') for f in ext_files]
-        ext_modules = [import_module(m) for m in ext_modules]
-        for m in ext_modules:
-            m.system = system
-        dir_extensions = [m.get_extension(fix_path) for m in ext_modules]
-        extensions.extend(dir_extensions)
+            return os.path.abspath(os.path.join(base_path, p))
 
-    return extensions
+        for attr in ['sources', 'include_dirs', 'library_dirs', 'runtime_library_dirs']:
+            val = getattr(extension, attr)
+            if not val:
+                continue
+
+            val = [fix_path(v) for v in val]
+            if attr == 'runtime_library_dirs':
+                setattr(extension, attr, None)
+                attr = 'extra_link_args'
+                val = ['-Wl,-rpath,' + v for v in val]
+                val = (getattr(extension, attr) or []) + val
+            setattr(extension, attr, val)
+
+        return extension
+
+    def discover_extensions(self):
+        self.extensions = []
+
+        ext_files = glob('**/*_ext.py', recursive=True)
+        self.extensions = [self.get_extension_by_path(f) for f in ext_files]
+
+        return self.extensions
 
 
 def dest_folder(mod_name):
@@ -62,13 +76,17 @@ def main():
     argparser.add_argument(
         '--disable-reaper', dest='enable_reaper', const=False,
         action='store_const', default=True)
+    argparser.add_argument('--path', dest='path')
     args = argparser.parse_args(sys.argv[1:])
 
     distutils.log.set_verbosity(1)
 
     system = BuildSystem(args)
 
-    ext_modules = discover_extensions(system)
+    if args.path:
+        ext_modules = [system.get_extension_by_path(args.path)]
+    else:
+        ext_modules = system.discover_extensions()
     dist = Distribution(dict(ext_modules=ext_modules))
 
     if args.debug:
@@ -86,8 +104,12 @@ def main():
 
     if not args.debug:
         for ext_module in ext_modules:
-            ext_module.extra_compile_args.append('-flto')
-            ext_module.extra_link_args.append('-flto')
+            extra_compile_args = ext_module.extra_compile_args or []
+            extra_compile_args.append('-flto')
+            ext_module.extra_compile_args = extra_compile_args
+            extra_link_args = ext_module.extra_link_args or []
+            extra_link_args.append('-flto')
+            ext_module.extra_link_args = extra_link_args
 
     prune()
 

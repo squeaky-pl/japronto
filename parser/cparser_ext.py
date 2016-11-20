@@ -1,12 +1,12 @@
 from distutils.core import Extension
 
 
-def get_extension(fix_path):
+def get_extension():
     return Extension(
         'parser.cparser',
-        sources=[fix_path('cparser.c')],
+        sources=['cparser.c'],
         libraries=['picohttpparser'],
-        include_dirs=[fix_path('../picohttpparser')],
-        library_dirs=[fix_path('../picohttpparser')],
-        extra_link_args=['-Wl,-rpath,' + fix_path('../picohttpparser')],
-        extra_compile_args=['-DPARSER_STANDALONE'])
+        include_dirs=['../picohttpparser'],
+        library_dirs=['../picohttpparser'],
+        runtime_library_dirs=['../picohttpparser'],
+        define_macros=[('PARSER_STANDALONE', 1)])

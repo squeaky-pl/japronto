@@ -1,22 +1,19 @@
 from distutils.core import Extension
-import parser.cparser_ext
 import os.path
 
 
-def get_extension(fix_path):
-    def parser_fix_path(path):
-        return fix_path(os.path.join('../parser', path))
+def get_extension():
+    cparser = system.get_extension_by_path('parser/cparser_ext.py')
 
-    cparser = parser.cparser_ext.get_extension(parser_fix_path)
-
-    extra_compile_args = []
+    define_macros = []
     if system.args.enable_reaper:
-        extra_compile_args.append('-DREAPER_ENABLED')
+        define_macros.append(('REAPER_ENABLED', 1))
 
     return Extension(
         'protocol.cprotocol',
-        sources=[fix_path('cprotocol.c'), fix_path('../capsule.c'), *cparser.sources],
-        include_dirs=[fix_path('.'), fix_path('..'), fix_path('../parser'), fix_path('../router'), fix_path('../request'), *cparser.include_dirs],
+        sources=['cprotocol.c', '../capsule.c', *cparser.sources],
+        include_dirs=['.', '..', '../parser', '../router', '../request',
+                      *cparser.include_dirs],
         libraries=cparser.libraries, library_dirs=cparser.library_dirs,
         extra_link_args=cparser.extra_link_args,
-        extra_compile_args=extra_compile_args)
+        define_macros=define_macros)
