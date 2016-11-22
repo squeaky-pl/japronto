@@ -42,10 +42,10 @@ class Pipeline:
             print('Done', task.result())
         if this_task and (not task.depends_on or task.depends_on.written):
             self.write(task)
+            self._gc()
             return
 
         self._resolve_dependency(task)
-        self._gc()
 
         if this_task:
             depends_on = task.depends_on

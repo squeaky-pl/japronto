@@ -1,6 +1,123 @@
 #include <Python.h>
+#include "structmember.h"
+
+struct _Pipeline;
+
+static inline PyObject*
+Pipeline_task_done(struct _Pipeline* self, PyObject* this_task, PyObject* task);
 
 typedef struct {
+  PyObject_HEAD
+  struct _Pipeline* pipeline;
+  PyObject* task;
+} Partial;
+
+
+static PyObject*
+Partial_new(PyTypeObject* type)
+{
+  Partial* self = NULL;
+
+  self = (Partial*)type->tp_alloc(type, 0);
+  if(!self)
+    goto finally;
+
+  self->pipeline = NULL;
+  self->task = NULL;
+
+  finally:
+  return (PyObject*)self;
+}
+
+
+static void
+Partial_dealloc(Partial* self)
+{
+  Py_XDECREF(self->task);
+  Py_XDECREF(self->pipeline);
+
+  Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
+static int
+Partial_init(Partial* self, struct _Pipeline* pipeline, PyObject* task)
+{
+  self->pipeline = pipeline;
+  Py_INCREF(self->pipeline);
+  self->task = task;
+  Py_INCREF(self->task);
+
+  return 0;
+}
+
+
+static PyObject*
+Partial_call(Partial *self, PyObject *args, PyObject *kw)
+{
+  PyObject* result = Py_None;
+  PyObject* this_task;
+
+  if(!PyArg_ParseTuple(args, "O", &this_task))
+    goto error;
+
+  if(!Pipeline_task_done(self->pipeline, this_task, self->task))
+    goto error;
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XINCREF(result);
+  return result;
+}
+
+
+static PyTypeObject PartialType = {
+  PyVarObject_HEAD_INIT(NULL, 0)
+  "cpipeline.Partial",       /* tp_name */
+  sizeof(Partial),           /* tp_basicsize */
+  0,                         /* tp_itemsize */
+  (destructor)Partial_dealloc, /* tp_dealloc */
+  0,                         /* tp_print */
+  0,                         /* tp_getattr */
+  0,                         /* tp_setattr */
+  0,                         /* tp_reserved */
+  0,                         /* tp_repr */
+  0,                         /* tp_as_number */
+  0,                         /* tp_as_sequence */
+  0,                         /* tp_as_mapping */
+  0,                         /* tp_hash  */
+  (ternaryfunc)Partial_call, /* tp_call */
+  0,                         /* tp_str */
+  0,                         /* tp_getattro */
+  0,                         /* tp_setattro */
+  0,                         /* tp_as_buffer */
+  Py_TPFLAGS_DEFAULT,        /* tp_flags */
+  "Partial",                 /* tp_doc */
+  0,                         /* tp_traverse */
+  0,                         /* tp_clear */
+  0,                         /* tp_richcompare */
+  0,                         /* tp_weaklistoffset */
+  0,                         /* tp_iter */
+  0,                         /* tp_iternext */
+  0,                         /* tp_methods */
+  0,                         /* tp_members */
+  0,                         /* tp_getset */
+  0,                         /* tp_base */
+  0,                         /* tp_dict */
+  0,                         /* tp_descr_get */
+  0,                         /* tp_descr_set */
+  0,                         /* tp_dictoffset */
+  0,                         /* tp_init */
+  0,                         /* tp_alloc */
+  0,                         /* tp_new */
+};
+
+
+typedef struct _Pipeline {
   PyObject_HEAD
   PyObject* tail;
   PyObject* results;
@@ -8,7 +125,7 @@ typedef struct {
 
 
 static PyObject*
-Pipeline_new(PyTypeObject * type, PyObject* args, PyObject* kw)
+Pipeline_new(PyTypeObject* type, PyObject* args, PyObject* kw)
 {
   Pipeline* self = NULL;
 
@@ -188,6 +305,10 @@ static inline PyObject*
 Pipeline_task_done(Pipeline* self, PyObject* this_task, PyObject* task)
 {
     PyObject* result = Py_False;
+    PyObject* depends_on = NULL;
+    PyObject* partial = NULL;
+    PyObject* add_done_callback = NULL;
+
     if(this_task) {
       PyObject* depends_on = NULL;
       if(!(depends_on = PyObject_GetAttrString(task, "_depends_on")))
@@ -203,6 +324,9 @@ Pipeline_task_done(Pipeline* self, PyObject* this_task, PyObject* task)
 
       write:
       if(!Pipeline_write(self, task))
+        goto write_error;
+
+      if(!Pipeline_gc(self))
         goto write_error;
 
       result = Py_True;
@@ -224,8 +348,26 @@ Pipeline_task_done(Pipeline* self, PyObject* this_task, PyObject* task)
     if(!Pipeline_resolve_dependency(self, task))
       goto error;
 
-    if(!Pipeline_gc(self))
+    if(this_task) {
+      if(!(depends_on = PyObject_GetAttrString(task, "_depends_on")))
+        goto error;
+    } else {
+      depends_on = task;
+      Py_INCREF(depends_on);
+    }
+
+    if(!(partial = Partial_new(&PartialType)))
       goto error;
+
+    Partial_init((Partial*)partial, self, task);
+
+    if(!(add_done_callback = PyObject_GetAttrString(depends_on, "add_done_callback")))
+      goto error;
+
+    PyObject* tmp;
+    if(!(tmp = PyObject_CallFunctionObjArgs(add_done_callback, partial, NULL)))
+      goto error;
+    Py_DECREF(tmp);
 
     goto finally;
 
@@ -233,6 +375,9 @@ Pipeline_task_done(Pipeline* self, PyObject* this_task, PyObject* task)
     result = NULL;
 
     finally:
+    Py_XDECREF(add_done_callback);
+    Py_XDECREF(partial);
+    Py_XDECREF(depends_on);
     return result;
 }
 
@@ -271,6 +416,13 @@ static PyMethodDef Pipeline_methods[] = {
 };
 
 
+static PyMemberDef Pipeline_members[] = {
+  {"tail", T_OBJECT_EX, offsetof(Pipeline, tail), READONLY, ""},
+  {"results", T_OBJECT_EX, offsetof(Pipeline, results), READONLY, ""},
+  {NULL}
+};
+
+
 static PyTypeObject PipelineType = {
   PyVarObject_HEAD_INIT(NULL, 0)
   "cpipeline.Pipeline",       /* tp_name */
@@ -300,7 +452,7 @@ static PyTypeObject PipelineType = {
   0,                         /* tp_iter */
   0,                         /* tp_iternext */
   Pipeline_methods,          /* tp_methods */
-  0,                         /* tp_members */
+  Pipeline_members,          /* tp_members */
   0,                         /* tp_getset */
   0,                         /* tp_base */
   0,                         /* tp_dict */
@@ -328,6 +480,9 @@ PyInit_cpipeline(void)
   PyObject* m = NULL;
 
   if(PyType_Ready(&PipelineType) < 0)
+    goto error;
+
+  if(PyType_Ready(&PartialType) < 0)
     goto error;
 
   if(!(m = PyModule_Create(&cpipeline)))
