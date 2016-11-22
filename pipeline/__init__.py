@@ -14,36 +14,45 @@ class Pipeline:
         task.depends_on = self.tail
         task.written = False
         self.tail = task
-        self._resolve_dependency(task)
-        task.add_done_callback(partial(self._task_done, task=task))
 
-        self.tail = task
+        self._task_done(None, task)
 
     def _resolve_dependency(self, task):
         current = task.depends_on
-        while current:
-            if current.written:
-                self.tail = current.depends_on
-                if not current.depends_on:
-                    print('empty')
 
+        while current:
             if not current.done():
                 break
+
             current = current.depends_on
 
         task.depends_on = current
 
+
+    def _gc(self):
+        while self.tail:
+            if not self.tail.written:
+                break
+
+            self.tail = self.tail.depends_on
+
+
     def _task_done(self, this_task, task):
         if this_task == task:
             print('Done', task.result())
-        if not task.depends_on or task.depends_on.written:
+        if this_task and (not task.depends_on or task.depends_on.written):
             self.write(task)
-
-        self._resolve_dependency(task)
-        if task.written:
             return
 
-        task.depends_on.add_done_callback(partial(self._task_done, task=task))
+        self._resolve_dependency(task)
+        self._gc()
+
+        if this_task:
+            depends_on = task.depends_on
+        else:
+            depends_on = task
+
+        depends_on.add_done_callback(partial(self._task_done, task=task))
 
 
     def write(self, task):
@@ -73,6 +82,7 @@ if __name__ == '__main__':
         pipeline.queue(t)
 
     loop.call_later(2, lambda: queue(2))
+    loop.call_later(12, lambda: queue(2))
 
     queue(1)
     queue(10)
