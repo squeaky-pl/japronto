@@ -393,6 +393,7 @@ Pipeline_queue(Pipeline* self, PyObject* task)
   if(PyObject_SetAttrString(task, "_written", Py_False) == -1)
     goto error;
 
+  Py_DECREF(self->tail);
   self->tail = task;
   Py_INCREF(self->tail);
 
