@@ -4,7 +4,6 @@ from functools import partial
 
 class Pipeline:
     def __init__(self):
-        self.loop = asyncio.get_event_loop()
         self.tail = None
         self.results = []
 
