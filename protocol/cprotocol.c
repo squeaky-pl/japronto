@@ -92,7 +92,7 @@ static int
 Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 {
   int result = 0;
-  PyObject* loop;
+  PyObject* loop = NULL;
 #ifdef PARSER_STANDALONE
   PyObject* parser = NULL;
 

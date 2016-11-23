@@ -176,12 +176,12 @@ static inline Pipeline*
 Pipeline_write(Pipeline* self, PyObject* task)
 {
   Pipeline* result = self;
-
   PyObject* result_func = NULL;
+  PyObject* result_val = NULL;
+
   if(!(result_func = PyObject_GetAttrString(task, "result")))
     goto error;
 
-  PyObject* result_val = NULL;
   if(!(result_val = PyObject_CallFunctionObjArgs(result_func, NULL)))
     goto error;
 
@@ -214,11 +214,11 @@ Pipeline_resolve_dependency(Pipeline* self, PyObject* task)
 
   while(current != Py_None) {
     PyObject* done = NULL;
+    PyObject* done_result = NULL;
 
     if(!(done = PyObject_GetAttrString(current, "done")))
       goto loop_error;
 
-    PyObject* done_result = NULL;
     if(!(done_result = PyObject_CallFunctionObjArgs(done, NULL)))
       goto loop_error;
 
