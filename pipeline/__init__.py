@@ -10,36 +10,36 @@ class Pipeline:
     def queue(self, task):
         print("queued")
 
-        task.depends_on = self.tail
-        task.written = False
+        task._depends_on = self.tail
+        task._written = False
         self.tail = task
 
         self._task_done(None, task)
 
     def _resolve_dependency(self, task):
-        current = task.depends_on
+        current = task._depends_on
 
         while current:
             if not current.done():
                 break
 
-            current = current.depends_on
+            current = current._depends_on
 
-        task.depends_on = current
+        task._depends_on = current
 
 
     def _gc(self):
         while self.tail:
-            if not self.tail.written:
+            if not self.tail._written:
                 break
 
-            self.tail = self.tail.depends_on
+            self.tail = self.tail._depends_on
 
 
     def _task_done(self, this_task, task):
         if this_task == task:
             print('Done', task.result())
-        if this_task and (not task.depends_on or task.depends_on.written):
+        if this_task and (not task._depends_on or task._depends_on._written):
             self.write(task)
             self._gc()
             return
@@ -47,7 +47,7 @@ class Pipeline:
         self._resolve_dependency(task)
 
         if this_task:
-            depends_on = task.depends_on
+            depends_on = task._depends_on
         else:
             depends_on = task
 
@@ -56,7 +56,7 @@ class Pipeline:
 
     def write(self, task):
         self.results.append(task.result())
-        task.written = True
+        task._written = True
         print('Written', task.result())
 
 
