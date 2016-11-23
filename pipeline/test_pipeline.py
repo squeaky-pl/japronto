@@ -120,7 +120,7 @@ def test_fake_future(make_pipeline, case):
     resolves = tuple(queue(v) for v in case)
     futures = create_futures(resolves, case)
 
-    assert pipeline.tail is None
+    assert pipeline.empty
 
     del resolves
 
@@ -185,6 +185,5 @@ def test_real_task(loop, make_pipeline, case):
     if len(pipeline.results) < len(case):
         loop.run_until_complete(asyncio.sleep(10 / DIVISOR, loop=loop))
 
-
-#    assert pipeline._queue == []
+    assert pipeline.empty
     assert pipeline.results == case

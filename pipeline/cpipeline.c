@@ -181,6 +181,14 @@ Pipeline_queue(Pipeline* self, PyObject* task)
 }
 
 
+static PyObject*
+Pipeline_get_empty(Pipeline* self, void* closure) {
+  PyObject* result = self->queue_start == self->queue_end ? Py_True : Py_False;
+
+  Py_INCREF(result);
+  return result;
+}
+
 static PyMethodDef Pipeline_methods[] = {
   {"queue", (PyCFunction)Pipeline_queue, METH_O, ""},
   {"_task_done", (PyCFunction)Pipeline__task_done, METH_O, ""},
@@ -190,6 +198,11 @@ static PyMethodDef Pipeline_methods[] = {
 
 static PyMemberDef Pipeline_members[] = {
   {"results", T_OBJECT_EX, offsetof(Pipeline, results), READONLY, ""},
+  {NULL}
+};
+
+static PyGetSetDef Pipeline_getset[] = {
+  {"empty", (getter)Pipeline_get_empty, NULL, "", NULL},
   {NULL}
 };
 
@@ -224,7 +237,7 @@ static PyTypeObject PipelineType = {
   0,                         /* tp_iternext */
   Pipeline_methods,          /* tp_methods */
   Pipeline_members,          /* tp_members */
-  0,                         /* tp_getset */
+  Pipeline_getset,           /* tp_getset */
   0,                         /* tp_base */
   0,                         /* tp_dict */
   0,                         /* tp_descr_get */
