@@ -1,11 +1,15 @@
 import asyncio
 import gc
 import sys
+from collections import namedtuple
 
 import pytest
 
 from pipeline import Pipeline
 from pipeline.cpipeline import Pipeline as CPipeline
+
+
+Example = namedtuple('Example', 'value')
 
 
 class FakeLoop:
@@ -52,13 +56,41 @@ class FakeFuture:
         self.callbacks = []
 
 
-def parametrize_pipeline():
-    return pytest.mark.parametrize('pipeline', [CPipeline(), Pipeline()],
+def parametrize_make_pipeline():
+    return pytest.mark.parametrize('make_pipeline', [CPipeline, Pipeline],
         ids=['c', 'py'])
 
 
-@parametrize_pipeline()
-def test(pipeline):
+def parametrize_case(examples):
+    cases = [parse_case(i) for i in examples]
+
+    return pytest.mark.parametrize('case', cases, ids=examples)
+
+
+def parse_case(case):
+    return [Example(int(c)) for c in case.split('+')]
+
+
+def create_futures(resolves, case):
+    futures = [None] * len(case)
+    case = case[:]
+    for c in sorted(case):
+        idx = case.index(c)
+        futures[idx] = resolves[idx]()
+        case[idx] = None
+
+    return tuple(futures)
+
+
+@parametrize_case([
+    '1',
+    '1+5', '5+1',
+    '1+5+10', '10+5+1', '5+1+10', '10+1+5',
+    '1+10+5+1'
+])
+@parametrize_make_pipeline()
+def test(make_pipeline, case):
+    pipeline = make_pipeline()
     def queue(x):
         fut = FakeFuture()
         pipeline.queue(fut)
@@ -69,8 +101,10 @@ def test(pipeline):
 
         return resolve
 
-    resolves = queue(1), queue(10), queue(5), queue(1)
-    futures = resolves[3](), resolves[0](), resolves[2](), resolves[1]()
+    resolves = tuple(queue(v) for v in case)
+    futures = create_futures(resolves, case)
+
+    assert pipeline.tail is None
 
     del resolves
 
@@ -80,7 +114,7 @@ def test(pipeline):
         print(sys.getrefcount(futures[i]))
     del i
 
-    assert pipeline.results == [1, 10, 5, 1]
+    assert pipeline.results == case
 
     gc.collect()
 
