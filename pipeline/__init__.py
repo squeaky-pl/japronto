@@ -4,59 +4,33 @@ from functools import partial
 
 class Pipeline:
     def __init__(self):
-        self.tail = None
         self.results = []
+        self._queue = []
 
     def queue(self, task):
         print("queued")
 
-        task._depends_on = self.tail
-        task._written = False
-        self.tail = task
+        self._queue.append(task)
 
-        self._task_done(None, task)
+        task.add_done_callback(self._task_done)
 
-    def _resolve_dependency(self, task):
-        current = task._depends_on
+    def _task_done(self, task):
+        print('Done', task.result())
 
-        while current:
-            if not current.done():
+        pop_idx = 0
+        for task in self._queue:
+            if not task.done():
                 break
 
-            current = current._depends_on
-
-        task._depends_on = current
-
-
-    def _gc(self):
-        while self.tail:
-            if not self.tail._written:
-                break
-
-            self.tail = self.tail._depends_on
-
-
-    def _task_done(self, this_task, task):
-        if this_task == task:
-            print('Done', task.result())
-        if this_task and (not task._depends_on or task._depends_on._written):
             self.write(task)
-            self._gc()
-            return
 
-        self._resolve_dependency(task)
+            pop_idx += 1
 
-        if this_task:
-            depends_on = task._depends_on
-        else:
-            depends_on = task
-
-        depends_on.add_done_callback(partial(self._task_done, task=task))
-
+        if pop_idx:
+            self._queue[:pop_idx] = []
 
     def write(self, task):
         self.results.append(task.result())
-        task._written = True
         print('Written', task.result())
 
 
