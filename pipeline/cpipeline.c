@@ -311,12 +311,12 @@ Pipeline_task_done(Pipeline* self, PyObject* this_task, PyObject* task)
 
     if(this_task) {
       PyObject* depends_on = NULL;
+      PyObject* written = NULL;
       if(!(depends_on = PyObject_GetAttrString(task, "_depends_on")))
         goto write_error;
       if(depends_on == Py_None)
         goto write;
 
-      PyObject* written = NULL;
       if(!(written = PyObject_GetAttrString(depends_on, "_written")))
         goto write_error;
       if(written != Py_True)
