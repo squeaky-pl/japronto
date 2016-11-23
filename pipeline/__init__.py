@@ -4,8 +4,12 @@ from functools import partial
 
 class Pipeline:
     def __init__(self):
-        self.results = []
         self._queue = []
+        self.results = []
+
+    @property
+    def empty(self):
+        return not self._queue
 
     def queue(self, task):
         print("queued")
