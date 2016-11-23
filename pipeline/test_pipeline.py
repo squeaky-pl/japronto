@@ -1,9 +1,11 @@
+import asyncio
 import gc
 import sys
 
-import asyncio
-import pipeline
-import pipeline.cpipeline
+import pytest
+
+from pipeline import Pipeline
+from pipeline.cpipeline import Pipeline as CPipeline
 
 
 class FakeLoop:
@@ -50,12 +52,16 @@ class FakeFuture:
         self.callbacks = []
 
 
-def test():
-    p = pipeline.cpipeline.Pipeline()
+def parametrize_pipeline():
+    return pytest.mark.parametrize('pipeline', [CPipeline(), Pipeline()],
+        ids=['c', 'py'])
 
+
+@parametrize_pipeline()
+def test(pipeline):
     def queue(x):
         fut = FakeFuture()
-        p.queue(fut)
+        pipeline.queue(fut)
 
         def resolve():
             fut.set_result(x)
@@ -74,7 +80,7 @@ def test():
         print(sys.getrefcount(futures[i]))
     del i
 
-    assert p.results == [1, 10, 5, 1]
+    assert pipeline.results == [1, 10, 5, 1]
 
     gc.collect()
 
