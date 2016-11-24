@@ -42,6 +42,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 #else
   Parser_new(&self->parser);
 #endif
+  Pipeline_new(&self->pipeline);
   self->app = NULL;
   self->matcher = NULL;
   self->error_handler = NULL;
@@ -77,6 +78,7 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
+  Pipeline_dealloc(&self->pipeline);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(self->feed_disconnect);
   Py_XDECREF(self->feed);
@@ -97,13 +99,13 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   PyObject* parser = NULL;
 
   PyObject* on_headers = PyObject_GetAttrString((PyObject*)self, "on_headers");
-  if(!on_headers)
+  if(!on_headers) // FIXME leak
     goto error;
   PyObject* on_body = PyObject_GetAttrString((PyObject*)self, "on_body");
-  if(!on_body)
+  if(!on_body) // FIXME leak
     goto error;
   PyObject* on_error = PyObject_GetAttrString((PyObject*)self, "on_error");
-  if(!on_error)
+  if(!on_error) // FIXME leak
     goto error;
 
   parser = PyObject_CallFunctionObjArgs(

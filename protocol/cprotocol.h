@@ -4,7 +4,7 @@
 #include "cparser.h"
 #endif
 
-
+#include "cpipeline.h"
 
 typedef struct {
   PyObject_HEAD
@@ -15,6 +15,7 @@ typedef struct {
 #else
   Parser parser;
 #endif
+  Pipeline pipeline;
 #ifdef REAPER_ENABLED
   unsigned long idle_time;
   unsigned long read_ops;

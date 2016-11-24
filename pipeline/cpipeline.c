@@ -8,7 +8,7 @@
 static PyObject*
 Pipeline_new(PyTypeObject* type, PyObject* args, PyObject* kw)
 #else
-static inline PyObject*
+PyObject*
 Pipeline_new(Pipeline* self)
 #endif
 {
@@ -62,9 +62,6 @@ Pipeline_init(Pipeline* self, void* (*ready)(PyObject*))
 
   Py_INCREF(self->ready);
 #else
-  if(!Pipeline_new(self))
-    goto error;
-
   self->ready = ready;
 #endif
 
@@ -179,7 +176,9 @@ Pipeline_queue(Pipeline* self, PyObject* task)
 
   finally:
   Py_XDECREF(add_done_callback);
+#ifdef PIPELINE_OPAQUE
   Py_XINCREF(result);
+#endif
   return result;
 }
 
