@@ -3,6 +3,7 @@
 
 #include "cpipeline.h"
 
+static PyTypeObject PipelineType;
 
 #ifdef PIPELINE_OPAQUE
 static PyObject*
@@ -18,6 +19,9 @@ Pipeline_new(Pipeline* self)
   self = (Pipeline*)type->tp_alloc(type, 0);
   if(!self)
     goto finally;
+#else
+  ((PyObject*)self)->ob_refcnt = 1;
+  ((PyObject*)self)->ob_type = &PipelineType;
 #endif
 
   self->ready = NULL;
@@ -51,7 +55,7 @@ static int
 Pipeline_init(Pipeline* self, PyObject *args, PyObject* kw)
 #else
 int
-Pipeline_init(Pipeline* self, void* (*ready)(PyObject*))
+Pipeline_init(Pipeline* self, void* (*ready)(PyObject*, void*), void* ready_closure)
 #endif
 {
   int result = 0;
@@ -63,6 +67,7 @@ Pipeline_init(Pipeline* self, void* (*ready)(PyObject*))
   Py_INCREF(self->ready);
 #else
   self->ready = ready;
+  self->ready_closure = ready_closure;
 #endif
 
   if(!(self->task_done = PyObject_GetAttrString((PyObject*)self, "_task_done")))
@@ -109,7 +114,7 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
       goto loop_error;
     Py_DECREF(tmp);
 #else
-    if(!self->ready(*queue_pos))
+    if(!self->ready(*queue_pos, self->ready_closure))
       goto loop_error;
 #endif
 
@@ -282,7 +287,7 @@ PyMODINIT_FUNC
 PyInit_cpipeline(void)
 #else
 void*
-init_cpipeline(void)
+cpipeline_init(void)
 #endif
 {
 #ifdef PIPELINE_OPAQUE

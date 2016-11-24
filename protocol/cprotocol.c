@@ -55,7 +55,6 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->check_idle_task = NULL;
 #endif
   self->create_task = NULL;
-  self->done_callback = NULL;
 
   finally:
   return (PyObject*)self;
@@ -65,7 +64,6 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
-  Py_XDECREF(self->done_callback);
   Py_XDECREF(self->create_task);
 #ifdef REAPER_ENABLED
   Py_XDECREF(self->check_idle_task);
@@ -88,6 +86,9 @@ Protocol_dealloc(Protocol* self)
 
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
+
+
+static void* Protocol_pipeline_ready(PyObject* task, void* closure);
 
 
 static int
@@ -125,6 +126,9 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
     goto error;
 #endif
 
+  if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, self) == -1)
+    goto error;
+
   if(!PyArg_ParseTuple(args, "O", &self->app))
     goto error;
   Py_INCREF(self->app);
@@ -156,10 +160,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 
   self->create_task = PyObject_GetAttrString(loop, "create_task");
   if(!self->create_task)
-    goto error;
-
-  self->done_callback = PyObject_GetAttrString((PyObject*)self, "_done_callback");
-  if(!self->done_callback)
     goto error;
 
   goto finally;
@@ -366,16 +366,13 @@ static inline Protocol* Protocol_write_response(Protocol* self, RESPONSE* respon
 }
 
 
-static PyObject* Protocol__done_callback(Protocol* self, PyObject* args)
+static void* Protocol_pipeline_ready(PyObject* task, void* closure)
 {
-  PyObject* result = Py_None;
-  PyObject* future;
+  Protocol* self = (Protocol*)closure;
   PyObject* get_result = NULL;
   PyObject* response = NULL;
-  if(!PyArg_ParseTuple(args, "O", &future))
-    goto error;
 
-  if(!(get_result = PyObject_GetAttrString(future, "result")))
+  if(!(get_result = PyObject_GetAttrString(task, "result")))
     goto error;
 
   if(!(response = PyObject_CallFunctionObjArgs(get_result, NULL)))
@@ -387,33 +384,25 @@ static PyObject* Protocol__done_callback(Protocol* self, PyObject* args)
   goto finally;
 
   error:
-  result = NULL;
+  self = NULL;
 
   finally:
   Py_XDECREF(response);
   Py_XDECREF(get_result);
-  if(result)
-    Py_INCREF(result);
-  return result;
+  return self;
 }
 
 
-static Protocol* Protocol_handle_coro(Protocol* self, PyObject* coro)
+static inline Protocol* Protocol_handle_coro(Protocol* self, PyObject* coro)
 {
   Protocol* result = self;
   PyObject* task = NULL;
-  PyObject* add_done_callback = NULL;
 
   if(!(task = PyObject_CallFunctionObjArgs(self->create_task, coro, NULL)))
     goto error;
 
-  if(!(add_done_callback = PyObject_GetAttrString(task, "add_done_callback")))
+  if(!Pipeline_queue(&self->pipeline, task))
     goto error;
-
-  PyObject* tmp;
-  if(!(tmp = PyObject_CallFunctionObjArgs(add_done_callback, self->done_callback, NULL)))
-    goto error;
-  Py_DECREF(tmp);
 
   goto finally;
 
@@ -421,7 +410,6 @@ static Protocol* Protocol_handle_coro(Protocol* self, PyObject* coro)
   result = NULL;
 
   finally:
-  Py_XDECREF(add_done_callback);
   Py_XDECREF(task);
   return result;
 }
@@ -517,7 +505,6 @@ static PyMethodDef Protocol_methods[] = {
 #ifdef REAPER_ENABLED
   {"_check_idle", (PyCFunction)Protocol__check_idle, METH_NOARGS, ""},
 #endif
-  {"_done_callback", (PyCFunction)Protocol__done_callback, METH_VARARGS, ""},
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
@@ -610,6 +597,9 @@ PyInit_cprotocol(void)
   if(cparser_init() == -1)
     goto error;
 #endif
+
+  if(!cpipeline_init())
+    goto error;
 
   crequest = PyImport_ImportModule("request.crequest");
   if(!crequest)
