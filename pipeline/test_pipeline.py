@@ -60,7 +60,17 @@ class FakeFuture:
 
 
 def parametrize_make_pipeline():
-    return pytest.mark.parametrize('make_pipeline', [CPipeline, Pipeline],
+    def make_pipeline(cls):
+        results = []
+
+        def append(task):
+            results.append(task.result())
+
+        return cls(append), results
+
+    return pytest.mark.parametrize(
+        'make_pipeline',
+        [partial(make_pipeline, CPipeline), partial(make_pipeline, Pipeline)],
         ids=['c', 'py'])
 
 
@@ -106,7 +116,7 @@ def create_futures(resolves, case):
 ])
 @parametrize_make_pipeline()
 def test_fake_future(make_pipeline, case):
-    pipeline = make_pipeline()
+    pipeline, results = make_pipeline()
     def queue(x):
         fut = FakeFuture()
         pipeline.queue(fut)
@@ -130,7 +140,7 @@ def test_fake_future(make_pipeline, case):
         print(sys.getrefcount(futures[i]))
     del i
 
-    assert pipeline.results == case
+    assert results == case
 
     gc.collect()
 
@@ -161,7 +171,7 @@ def parametrize_loop():
 @parametrize_loop()
 def test_real_task(loop, make_pipeline, case):
     DIVISOR = 1000
-    pipeline = make_pipeline()
+    pipeline, results = make_pipeline()
 
     async def coro(example):
         await asyncio.sleep(example.value / DIVISOR, loop=loop)
@@ -182,8 +192,8 @@ def test_real_task(loop, make_pipeline, case):
     loop.run_until_complete(asyncio.sleep(duration, loop=loop))
 
     # timing issue, wait a little bit more so we collect all the results
-    if len(pipeline.results) < len(case):
+    if len(results) < len(case):
         loop.run_until_complete(asyncio.sleep(10 / DIVISOR, loop=loop))
 
     assert pipeline.empty
-    assert pipeline.results == case
+    assert results == case

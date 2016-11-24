@@ -1,12 +1,15 @@
 #include <Python.h>
 #include "structmember.h"
 
+#include "cpipeline.h"
+#include "capsule.h"
 
-typedef struct _Pipeline {
+
+typedef struct Pipeline {
   PyObject_HEAD
-  PyObject* results;
-  PyObject* queue[10];
+  PyObject* ready;
   PyObject* task_done;
+  PyObject* queue[10];
   size_t queue_start;
   size_t queue_end;
 } Pipeline;
@@ -21,7 +24,7 @@ Pipeline_new(PyTypeObject* type, PyObject* args, PyObject* kw)
   if(!self)
     goto finally;
 
-  self->results = NULL;
+  self->ready = NULL;
   self->task_done = NULL;
 
   finally:
@@ -32,8 +35,8 @@ Pipeline_new(PyTypeObject* type, PyObject* args, PyObject* kw)
 static void
 Pipeline_dealloc(Pipeline* self)
 {
+  Py_XDECREF(self->ready);
   Py_XDECREF(self->task_done);
-  Py_XDECREF(self->results);
 
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -44,8 +47,10 @@ Pipeline_init(Pipeline* self, PyObject *args, PyObject* kw)
 {
   int result = 0;
 
-  if(!(self->results = PyList_New(0)))
+  if(!PyArg_ParseTuple(args, "O", &self->ready))
     goto error;
+
+  Py_INCREF(self->ready);
 
   if(!(self->task_done = PyObject_GetAttrString((PyObject*)self, "_task_done")))
     goto error;
@@ -62,32 +67,25 @@ Pipeline_init(Pipeline* self, PyObject *args, PyObject* kw)
   return result;
 }
 
+static PyTypeObject PipelineType;
 
-static inline Pipeline*
-Pipeline_write(Pipeline* self, PyObject* task)
+static PyObject*
+Pipeline_new_init(void)
 {
-  Pipeline* result = self;
-  PyObject* result_func = NULL;
-  PyObject* result_val = NULL;
-
-  if(!(result_func = PyObject_GetAttrString(task, "result")))
+  PyObject* self = Pipeline_new(&PipelineType, NULL, NULL);
+  if(!self)
     goto error;
 
-  if(!(result_val = PyObject_CallFunctionObjArgs(result_func, NULL)))
-    goto error;
-
-  if(PyList_Append(self->results, result_val) == -1)
+  if(Pipeline_init((Pipeline*)self, NULL, NULL) == -1)
     goto error;
 
   goto finally;
 
   error:
-  result = NULL;
+  self = NULL;
 
   finally:
-  Py_XDECREF(result_func);
-  Py_XDECREF(result_val);
-  return result;
+  return self;
 }
 
 
@@ -113,8 +111,10 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
       goto loop_finally;
     }
 
-    if(!Pipeline_write(self, *queue_pos))
+    PyObject* tmp;
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->ready, *queue_pos, NULL)))
       goto loop_error;
+    Py_DECREF(tmp);
 
     Py_DECREF(*queue_pos);
 
@@ -196,11 +196,6 @@ static PyMethodDef Pipeline_methods[] = {
 };
 
 
-static PyMemberDef Pipeline_members[] = {
-  {"results", T_OBJECT_EX, offsetof(Pipeline, results), READONLY, ""},
-  {NULL}
-};
-
 static PyGetSetDef Pipeline_getset[] = {
   {"empty", (getter)Pipeline_get_empty, NULL, "", NULL},
   {NULL}
@@ -236,7 +231,7 @@ static PyTypeObject PipelineType = {
   0,                         /* tp_iter */
   0,                         /* tp_iternext */
   Pipeline_methods,          /* tp_methods */
-  Pipeline_members,          /* tp_members */
+  0,                         /* tp_members */
   Pipeline_getset,           /* tp_getset */
   0,                         /* tp_base */
   0,                         /* tp_dict */
@@ -262,6 +257,7 @@ PyMODINIT_FUNC
 PyInit_cpipeline(void)
 {
   PyObject* m = NULL;
+  PyObject* api_capsule = NULL;
 
   if(PyType_Ready(&PipelineType) < 0)
     goto error;
@@ -272,11 +268,20 @@ PyInit_cpipeline(void)
   Py_INCREF(&PipelineType);
   PyModule_AddObject(m, "Pipeline", (PyObject*)&PipelineType);
 
+  static Pipeline_CAPI capi = {
+    Pipeline_new_init,
+    Pipeline_queue
+  };
+  api_capsule = export_capi(m, "pipeline.cpipeline", &capi);
+  if(!api_capsule)
+    goto error;
+
   goto finally;
 
   error:
   m = NULL;
 
   finally:
+  Py_XDECREF(api_capsule);
   return m;
 }

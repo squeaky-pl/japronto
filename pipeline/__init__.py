@@ -3,9 +3,9 @@ from functools import partial
 
 
 class Pipeline:
-    def __init__(self):
+    def __init__(self, ready):
         self._queue = []
-        self.results = []
+        self._ready = ready
 
     @property
     def empty(self):
