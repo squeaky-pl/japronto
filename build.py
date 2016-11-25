@@ -89,27 +89,32 @@ def main():
         ext_modules = system.discover_extensions()
     dist = Distribution(dict(ext_modules=ext_modules))
 
+    def append_args(arg_name, values):
+        for ext_module in ext_modules:
+            arg_value = getattr(ext_module, arg_name) or []
+            arg_value.extend(values)
+            setattr(ext_module, arg_name, arg_value)
+
+    def append_compile_args(*values):
+        append_args('extra_compile_args', values)
+
+    def append_link_args(*values):
+        append_args('extra_link_args', values)
+
+
+    append_compile_args('-frecord-gcc-switches')
+
     if args.debug:
-        for ext_module in ext_modules:
-            ext_module.extra_compile_args.extend(['-g', '-O0'])
+        append_compile_args('-g', '-O0')
     if args.profile_generate:
-        for ext_module in ext_modules:
-            ext_module.extra_compile_args.append('--profile-generate')
-            ext_module.extra_link_args.append('-lgcov')
+        append_compile_args('--profile-generate')
+        append_link_args('-lgcov')
     if args.profile_use:
         for ext_module in ext_modules:
             if ext_module.name == 'parser.cparser':
                 continue
             ext_module.extra_compile_args.append('--profile-use')
 
-    if not args.debug:
-        for ext_module in ext_modules:
-            extra_compile_args = ext_module.extra_compile_args or []
-            extra_compile_args.append('-flto')
-            ext_module.extra_compile_args = extra_compile_args
-            extra_link_args = ext_module.extra_link_args or []
-            extra_link_args.append('-flto')
-            ext_module.extra_link_args = extra_link_args
 
     prune()
 
