@@ -6,6 +6,7 @@ import statistics
 import shlex
 
 import uvloop
+import psutil
 
 import cpu
 import buggers
@@ -54,7 +55,10 @@ if __name__ == '__main__':
         'python', 'server.py', *args.server.split())
     server = loop.run_until_complete(server_fut)
 
-    loop.run_until_complete(aio.sleep(1))
+    cpu_p = 100
+    while cpu_p > 5:
+        cpu_p = psutil.cpu_percent(interval=1)
+        print('CPU usage in 1 sec:', cpu_p)
 
     results = []
     for _ in range(10):
