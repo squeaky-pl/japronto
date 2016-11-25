@@ -156,7 +156,7 @@ Pipeline_queue(Pipeline* self, PyObject* task)
   PyObject* result = Py_None;
   PyObject* add_done_callback = NULL;
 
-  if(self->queue_start == self->queue_end)
+  if(PIPELINE_EMPTY(self))
     self->queue_start = self->queue_end = 0;
 
   assert(self->queue_end < sizeof(self->queue) / sizeof(self->queue[0]));
@@ -191,7 +191,7 @@ Pipeline_queue(Pipeline* self, PyObject* task)
 #ifdef PIPELINE_OPAQUE
 static PyObject*
 Pipeline_get_empty(Pipeline* self, void* closure) {
-  PyObject* result = self->queue_start == self->queue_end ? Py_True : Py_False;
+  PyObject* result = PIPELINE_EMPTY(self) ? Py_True : Py_False;
 
   Py_INCREF(result);
   return result;

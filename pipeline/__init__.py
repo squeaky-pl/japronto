@@ -34,7 +34,7 @@ class Pipeline:
             self._queue[:pop_idx] = []
 
     def write(self, task):
-        self.results.append(task.result())
+        self._ready(task)
         print('Written', task.result())
 
 

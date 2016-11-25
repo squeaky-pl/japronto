@@ -454,6 +454,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     if(!Protocol_handle_coro(self, handler_result))
       goto error;
   } else {
+    assert(PIPELINE_EMPTY(&self->pipeline));
+
     if(!Protocol_write_response(self, (RESPONSE*)handler_result))
       goto error;
   }
