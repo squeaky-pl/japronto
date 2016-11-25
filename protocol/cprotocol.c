@@ -342,10 +342,34 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 #endif
 
 
-static inline Protocol* Protocol_write_response(Protocol* self, RESPONSE* response)
+static inline Protocol* Protocol_write_response_or_err(Protocol* self, RESPONSE* response)
 {
     Protocol* result = self;
     PyObject* memory_view = NULL;
+    PyObject* error_result = NULL;
+
+    if(!response) {
+      PyObject* etype;
+      PyObject* evalue;
+      PyObject* etraceback;
+
+      PyErr_Fetch(&etype, &evalue, &etraceback);
+      PyErr_NormalizeException(&etype, &evalue, &etraceback);
+      if(etraceback)
+        PyException_SetTraceback(evalue, etraceback);
+
+      error_result = PyObject_CallFunctionObjArgs(
+        self->error_handler, self->request, evalue, NULL);
+      if(!error_result)
+        goto error;
+
+      PyErr_Clear();
+
+      if(!Protocol_write_response_or_err(self, (RESPONSE*)error_result))
+        goto error;
+
+      goto finally;
+    }
 
     if(!(memory_view = response_capi->Response_render(response)))
       goto error;
@@ -361,6 +385,7 @@ static inline Protocol* Protocol_write_response(Protocol* self, RESPONSE* respon
     result = NULL;
 
     finally:
+    Py_XDECREF(error_result);
     Py_XDECREF(memory_view);
     return result;
 }
@@ -375,10 +400,12 @@ static void* Protocol_pipeline_ready(PyObject* task, void* closure)
   if(!(get_result = PyObject_GetAttrString(task, "result")))
     goto error;
 
-  if(!(response = PyObject_CallFunctionObjArgs(get_result, NULL)))
-    goto error;
+  /* we can get exception from the Python handler, we will pass it
+     to python error handler
+  */
+  response = PyObject_CallFunctionObjArgs(get_result, NULL);
 
-  if(!Protocol_write_response(self, (RESPONSE*)response))
+  if(!Protocol_write_response_or_err(self, (RESPONSE*)response))
     goto error;
 
   goto finally;
@@ -446,19 +473,22 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   if(route == Py_None)
     goto handle_error;
 
+  /* we can get exception from the Python handler, we will pass it
+     to python error handler
+  */
   handler_result = PyObject_CallFunctionObjArgs(handler, self->request, NULL);
-  if(!handler_result)
-    goto error;
 
-  if(PyCoro_CheckExact(handler_result)) {
+  if(handler_result && PyCoro_CheckExact(handler_result)) {
     if(!Protocol_handle_coro(self, handler_result))
       goto error;
-  } else {
-    assert(PIPELINE_EMPTY(&self->pipeline));
 
-    if(!Protocol_write_response(self, (RESPONSE*)handler_result))
-      goto error;
+    goto finally;
   }
+
+  assert(PIPELINE_EMPTY(&self->pipeline));
+
+  if(!Protocol_write_response_or_err(self, (RESPONSE*)handler_result))
+    goto error;
 
   goto finally;
 
@@ -468,7 +498,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   if(!handler_result)
     goto error;
 
-  if(!Protocol_write_response(self, (RESPONSE*)handler_result))
+  if(!Protocol_write_response_or_err(self, (RESPONSE*)handler_result))
     goto error;
 
   goto finally;

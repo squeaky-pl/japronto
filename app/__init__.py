@@ -29,7 +29,9 @@ class Application:
 
         self._matcher = self._router.get_matcher()
 
-    def error_handler(self, request):
+    def error_handler(self, request, exception):
+        print(repr(exception))
+        print(exception.__traceback__)
         return request.Response(400, text='Something went wrong')
 
     def serve(self, protocol_factory, reuse_port=False):
