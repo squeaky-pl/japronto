@@ -470,8 +470,10 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   if(!route)
     goto error;
 
-  if(route == Py_None)
-    goto handle_error;
+  if(route == Py_None) {
+    PyErr_SetString(PyExc_KeyError, "Route not found");
+    goto write;
+  }
 
   /* we can get exception from the Python handler, we will pass it
      to python error handler
@@ -485,18 +487,9 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     goto finally;
   }
 
+  write:
+
   assert(PIPELINE_EMPTY(&self->pipeline));
-
-  if(!Protocol_write_response_or_err(self, (RESPONSE*)handler_result))
-    goto error;
-
-  goto finally;
-
-  handle_error:
-  handler_result = PyObject_CallFunctionObjArgs(
-    self->error_handler, self->request, NULL);
-  if(!handler_result)
-    goto error;
 
   if(!Protocol_write_response_or_err(self, (RESPONSE*)handler_result))
     goto error;

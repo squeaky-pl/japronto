@@ -1,5 +1,6 @@
 import signal
 import asyncio
+import traceback
 
 import router
 import uvloop
@@ -30,9 +31,9 @@ class Application:
         self._matcher = self._router.get_matcher()
 
     def error_handler(self, request, exception):
-        print(repr(exception))
-        print(exception.__traceback__)
-        return request.Response(400, text='Something went wrong')
+        tb = traceback.format_exception(None, exception, exception.__traceback__)
+        print(''.join(tb))
+        return request.Response(500, text='Something went wrong')
 
     def serve(self, protocol_factory, reuse_port=False):
         self.__freeze()
