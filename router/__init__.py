@@ -1,16 +1,6 @@
 from router.route import Route
+from router.matcher import Matcher
 
-
-class Matcher:
-    def __init__(self, router):
-        self.router = router
-
-        #compile
-
-    def match_request(self, request):
-        for r in self.router._routes:
-            if request.path == r.pattern and request.method in r.methods:
-                return r
 
 class Router:
     def __init__(self, matcher_factory=Matcher):
@@ -26,7 +16,7 @@ class Router:
         if not methods:
             methods = []
 
-        methods = [m.upper() for m in methods]
+        methods = {m.upper() for m in methods}
         route = Route(pattern, handler, methods)
 
         self._routes.append(route)
@@ -34,4 +24,4 @@ class Router:
         return route
 
     def get_matcher(self):
-        return self.matcher_factory(self)
+        return self.matcher_factory(self._routes)

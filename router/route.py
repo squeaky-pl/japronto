@@ -11,6 +11,9 @@ class Route:
     def describe(self):
         return self.pattern + (' ' if self.methods else '') + ' '.join(self.methods)
 
+    def __eq__(self, other):
+        return self.pattern == other.pattern and self.methods == other.methods
+
 
 def parse(pattern):
     names = set()
