@@ -1,11 +1,4 @@
-class Route:
-    def __init__(self, pattern, handler, methods):
-        self.pattern = pattern
-        self.handler = handler
-        self.methods = methods
-
-    def __repr__(self):
-        return '<Route {}, {} {}>'.format(self.pattern, self.methods, hex(id(self)))
+from router.route import Route
 
 
 class Matcher:
