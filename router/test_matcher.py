@@ -1,3 +1,5 @@
+from functools import partial
+
 import pytest
 
 from router.route import Route
@@ -15,26 +17,46 @@ class FakeRequest:
         return cls(*value.split())
 
 
+class TracingRoute(Route):
+    cnt = 0
+
+    def __new__(cls, *args, **kw):
+        print('new', args)
+        cls.cnt += 1
+        return Route.__new__(cls)
+
+    def __init__(self, pattern, methods):
+        super().__init__(pattern, 0, methods=methods)
+
+    def __del__(self):
+        type(self).cnt -= 1
+        print('del')
+
+
 def route_from_str(value):
     pattern, *methods = value.split()
     if methods:
         methods = methods[0].split(',')
 
-    return Route(pattern, 0, methods=methods)
+    return TracingRoute(pattern, methods=methods)
 
 
-def parametrize_matcher():
-    routes = [route_from_str(r) for r in [
-        '/',
-        '/test GET',
-        '/hi/{there} POST,DELETE',
-        '/{oh}/{dear} PATCH'
-    ]]
+def parametrize_make_matcher():
+    def make(cls):
+        routes = [route_from_str(r) for r in [
+            '/',
+            '/test GET',
+            '/hi/{there} POST,DELETE',
+            '/{oh}/{dear} PATCH'
+        ]]
+
+        return cls(routes)
+
+    make_matcher = partial(make, router.matcher.Matcher)
+    make_cmatcher = partial(make, router.cmatcher.Matcher)
 
     return pytest.mark.parametrize(
-        'matcher',
-        [router.matcher.Matcher(routes), router.cmatcher.Matcher(routes)],
-        ids=['py', 'c'])
+        'make_matcher', [make_matcher, make_cmatcher], ids=['py', 'c'])
 
 
 def parametrize_request_and_route(cases):
@@ -52,9 +74,15 @@ def parametrize_request_and_route(cases):
     ('DELETE /hi/jane', '/hi/{there} POST,DELETE'),
     ('PATCH /lets/dance', '/{oh}/{dear} PATCH')
 ])
-@parametrize_matcher()
-def test_matcher(matcher, req, route):
+@parametrize_make_matcher()
+def test_matcher(make_matcher, req, route):
+    cnt = TracingRoute.cnt
+    matcher = make_matcher()
     assert matcher.match_request(req) == route
+    del matcher
+
+    assert cnt == TracingRoute.cnt
+
 
 
 def parametrize_request(requests):
@@ -71,6 +99,11 @@ def parametrize_request(requests):
     'GET /abc',
     'PATCH //dance'
 ])
-@parametrize_matcher()
-def test_matcher_not_found(matcher, req):
+@parametrize_make_matcher()
+def test_matcher_not_found(make_matcher, req):
+    cnt = TracingRoute.cnt
+    matcher = make_matcher()
     assert matcher.match_request(req) is None
+    del matcher
+
+    assert cnt == TracingRoute.cnt
