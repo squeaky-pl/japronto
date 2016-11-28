@@ -49,6 +49,9 @@ typedef struct {
   };
 } Segment;
 
+
+static MatchDictEntry _match_dict_entries[10];
+
 static Request_CAPI* request_capi;
 static PyObject* compile_all;
 
@@ -137,7 +140,10 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 }
 
 // borrows route and handler
-PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler)
+PyObject*
+Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
+                      MatchDictEntry** match_dict_entries,
+                      size_t* match_dict_length)
 {
   PyObject* route = Py_None;
   PyObject* path = NULL;
@@ -173,7 +179,9 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
   ENTRY_LOOP {
     char* rest = path_str;
     size_t rest_len = path_len;
-    size_t value_len = 1;
+
+    MatchDictEntry* current_mde = _match_dict_entries;
+    size_t value_length = 1;
 
     SEGMENT_LOOP {
       if(segment->type == SEGMENT_EXACT) {
@@ -186,18 +194,26 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
         rest += segment->exact.data_length;
         rest_len -= segment->exact.data_length;
       } else if(segment->type == SEGMENT_PLACEHOLDER) {
+        assert(current_mde - _match_dict_entries < sizeof(_match_dict_entries) / sizeof(MatchDictEntry));
+
         char* slash = memchr(rest, '/', rest_len);
+        current_mde->value = rest;
         if(slash) {
-          value_len = slash - rest;
-          rest_len -= value_len;
+          value_length = current_mde->value_length = slash - rest;
+          rest_len -= current_mde->value_length;
           rest = slash;
         } else {
-          value_len = rest_len;
+          value_length = current_mde->value_length = rest_len;
           rest_len = 0;
         }
 
-        if(!value_len)
+        if(!value_length)
           break;
+
+        current_mde->key = segment->placeholder.name;
+        current_mde->key_length = segment->placeholder.name_length;
+
+        current_mde++;
       } else {
         assert(0);
       }
@@ -206,7 +222,7 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
     if(rest_len)
       continue;
 
-    if(!value_len)
+    if(!value_length)
       continue;
 
     if(!entry->methods_len)
@@ -225,6 +241,10 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
     route = entry->route;
     if(handler)
       *handler = entry->handler;
+    if(match_dict_entries)
+      *match_dict_entries = _match_dict_entries;
+    if(match_dict_length)
+      *match_dict_length = current_mde - _match_dict_entries;
     goto finally;
   }
 
@@ -248,17 +268,66 @@ static PyObject*
 _Matcher_match_request(Matcher* self, PyObject* request)
 {
   PyObject* route;
-  if(!(route = Matcher_match_request(self, request, NULL)))
+  MatchDictEntry* match_dict_entries;
+  size_t match_dict_length;
+  PyObject* match_dict = NULL;
+  PyObject* route_dict = NULL;
+
+  if(!(route = Matcher_match_request(
+       self, request, NULL, &match_dict_entries, &match_dict_length)))
     goto error;
+
+  if(route == Py_None)
+    Py_RETURN_NONE;
+
+  if(!(match_dict = PyDict_New()))
+    goto error;
+
+  for(MatchDictEntry* current_mde = match_dict_entries;
+      current_mde < match_dict_entries + match_dict_length;
+      current_mde++) {
+    PyObject* key = NULL;
+    PyObject* value = NULL;
+
+    if(!(key = PyUnicode_FromStringAndSize(
+         current_mde->key, current_mde->key_length)))
+      goto loop_error;
+
+    if(!(value = PyUnicode_FromStringAndSize(
+         current_mde->value, current_mde->value_length)))
+      goto loop_error;
+
+    if(PyDict_SetItem(match_dict, key, value) == -1)
+      goto loop_error;
+
+    goto loop_finally;
+
+    loop_error:
+    route = NULL;
+
+    loop_finally:
+    Py_XDECREF(key);
+    Py_XDECREF(value);
+    if(!route)
+      goto error;
+  }
+
+  if(!(route_dict = PyTuple_New(2)))
+    goto error;
+
+  PyTuple_SET_ITEM(route_dict, 0, route);
+  PyTuple_SET_ITEM(route_dict, 1, match_dict);
 
   goto finally;
 
   error:
+  Py_XDECREF(match_dict);
   route = NULL;
+
   finally:
   if(route)
     Py_INCREF(route);
-  return route;
+  return route_dict;
 }
 
 

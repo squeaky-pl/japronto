@@ -466,7 +466,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
 
   route = matcher_capi->Matcher_match_request(
-    (Matcher*)self->matcher, self->request, &handler);
+    (Matcher*)self->matcher, self->request, &handler, NULL, NULL);
   if(!route)
     goto error;
 
