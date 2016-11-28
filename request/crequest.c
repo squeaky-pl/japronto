@@ -374,6 +374,7 @@ PyInit_crequest(void)
   PyModule_AddObject(m, "Request", (PyObject*)&RequestType);
 
   static Request_CAPI capi = {
+    &RequestType,
     Request_from_raw,
     Request_get_decoded_path
   };

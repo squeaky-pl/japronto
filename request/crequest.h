@@ -33,6 +33,7 @@ typedef struct {
 
 
 typedef struct {
+  PyTypeObject* RequestType;
   void (*Request_from_raw)
     (Request* self, char* method, size_t method_len,
      char* path, size_t path_len,

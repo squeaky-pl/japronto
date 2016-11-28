@@ -140,34 +140,35 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler)
 {
   PyObject* route = Py_None;
-#if 0
   PyObject* path = NULL;
   PyObject* method = NULL;
 
-  path = PyObject_GetAttrString(request, "path");
-  if(!path)
-    goto error;
-
-  Py_ssize_t path_len;
-  char* path_str = PyUnicode_AsUTF8AndSize(path, &path_len);
-  if(!path_str)
-    goto error;
-
-  method = PyObject_GetAttrString(request, "method");
-  if(!method)
-    goto error;
-
-  Py_ssize_t method_len;
-  char* method_str = PyUnicode_AsUTF8AndSize(method, &method_len);
-  if(!method_str)
-    goto error;
-#else
-  size_t method_len = REQUEST(request)->method_len;
-  char* method_str = REQUEST_METHOD(request);
+  size_t method_len;
+  char* method_str;
   size_t path_len;
-  char* path_str = request_capi->Request_get_decoded_path(
-    REQUEST(request), &path_len);
-#endif
+  char* path_str;
+  if(Py_TYPE(request) != request_capi->RequestType) {
+    path = PyObject_GetAttrString(request, "path");
+    if(!path)
+      goto error;
+
+    path_str = PyUnicode_AsUTF8AndSize(path, (Py_ssize_t*)&path_len);
+    if(!path_str)
+      goto error;
+
+    method = PyObject_GetAttrString(request, "method");
+    if(!method)
+      goto error;
+
+    method_str = PyUnicode_AsUTF8AndSize(method, (Py_ssize_t*)&method_len);
+    if(!method_str)
+      goto error;
+  } else {
+    method_len = REQUEST(request)->method_len;
+    method_str = REQUEST_METHOD(request);
+    path_str = request_capi->Request_get_decoded_path(
+      REQUEST(request), &path_len);
+  }
 
   ENTRY_LOOP {
     char* rest = path_str;
@@ -229,29 +230,26 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
 
   goto finally;
 
-#if 0
   error:
   route = NULL;
-#endif
+
   finally:
-#if 0
-  Py_XDECREF(method);
-  Py_XDECREF(path);
-#endif
+
+  if(Py_TYPE(request) != request_capi->RequestType) {
+    Py_XDECREF(method);
+    Py_XDECREF(path);
+  }
+
   return route;
 }
 
 
 static PyObject*
-_Matcher_match_request(Matcher* self, PyObject* args)
+_Matcher_match_request(Matcher* self, PyObject* request)
 {
   PyObject* route;
-  PyObject* request;
-
-  if(!PyArg_ParseTuple(args, "O", &request))
+  if(!(route = Matcher_match_request(self, request, NULL)))
     goto error;
-
-  route = Matcher_match_request(self, request, NULL);
 
   goto finally;
 
@@ -263,23 +261,9 @@ _Matcher_match_request(Matcher* self, PyObject* args)
   return route;
 }
 
-static PyObject*
-Matcher_dump_buffer(Matcher* self, PyObject* args)
-{
-  PyObject* buffer = PyBytes_FromStringAndSize(self->buffer, self->buffer_len);
-  if(!buffer)
-    goto error;
-
-  return buffer;
-
-  error:
-  return NULL;
-}
-
 
 static PyMethodDef Matcher_methods[] = {
-  {"dump_buffer", (PyCFunction)Matcher_dump_buffer, METH_VARARGS, ""},
-  {"match_request", (PyCFunction)_Matcher_match_request, METH_VARARGS, ""},
+  {"match_request", (PyCFunction)_Matcher_match_request, METH_O, ""},
   {NULL}
 };
 
