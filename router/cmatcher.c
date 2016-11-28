@@ -268,49 +268,20 @@ static PyObject*
 _Matcher_match_request(Matcher* self, PyObject* request)
 {
   PyObject* route;
-  MatchDictEntry* match_dict_entries;
-  size_t match_dict_length;
+  MatchDictEntry* entries;
+  size_t length;
   PyObject* match_dict = NULL;
   PyObject* route_dict = NULL;
 
   if(!(route = Matcher_match_request(
-       self, request, NULL, &match_dict_entries, &match_dict_length)))
+       self, request, NULL, &entries, &length)))
     goto error;
 
   if(route == Py_None)
     Py_RETURN_NONE;
 
-  if(!(match_dict = PyDict_New()))
+  if(!(match_dict = MatchDict_entries_to_dict(entries, length)))
     goto error;
-
-  for(MatchDictEntry* current_mde = match_dict_entries;
-      current_mde < match_dict_entries + match_dict_length;
-      current_mde++) {
-    PyObject* key = NULL;
-    PyObject* value = NULL;
-
-    if(!(key = PyUnicode_FromStringAndSize(
-         current_mde->key, current_mde->key_length)))
-      goto loop_error;
-
-    if(!(value = PyUnicode_FromStringAndSize(
-         current_mde->value, current_mde->value_length)))
-      goto loop_error;
-
-    if(PyDict_SetItem(match_dict, key, value) == -1)
-      goto loop_error;
-
-    goto loop_finally;
-
-    loop_error:
-    route = NULL;
-
-    loop_finally:
-    Py_XDECREF(key);
-    Py_XDECREF(value);
-    if(!route)
-      goto error;
-  }
 
   if(!(route_dict = PyTuple_New(2)))
     goto error;

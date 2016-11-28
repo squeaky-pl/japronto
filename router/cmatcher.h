@@ -2,15 +2,9 @@
 
 #include <Python.h>
 
+#include "match_dict.h"
+
 typedef struct _Matcher Matcher;
-
-
-typedef struct {
-  char* key;
-  size_t key_length;
-  char* value;
-  size_t value_length;
-} MatchDictEntry;
 
 
 typedef struct {
