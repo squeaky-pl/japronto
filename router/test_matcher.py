@@ -63,7 +63,9 @@ def parametrize_request(requests):
     'GET /test/',
     'GET /hi/jane',
     'POST /hi/jane/',
-    'GET /abc'
+    'POST /hi/',
+    'GET /abc',
+    'PATCH //dance'
 ])
 def test_matcher_not_found(matcher, req):
     assert matcher.match_request(req) is None
