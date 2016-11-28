@@ -18,8 +18,10 @@ class Matcher:
                 else:
                     assert 0, 'Unknown type'
 
-            if not rest:
-                if route.methods and request.method not in route.methods:
-                    continue
+            if rest:
+                continue
 
-                return route
+            if route.methods and request.method not in route.methods:
+                continue
+
+            return route
