@@ -172,6 +172,7 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
   ENTRY_LOOP {
     char* rest = path_str;
     size_t rest_len = path_len;
+    size_t value_len = 1;
 
     SEGMENT_LOOP {
       if(segment->type == SEGMENT_EXACT) {
@@ -186,17 +187,25 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
       } else if(segment->type == SEGMENT_PLACEHOLDER) {
         char* slash = memchr(rest, '/', rest_len);
         if(slash) {
-          rest_len -= slash - rest;
+          value_len = slash - rest;
+          rest_len -= value_len;
           rest = slash;
         } else {
+          value_len = rest_len;
           rest_len = 0;
         }
+
+        if(!value_len)
+          break;
       } else {
         assert(0);
       }
     }
 
     if(rest_len)
+      continue;
+
+    if(!value_len)
       continue;
 
     if(!entry->methods_len)
