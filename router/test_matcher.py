@@ -1,7 +1,8 @@
 import pytest
 
 from router.route import Route
-from router.matcher import Matcher
+import router.matcher
+import router.cmatcher
 
 
 class FakeRequest:
@@ -22,16 +23,18 @@ def route_from_str(value):
     return Route(pattern, 0, methods=methods)
 
 
-@pytest.fixture
-def matcher():
-    routes = [
+def parametrize_matcher():
+    routes = [route_from_str(r) for r in [
         '/',
         '/test GET',
         '/hi/{there} POST,DELETE',
         '/{oh}/{dear} PATCH'
-    ]
+    ]]
 
-    return Matcher([route_from_str(r) for r in routes])
+    return pytest.mark.parametrize(
+        'matcher',
+        [router.matcher.Matcher(routes), router.cmatcher.Matcher(routes)],
+        ids=['py', 'c'])
 
 
 def parametrize_request_and_route(cases):
@@ -49,6 +52,7 @@ def parametrize_request_and_route(cases):
     ('DELETE /hi/jane', '/hi/{there} POST,DELETE'),
     ('PATCH /lets/dance', '/{oh}/{dear} PATCH')
 ])
+@parametrize_matcher()
 def test_matcher(matcher, req, route):
     assert matcher.match_request(req) == route
 
@@ -67,5 +71,6 @@ def parametrize_request(requests):
     'GET /abc',
     'PATCH //dance'
 ])
+@parametrize_matcher()
 def test_matcher_not_found(matcher, req):
     assert matcher.match_request(req) is None
