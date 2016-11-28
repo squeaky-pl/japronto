@@ -8,8 +8,8 @@
 struct _Matcher {
   PyObject_HEAD
 
-  char* buffer;
   size_t buffer_len;
+  char* buffer;
 };
 
 
@@ -22,8 +22,35 @@ typedef struct {
 } MatcherEntry;
 
 
-static Request_CAPI* request_capi;
+typedef enum {
+  SEGMENT_EXACT,
+  SEGMENT_PLACEHOLDER
+} SegmentType;
 
+
+typedef struct {
+  size_t data_length;
+  char data[];
+} ExactSegment;
+
+
+typedef struct {
+  size_t name_length;
+  char name[];
+} PlaceholderSegment;
+
+
+typedef struct {
+  SegmentType type;
+
+  union {
+    ExactSegment exact;
+    PlaceholderSegment placeholder;
+  };
+} Segment;
+
+static Request_CAPI* request_capi;
+static PyObject* compile_all;
 
 static PyObject *
 Matcher_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -49,6 +76,14 @@ for(MatcherEntry* entry = (MatcherEntry*)self->buffer; \
     entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + \
       entry->pattern_len + entry->methods_len))
 
+#define SEGMENT_LOOP \
+char* segments_end = entry->buffer + entry->pattern_len; \
+for(Segment* segment = (Segment*)entry->buffer; \
+    (char*)segment < segments_end; \
+    segment = (Segment*)((char*)segment + sizeof(Segment) + \
+      (segment->type == SEGMENT_EXACT ? \
+        segment->exact.data_length : segment->placeholder.name_length)))
+
 
 static void
 Matcher_dealloc(Matcher* self)
@@ -66,166 +101,38 @@ Matcher_dealloc(Matcher* self)
 
 
 static int
-Matcher_compile(Matcher* self, PyObject* routes)
-{
-  int result = 0;
-
-  // step 1 calculate memory needed
-  if(!PyList_Check(routes))
-      goto error;
-
-  Py_ssize_t routes_len = PyList_GET_SIZE(routes);
-  for(Py_ssize_t i = 0; i < routes_len; i++) {
-      PyObject* pattern = NULL;
-      PyObject* methods = NULL;
-
-      self->buffer_len += sizeof(MatcherEntry);
-
-      PyObject* route = PyList_GET_ITEM(routes, i);
-
-      pattern = PyObject_GetAttrString(route, "pattern");
-      if(!pattern)
-        goto len_loop_error;
-
-      Py_ssize_t pattern_len;
-      if(!PyUnicode_AsUTF8AndSize(pattern, &pattern_len))
-        goto len_loop_error;
-      self->buffer_len += (size_t)pattern_len;
-
-      methods = PyObject_GetAttrString(route, "methods");
-      if(!methods)
-        goto len_loop_error;
-
-      if(!PyList_Check(methods))
-        goto len_loop_error;
-
-      Py_ssize_t methods_len = PyList_GET_SIZE(methods);
-      for(Py_ssize_t j = 0; j < methods_len; j++) {
-        PyObject* method = PyList_GET_ITEM(methods, j);
-
-        Py_ssize_t method_len;
-        if(!PyUnicode_AsUTF8AndSize(method, &method_len))
-          goto len_loop_error;
-
-        self->buffer_len += (size_t)method_len + 1;
-      }
-
-      goto len_loop_finally;
-
-      len_loop_error:
-      result = -1;
-      len_loop_finally:
-      Py_XDECREF(methods);
-      Py_XDECREF(pattern);
-
-      if(result == -1)
-        goto finally;
-  }
-
-  // step 2: allocate and fill buffer
-  self->buffer = malloc(self->buffer_len);
-  if(!self->buffer)
-    goto error;
-
-  MatcherEntry* entry = (MatcherEntry*)self->buffer;
-  for(Py_ssize_t i = 0; i < routes_len; i++) {
-    PyObject* pattern = NULL;
-    PyObject* methods = NULL;
-
-    PyObject* route = PyList_GET_ITEM(routes, i);
-    Py_INCREF(route);
-
-    entry->route = route;
-
-    PyObject* handler = PyObject_GetAttrString(route, "handler");
-    if(!handler)
-      goto cpy_loop_error;
-
-    entry->handler = handler;
-
-    pattern = PyObject_GetAttrString(route, "pattern");
-    if(!pattern)
-      goto cpy_loop_error;
-
-    Py_ssize_t pattern_len;
-    char* pattern_str = PyUnicode_AsUTF8AndSize(pattern, &pattern_len);
-    if(!pattern_str)
-      goto cpy_loop_error;
-
-    entry->pattern_len = (size_t)pattern_len;
-    memcpy(entry->buffer, pattern_str, (size_t)pattern_len);
-
-    methods = PyObject_GetAttrString(route, "methods");
-    if(!methods)
-      goto cpy_loop_error;
-
-    entry->methods_len = 0;
-    char* methods_pos = entry->buffer + (size_t)pattern_len;
-    Py_ssize_t methods_len = PyList_GET_SIZE(methods);
-    for(Py_ssize_t j = 0; j < methods_len; j++) {
-      PyObject* method = PyList_GET_ITEM(methods, j);
-
-      Py_ssize_t method_len;
-      char* method_str = PyUnicode_AsUTF8AndSize(method, &method_len);
-      if(!method_str)
-        goto cpy_loop_error;
-
-      memcpy(methods_pos, method_str, (size_t)method_len);
-
-      entry->methods_len += method_len;
-      methods_pos += method_len;
-
-      *methods_pos = ' ';
-      entry->methods_len++;
-      methods_pos++;
-    }
-
-    entry = (MatcherEntry*)methods_pos;
-
-    goto cpy_loop_finally;
-
-    cpy_loop_error:
-    // FIXME: all the copied route and handlers objects leak
-    result = -1;
-    cpy_loop_finally:
-    Py_XDECREF(methods);
-    Py_XDECREF(pattern);
-
-    if(result == -1)
-      goto finally;
-  }
-
-  goto finally;
-
-  error:
-  result = -1;
-  finally:
-  return result;
-}
-
-
-static int
 Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 {
   int result = 0;
-  PyObject* routes = NULL;
+  PyObject* compiled = NULL;
 
-  PyObject* router;
-  if(!PyArg_ParseTuple(args, "O", &router))
+  PyObject* routes;
+  if(!PyArg_ParseTuple(args, "O", &routes))
     goto error;
 
-  routes = PyObject_GetAttrString(router, "_routes");
-  if(!routes)
+  if(!(compiled = PyObject_CallFunctionObjArgs(compile_all, routes, NULL)))
     goto error;
 
-  result = Matcher_compile(self, routes);
+  char* compiled_buffer;
+  if(PyBytes_AsStringAndSize(compiled, &compiled_buffer, (Py_ssize_t*)&self->buffer_len) == -1)
+    goto error;
+
+  if(!(self->buffer = malloc(self->buffer_len)))
+    goto error;
+
+  memcpy(self->buffer, compiled_buffer, self->buffer_len);
+
+  ENTRY_LOOP {
+    Py_INCREF(entry->handler);
+    Py_INCREF(entry->route);
+  }
 
   goto finally;
 
   error:
   result = -1;
   finally:
-  Py_XDECREF(routes);
+  Py_XDECREF(compiled);
   return result;
 }
 
@@ -263,10 +170,33 @@ PyObject* Matcher_match_request(Matcher* self, PyObject* request, PyObject** han
 #endif
 
   ENTRY_LOOP {
-    if(entry->pattern_len != (size_t)path_len)
-      continue;
+    char* rest = path_str;
+    size_t rest_len = path_len;
 
-    if(memcmp(entry->buffer, path_str, (size_t)path_len) != 0)
+    SEGMENT_LOOP {
+      if(segment->type == SEGMENT_EXACT) {
+        if(rest_len < segment->exact.data_length)
+          break;
+
+        if(memcmp(rest, segment->exact.data, segment->exact.data_length) != 0)
+          break;
+
+        rest += segment->exact.data_length;
+        rest_len -= segment->exact.data_length;
+      } else if(segment->type == SEGMENT_PLACEHOLDER) {
+        char* slash = memchr(rest, '/', rest_len);
+        if(slash) {
+          rest_len -= slash - rest;
+          rest = slash;
+        } else {
+          rest_len = 0;
+        }
+      } else {
+        assert(0);
+      }
+    }
+
+    if(rest_len)
       continue;
 
     if(!entry->methods_len)
@@ -401,6 +331,7 @@ PyInit_cmatcher(void)
 {
   PyObject* m = NULL;
   PyObject* api_capsule = NULL;
+  PyObject* router_route = NULL;
 
   if (PyType_Ready(&MatcherType) < 0)
     goto error;
@@ -411,6 +342,12 @@ PyInit_cmatcher(void)
 
   request_capi = import_capi("request.crequest");
   if(!request_capi)
+    goto error;
+
+  if(!(router_route = PyImport_ImportModule("router.route")))
+    goto error;
+
+  if(!(compile_all = PyObject_GetAttrString(router_route, "compile_all")))
     goto error;
 
   Py_INCREF(&MatcherType);
@@ -427,6 +364,7 @@ PyInit_cmatcher(void)
   m = NULL;
 
   finally:
+  Py_XDECREF(router_route);
   Py_XDECREF(api_capsule);
   return m;
 }
