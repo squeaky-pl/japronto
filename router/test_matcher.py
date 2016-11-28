@@ -59,30 +59,30 @@ def parametrize_make_matcher():
         'make_matcher', [make_matcher, make_cmatcher], ids=['py', 'c'])
 
 
-def parametrize_request_and_route(cases):
+def parametrize_request_route_and_dict(cases):
     return pytest.mark.parametrize(
-        'req,route',
-        ((FakeRequest.from_str(req), route_from_str(route))
-         for req, route in cases),
-         ids=[req + '-' + route for req, route in cases])
+        'req,route,match_dict',
+        ((FakeRequest.from_str(req), route_from_str(route), match_dict)
+         for req, route, match_dict in cases),
+         ids=[req + '-' + route for req, route, _ in cases])
 
 
-@parametrize_request_and_route([
-    ('GET /', '/'),
-    ('POST /', '/'),
-    ('GET /test', '/test GET'),
-    ('DELETE /hi/jane', '/hi/{there} POST,DELETE'),
-    ('PATCH /lets/dance', '/{oh}/{dear} PATCH')
+@parametrize_request_route_and_dict([
+    ('GET /', '/', {}),
+    ('POST /', '/', {}),
+    ('GET /test', '/test GET', {}),
+    ('DELETE /hi/jane', '/hi/{there} POST,DELETE', {'there': 'jane'}),
+    ('PATCH /lets/dance', '/{oh}/{dear} PATCH', {'oh': 'lets', 'dear': 'dance'})
 ])
 @parametrize_make_matcher()
-def test_matcher(make_matcher, req, route):
+def test_matcher(make_matcher, req, route, match_dict):
     cnt = TracingRoute.cnt
+
     matcher = make_matcher()
-    assert matcher.match_request(req) == route
+    assert matcher.match_request(req) == (route, match_dict)
     del matcher
 
     assert cnt == TracingRoute.cnt
-
 
 
 def parametrize_request(requests):
@@ -102,6 +102,7 @@ def parametrize_request(requests):
 @parametrize_make_matcher()
 def test_matcher_not_found(make_matcher, req):
     cnt = TracingRoute.cnt
+
     matcher = make_matcher()
     assert matcher.match_request(req) is None
     del matcher

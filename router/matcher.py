@@ -3,6 +3,7 @@ class Matcher:
         self._routes = routes
 
     def match_request(self, request):
+        match_dict = {}
         for route in self._routes:
             rest = request.path
 
@@ -17,6 +18,7 @@ class Matcher:
                     value, slash, rest = rest.partition('/')
                     if not value:
                         break
+                    match_dict[data] = value
                     rest = slash + rest
                 else:
                     assert 0, 'Unknown type'
@@ -30,4 +32,4 @@ class Matcher:
             if route.methods and request.method not in route.methods:
                 continue
 
-            return route
+            return route, match_dict
