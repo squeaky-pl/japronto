@@ -65,11 +65,28 @@ def show_todo(request):
     )
 
 
+def delete_todo(request):
+    db = db_connect()
+    cur = db.cursor()
+    id = int(request.match_dict['id'])
+    cur.execute("""DELETE FROM todos WHERE id = ?""", (id,))
+    if not cur.rowcount:
+        return request.Response(404, text="{}", mime_type='application/json')
+    db.commit()
+    db.close()
+
+    return request.Response(
+        text='{}',
+        mime_type='application/json'
+    )
+
+
 if __name__ == '__main__':
     maybe_create_schema()
     app = Application()
     router = app.get_router()
     router.add_route('/todos', list_todos, method='GET')
     router.add_route('/todos/{id}', show_todo, method='GET')
+    router.add_route('/todos/{id}', delete_todo, method='DELETE')
     router.add_route('/todos', add_todo, method='POST')
     app.serve()
