@@ -6,6 +6,8 @@ import router
 import uvloop
 import router.cmatcher
 
+from protocol.cprotocol import Protocol as CProtocol
+
 
 class Application:
     def __init__(self, loop=None):
@@ -35,10 +37,11 @@ class Application:
         print(''.join(tb))
         return request.Response(500, text='Something went wrong')
 
-    def serve(self, protocol_factory, reuse_port=False):
+    def serve(self, protocol_factory=None, reuse_port=False):
         self.__freeze()
 
         loop = self.get_loop()
+        protocol_factory = protocol_factory or CProtocol
 
         asyncio.set_event_loop(loop)
 
