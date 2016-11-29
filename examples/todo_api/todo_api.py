@@ -48,10 +48,28 @@ def list_todos(request):
     )
 
 
+def show_todo(request):
+    db = db_connect()
+    cur = db.cursor()
+    id = int(request.match_dict['id'])
+    cur.execute("""SELECT id, todo FROM todos WHERE id = ?""", (id,))
+    todo = cur.fetchone()
+    if not todo:
+        return request.Response(404, text="{}", mime_type='application/json')
+    todo = {"id": todo[0], "todo": todo[1]}
+    db.close()
+
+    return request.Response(
+        text=json.dumps(todo),
+        mime_type='application/json'
+    )
+
+
 if __name__ == '__main__':
     maybe_create_schema()
     app = Application()
     router = app.get_router()
     router.add_route('/todos', list_todos, method='GET')
+    router.add_route('/todos/{id}', show_todo, method='GET')
     router.add_route('/todos', add_todo, method='POST')
     app.serve()
