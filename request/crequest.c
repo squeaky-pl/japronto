@@ -27,6 +27,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->py_path = NULL;
   self->py_headers = NULL;
   self->py_body = NULL;
+  self->py_match_dict = NULL;
   self->response = NULL;
 
   finally:
@@ -38,6 +39,7 @@ static void
 Request_dealloc(Request* self)
 {
   Py_XDECREF(self->response);
+  Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_headers);
   Py_XDECREF(self->py_path);
@@ -87,7 +89,7 @@ Request_Response(Request* self, PyObject *args, PyObject* kw)
 }
 
 
-void
+static void
 Request_from_raw(Request* self, char* method, size_t method_len, char* path, size_t path_len,
                  int minor_version,
                  struct phr_header* headers, size_t num_headers)
@@ -102,7 +104,8 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   // correct offsets
   ptrdiff_t shift = self->buffer - method;
   path += shift;
-  for(struct phr_header* header = headers; header < headers + num_headers; header++) {
+  for(struct phr_header* header = headers; header < headers + num_headers;
+      header++) {
     header->name += shift;
     header->value += shift;
   }
@@ -115,6 +118,17 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   self->minor_version = minor_version;
   self->headers = headers;
   self->num_headers = num_headers;
+}
+
+
+static void
+Request_set_match_dict_entries(Request* self, MatchDictEntry* entries,
+                               size_t length)
+{
+  self->match_dict_entries =
+    (MatchDictEntry*)(&self->headers[self->num_headers]);
+  self->match_dict_length = length;
+  memcpy(self->match_dict_entries, entries, sizeof(MatchDictEntry) * length);
 }
 
 
@@ -269,11 +283,24 @@ Request_get_headers(Request* self, void* closure) {
 }
 
 
+static PyObject*
+Request_get_match_dict(Request* self, void* closure)
+{
+  if(!self->py_match_dict)
+    self->py_match_dict = MatchDict_entries_to_dict(
+      self->match_dict_entries, self->match_dict_length);
+
+  Py_XINCREF(self->py_match_dict);
+  return self->py_match_dict;
+}
+
+
 static PyGetSetDef Request_getset[] = {
   {"method", (getter)Request_get_method, NULL, "", NULL},
   {"path", (getter)Request_get_path, NULL, "", NULL},
   {"version", (getter)Request_get_version, NULL, "", NULL},
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
+  {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {NULL}
 };
 
@@ -376,7 +403,8 @@ PyInit_crequest(void)
   static Request_CAPI capi = {
     &RequestType,
     Request_from_raw,
-    Request_get_decoded_path
+    Request_get_decoded_path,
+    Request_set_match_dict_entries
   };
   api_capsule = export_capi(m, "request.crequest", &capi);
   if(!api_capsule)

@@ -40,6 +40,7 @@ Method: {0.method}
 Path: {0.path}
 Version: {0.version}
 Headers: {0.headers}
+Match: {0.match_dict}
 """.strip().format(request)
 
     return request.Response(text=text)
@@ -50,8 +51,8 @@ app = Application()
 r = app.get_router()
 r.add_route('/', slash)
 r.add_route('/hello', hello)
-r.add_route('/dump', dump)
-r.add_route('/sleep', sleep)
+r.add_route('/dump/{this}/{that}', dump)
+r.add_route('/sleep/{pinch}', sleep)
 r.add_route('/loop', loop)
 
 

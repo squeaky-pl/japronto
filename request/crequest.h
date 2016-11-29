@@ -3,6 +3,8 @@
 #include <Python.h>
 #include <stdbool.h>
 
+#include "match_dict.h"
+
 
 typedef struct {
   PyObject_HEAD
@@ -14,11 +16,14 @@ typedef struct {
   int minor_version;
   struct phr_header* headers;
   size_t num_headers;
+  MatchDictEntry* match_dict_entries;
+  size_t match_dict_length;
   char buffer[1024];
   PyObject* py_method;
   PyObject* py_path;
   PyObject* py_headers;
   PyObject* py_body;
+  PyObject* py_match_dict;
   PyObject* response;
 } Request;
 
@@ -42,4 +47,7 @@ typedef struct {
 
   char* (*Request_get_decoded_path)
     (Request* self, size_t* path_len);
+
+  void (*Request_set_match_dict_entries)
+    (Request* self, MatchDictEntry* entries, size_t length);
 } Request_CAPI;

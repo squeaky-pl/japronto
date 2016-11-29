@@ -6,6 +6,7 @@
 #include "crequest.h"
 #include "cresponse.h"
 #include "capsule.h"
+#include "match_dict.h"
 
 
 #ifdef REAPER_ENABLED
@@ -458,6 +459,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   PyObject* route = NULL; // stolen
   PyObject* handler = NULL; // stolen
   PyObject* handler_result = NULL;
+  MatchDictEntry* entries;
+  size_t entries_length;
 #ifdef PARSER_STANDALONE
 /*  PyObject* request;
   if(!PyArg_ParseTuple(args, "O", &request))
@@ -466,7 +469,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
 
   route = matcher_capi->Matcher_match_request(
-    (Matcher*)self->matcher, self->request, &handler, NULL, NULL);
+    (Matcher*)self->matcher, self->request, &handler, &entries, &entries_length);
   if(!route)
     goto error;
 
@@ -474,6 +477,9 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     PyErr_SetString(PyExc_KeyError, "Route not found");
     goto write;
   }
+
+  request_capi->Request_set_match_dict_entries(
+    (Request*)self->request, entries, entries_length);
 
   /* we can get exception from the Python handler, we will pass it
      to python error handler
