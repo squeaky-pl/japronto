@@ -27,6 +27,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   self->py_method = NULL;
   self->py_path = NULL;
+  self->py_qs = NULL;
   self->py_headers = NULL;
   self->py_match_dict = NULL;
   self->py_body = NULL;
@@ -46,6 +47,7 @@ Request_dealloc(Request* self)
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_headers);
+  Py_XDECREF(self->py_qs);
   Py_XDECREF(self->py_path);
   Py_XDECREF(self->py_method);
   Py_TYPE(self)->tp_free((PyObject*)self);
@@ -116,6 +118,7 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   self->path = path;
   self->path_decoded = false;
   self->path_len = path_len;
+  self->qs_decoded = false;
   self->minor_version = minor_version;
   self->headers = headers;
   self->num_headers = num_headers;
@@ -155,9 +158,12 @@ Request_set_body(Request* self, char* body, size_t body_len)
 #define hex_to_dec(x) \
   ((x <= '9' ? 0 : 9) + (x & 0x0f))
 #define is_hex(x) ((x >= '0' && x <= '9') || (x >= 'A' && x <= 'F'))
-static inline size_t percent_decode(char* data, ssize_t length, char stopchr) {
+static inline size_t percent_decode(char* data, ssize_t length, size_t* shifted_bytes, const char* stopchr) {
+  if(shifted_bytes)
+    *shifted_bytes = 0;
+
   for(char* end = data + length; data < end; data++) {
-    if(*data == stopchr) {
+    if(stopchr && *data == *stopchr) {
       length -= end - data;
       break;
     }
@@ -169,6 +175,8 @@ static inline size_t percent_decode(char* data, ssize_t length, char stopchr) {
       *data = (hex_to_dec(*(data + 1)) << 4) + hex_to_dec(*(data + 2));
       end -= 2;
       length -= 2;
+      if(shifted_bytes)
+        *shifted_bytes += 2;
       memmove(data + 1, data + 3, length - 1);
     }
   }
@@ -182,12 +190,40 @@ static inline size_t percent_decode(char* data, ssize_t length, char stopchr) {
 char*
 Request_get_decoded_path(Request* self, size_t* path_len) {
   if(!self->path_decoded) {
-    self->path_len = percent_decode(self->path, self->path_len, '?');
+    size_t shifted_bytes;
+    const char stopchr = '?';
+    *path_len = percent_decode(
+      self->path, self->path_len, &shifted_bytes, &stopchr);
     self->path_decoded = true;
+
+    self->qs_len = self->path_len - *path_len - shifted_bytes;
+    if(self->qs_len)
+      self->qs_len--;
+
+    self->path_len = *path_len;
   }
 
   *path_len = self->path_len;
   return self->path;
+}
+
+
+static char*
+Request_get_decoded_qs(Request* self, size_t* qs_len) {
+  if(!self->qs_len) {
+    *qs_len = 0;
+    return NULL;
+  }
+
+  char* qs = self->path + self->path_len + 1;
+
+  if(!self->qs_decoded) {
+    self->qs_len = percent_decode(qs, self->qs_len, NULL, NULL);
+    self->qs_decoded = true;
+  }
+
+  *qs_len = self->qs_len;
+  return qs;
 }
 
 
@@ -292,6 +328,23 @@ Request_get_path(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_qs(Request* self, void* closure)
+{
+  if(!self->py_qs) {
+    size_t qs_len;
+    char* qs = Request_get_decoded_qs(self, &qs_len);
+    if(!qs)
+      self->py_qs = Py_None;
+    else
+      self->py_qs = PyUnicode_FromStringAndSize(qs, qs_len);
+  }
+
+  Py_XINCREF(self->py_qs);
+  return self->py_qs;
+}
+
+
+static PyObject*
 Request_get_version(Request* self, void* closure) {
   PyObject* result = self->minor_version ? HTTP11 : HTTP10;
 
@@ -374,6 +427,7 @@ Request_get_json(Request* self, void* closure)
 static PyGetSetDef Request_getset[] = {
   {"method", (getter)Request_get_method, NULL, "", NULL},
   {"path", (getter)Request_get_path, NULL, "", NULL},
+  {"query_string", (getter)Request_get_qs, NULL, "", NULL},
   {"version", (getter)Request_get_version, NULL, "", NULL},
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},

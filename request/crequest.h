@@ -12,6 +12,8 @@ typedef struct {
   char* path;
   bool path_decoded;
   size_t path_len;
+  bool qs_decoded;
+  size_t qs_len;
   int minor_version;
   struct phr_header* headers;
   size_t num_headers;
@@ -22,6 +24,7 @@ typedef struct {
   char buffer[1024];
   PyObject* py_method;
   PyObject* py_path;
+  PyObject* py_qs;
   PyObject* py_headers;
   PyObject* py_match_dict;
   PyObject* py_body;
