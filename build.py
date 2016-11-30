@@ -102,7 +102,7 @@ def main():
         append_args('extra_link_args', values)
 
 
-    append_compile_args('-frecord-gcc-switches')
+    append_compile_args('-frecord-gcc-switches', '-UNDEBUG')
 
     if args.debug:
         append_compile_args('-g', '-O0')
