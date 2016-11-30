@@ -2,6 +2,7 @@
 
 #include "cresponse.h"
 #include "capsule.h"
+#include "reasons.h"
 
 typedef struct _Response {
   PyObject_HEAD
@@ -17,10 +18,11 @@ typedef struct _Response {
 
 static PyObject* json_dumps;
 
-
 static const char header[] = "HTTP/1.1 200 OK\r\n"
-  "Connection: keep-alive\r\n"
+  "Connection:                 keep-alive\r\n"
   "Content-Length: ";
+
+static const size_t reason_offset = 13;
 
 static PyObject *
 Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -121,17 +123,52 @@ static const char text_plain[] = "text/plain";
 PyObject*
 Response_render(Response* self)
 {
+  size_t buffer_offset;
+
+# define CRLF \
+  *(self->buffer + buffer_offset) = '\r'; \
+  buffer_offset++; \
+  *(self->buffer + buffer_offset) = '\n'; \
+  buffer_offset++;
+
   if(self->status_code != Py_None) {
     unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
-    /* FIXME: overflow, check range 100 - 599 */
+
+    if(status_code < 100 || status_code > 599) {
+      PyErr_SetString(PyExc_ValueError, "Invalid status code");
+      goto error;
+    }
+
+    unsigned int status_category = status_code / 100 - 1;
+    unsigned int status_rest = status_code % 100;
+
+    const ReasonRange* reason_range = reason_ranges + status_category;
+    if(status_rest > reason_range->maximum) {
+      PyErr_SetString(PyExc_ValueError, "Invalid status code");
+      goto error;
+    }
+
     /* TODO these are always 3 digit, maybe modulus would be faster */
     snprintf(self->buffer + code_offset, 4, "%ld", status_code);
     *(self->buffer + code_offset + 3) = ' ';
+
+    const char* reason = reason_range->reasons[status_rest];
+    size_t reason_len = strlen(reason);
+
+    assert(reason_len <= 16);
+
+    memcpy(self->buffer + reason_offset, reason, reason_len);
+
+    buffer_offset = reason_offset + reason_len;
+
+    CRLF
+
+    memcpy(self->buffer + buffer_offset, "Connection:", strlen("Connection:"));
   } else {
     memcpy(self->buffer + code_offset, "200", 3);
   }
 
-  size_t buffer_offset = strlen(header);
+  buffer_offset = strlen(header);
 
   Py_ssize_t body_len = 0;
   const char* body = NULL;
@@ -151,12 +188,6 @@ Response_render(Response* self)
     *(self->buffer + buffer_offset) = '0';
     buffer_offset++;
   }
-
-# define CRLF \
-  *(self->buffer + buffer_offset) = '\r'; \
-  buffer_offset++; \
-  *(self->buffer + buffer_offset) = '\n'; \
-  buffer_offset++;
 
   CRLF
 

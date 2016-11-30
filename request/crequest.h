@@ -5,7 +5,6 @@
 
 #include "match_dict.h"
 
-
 typedef struct {
   PyObject_HEAD
 
