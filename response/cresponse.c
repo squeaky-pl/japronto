@@ -15,6 +15,9 @@ typedef struct _Response {
 } Response;
 
 
+static PyObject* json_dumps;
+
+
 static const char header[] = "HTTP/1.1 200 OK\r\n"
   "Connection: keep-alive\r\n"
   "Content-Length: ";
@@ -60,31 +63,42 @@ static const size_t code_offset = 9;
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
-  static char *kwlist[] = {"status_code", "text", "mime_type", "encoding", NULL};
+  static char *kwlist[] = {"status_code", "text", "json", "mime_type", "encoding", NULL};
 
   PyObject* status_code = Py_None;
   PyObject* text = Py_None;
+  PyObject* json = NULL;
   PyObject* mime_type = Py_None;
   PyObject* encoding = Py_None;
 
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
-      args, kw, "|OOOO", kwlist,
-      &status_code, &text, &mime_type, &encoding))
+      args, kw, "|OOOOO", kwlist,
+      &status_code, &text, &json, &mime_type, &encoding))
       goto error;
-
 
   Py_DECREF(self->status_code);
   self->status_code = status_code;
   Py_INCREF(self->status_code);
 
   Py_DECREF(self->text);
-  self->text = text;
-  Py_INCREF(self->text);
+  if(json) {
+    if(!(self->text = PyObject_CallFunctionObjArgs(json_dumps, json, NULL)))
+      goto error;
+  } else {
+    self->text = text;
+    Py_INCREF(self->text);
+  }
 
   Py_DECREF(self->mime_type);
-  self->mime_type = mime_type;
-  Py_INCREF(self->mime_type);
+  if(json && mime_type == Py_None) {
+    // TODO moveto static const
+    if(!(self->mime_type = PyUnicode_FromString("application/json")))
+      goto error;
+  } else {
+    self->mime_type = mime_type;
+    Py_INCREF(self->mime_type);
+  }
 
   Py_DECREF(self->encoding);
   self->encoding = encoding;
@@ -257,6 +271,7 @@ PyInit_cresponse(void)
 {
   PyObject* m = NULL;
   PyObject* api_capsule = NULL;
+  PyObject* json = NULL;
 
   if (PyType_Ready(&ResponseType) < 0)
     goto error;
@@ -267,6 +282,12 @@ PyInit_cresponse(void)
 
   Py_INCREF(&ResponseType);
   PyModule_AddObject(m, "Response", (PyObject*)&ResponseType);
+
+  if(!(json = PyImport_ImportModule("json")))
+    goto error;
+
+  if(!(json_dumps = PyObject_GetAttrString(json, "dumps")))
+    goto error;
 
   static Response_CAPI capi = {
     Response_render,
@@ -281,6 +302,7 @@ PyInit_cresponse(void)
   error:
   m = NULL;
   finally:
+  Py_XDECREF(json);
   Py_XDECREF(api_capsule);
   return m;
 }

@@ -30,9 +30,7 @@ def add_todo(request):
     db.commit()
     db.close()
 
-    return request.Response(
-        text=json.dumps({"id": last_id, "todo": todo}),
-        mime_type='application/json')
+    return request.Response(json={"id": last_id, "todo": todo})
 
 
 def list_todos(request):
@@ -42,10 +40,7 @@ def list_todos(request):
     todos = [{"id": id, "todo": todo} for id, todo in cur]
     db.close()
 
-    return request.Response(
-        text=json.dumps({"results": todos}),
-        mime_type='application/json'
-    )
+    return request.Response(json={"results": todos})
 
 
 def show_todo(request):
@@ -55,14 +50,11 @@ def show_todo(request):
     cur.execute("""SELECT id, todo FROM todos WHERE id = ?""", (id,))
     todo = cur.fetchone()
     if not todo:
-        return request.Response(404, text="{}", mime_type='application/json')
+        return request.Response(404, json={})
     todo = {"id": todo[0], "todo": todo[1]}
     db.close()
 
-    return request.Response(
-        text=json.dumps(todo),
-        mime_type='application/json'
-    )
+    return request.Response(json=todo)
 
 
 def delete_todo(request):
@@ -71,14 +63,11 @@ def delete_todo(request):
     id = int(request.match_dict['id'])
     cur.execute("""DELETE FROM todos WHERE id = ?""", (id,))
     if not cur.rowcount:
-        return request.Response(404, text="{}", mime_type='application/json')
+        return request.Response(404, json={})
     db.commit()
     db.close()
 
-    return request.Response(
-        text='{}',
-        mime_type='application/json'
-    )
+    return request.Response(json={})
 
 
 if __name__ == '__main__':
