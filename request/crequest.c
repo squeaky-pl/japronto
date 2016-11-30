@@ -13,6 +13,8 @@ static PyObject* HTTP11;
 
 static Response_CAPI* response_capi;
 
+static PyObject* json_loads;
+
 
 static PyObject*
 Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -345,6 +347,23 @@ Request_get_text(Request* self, void* closure)
 }
 
 
+static PyObject*
+Request_get_json(Request* self, void* closure)
+{
+  PyObject* text = NULL;
+  PyObject* json = NULL;
+  if(!(text = Request_get_text(self, NULL)))
+    goto finally;
+
+  if(!(json = PyObject_CallFunctionObjArgs(json_loads, text, NULL)))
+    goto finally;
+
+  finally:
+  Py_XDECREF(text);
+  return json;
+}
+
+
 static PyGetSetDef Request_getset[] = {
   {"method", (getter)Request_get_method, NULL, "", NULL},
   {"path", (getter)Request_get_path, NULL, "", NULL},
@@ -353,6 +372,7 @@ static PyGetSetDef Request_getset[] = {
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {"body", (getter)Request_get_body, NULL, "", NULL},
   {"text", (getter)Request_get_text, NULL, "", NULL},
+  {"json", (getter)Request_get_json, NULL, "", NULL},
   {NULL}
 };
 
@@ -421,6 +441,7 @@ PyInit_crequest(void)
   PyObject* m = NULL;
   PyObject* api_capsule = NULL;
   PyObject* cresponse = NULL;
+  PyObject* json = NULL;
 
   HTTP10 = NULL;
   HTTP11 = NULL;
@@ -447,6 +468,14 @@ PyInit_crequest(void)
 
   Response = PyObject_GetAttrString(cresponse, "Response");
   if(!Response)
+    goto error;
+
+  json = PyImport_ImportModule("json");
+  if(!json)
+    goto error;
+
+  json_loads = PyObject_GetAttrString(json, "loads");
+  if(!json_loads)
     goto error;
 
   Py_INCREF(&RequestType);
@@ -476,6 +505,7 @@ PyInit_crequest(void)
   m = NULL;
 
   finally:
+  Py_XDECREF(json);
   Py_XDECREF(cresponse);
   Py_XDECREF(api_capsule);
   return m;

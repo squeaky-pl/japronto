@@ -24,7 +24,7 @@ def maybe_create_schema():
 def add_todo(request):
     db = db_connect()
     cur = db.cursor()
-    todo = json.loads(request.text)["todo"]
+    todo = request.json["todo"]
     cur.execute("""INSERT INTO todos (todo) VALUES (?)""", (todo,))
     last_id = cur.lastrowid
     db.commit()
