@@ -481,6 +481,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   request_capi->Request_set_match_dict_entries(
     (Request*)self->request, entries, entries_length);
 
+  request_capi->Request_set_body(
+    (Request*)self->request, body, body_len);
   /* we can get exception from the Python handler, we will pass it
      to python error handler
   */

@@ -18,12 +18,14 @@ typedef struct {
   size_t num_headers;
   MatchDictEntry* match_dict_entries;
   size_t match_dict_length;
+  char* body;
+  size_t body_length;
   char buffer[1024];
   PyObject* py_method;
   PyObject* py_path;
   PyObject* py_headers;
-  PyObject* py_body;
   PyObject* py_match_dict;
+  PyObject* py_body;
   PyObject* response;
 } Request;
 
@@ -50,4 +52,7 @@ typedef struct {
 
   void (*Request_set_match_dict_entries)
     (Request* self, MatchDictEntry* entries, size_t length);
+
+  void (*Request_set_body)
+    (Request* self, char* body, size_t body_len);
 } Request_CAPI;

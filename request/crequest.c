@@ -26,8 +26,8 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->py_method = NULL;
   self->py_path = NULL;
   self->py_headers = NULL;
-  self->py_body = NULL;
   self->py_match_dict = NULL;
+  self->py_body = NULL;
   self->response = NULL;
 
   finally:
@@ -39,8 +39,8 @@ static void
 Request_dealloc(Request* self)
 {
   Py_XDECREF(self->response);
-  Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_body);
+  Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_headers);
   Py_XDECREF(self->py_path);
   Py_XDECREF(self->py_method);
@@ -52,9 +52,6 @@ static int
 Request_init(Request* self, PyObject *args, PyObject* kw)
 {
   int result = 0;
-
-  self->py_body = Py_None;
-  Py_INCREF(self->py_body);
 
   self->response = PyObject_CallFunctionObjArgs(Response, NULL);
   if(!self->response)
@@ -128,7 +125,26 @@ Request_set_match_dict_entries(Request* self, MatchDictEntry* entries,
   self->match_dict_entries =
     (MatchDictEntry*)(&self->headers[self->num_headers]);
   self->match_dict_length = length;
+  assert(
+    (char*)self->match_dict_entries + sizeof(MatchDictEntry) * length <=
+    self->buffer + sizeof(self->buffer));
   memcpy(self->match_dict_entries, entries, sizeof(MatchDictEntry) * length);
+}
+
+
+static void
+Request_set_body(Request* self, char* body, size_t body_len)
+{
+  if(!body) {
+    self->body = NULL;
+    return;
+  }
+
+  self->body = (char*)self->match_dict_entries + sizeof(MatchDictEntry)
+    * self->match_dict_length;
+  self->body_length = body_len;
+  assert(self->body + self->body_length <= self->buffer + sizeof(self->buffer));
+  memcpy(self->body, body, body_len);
 }
 
 
@@ -295,12 +311,28 @@ Request_get_match_dict(Request* self, void* closure)
 }
 
 
+static PyObject*
+Request_get_body(Request* self, void* closure)
+{
+  if(!self->py_body) {
+    if(self->body)
+      self->py_body = PyBytes_FromStringAndSize(self->body, self->body_length);
+    else
+      self->py_body = Py_None;
+  }
+
+  Py_XINCREF(self->py_body);
+  return self->py_body;
+}
+
+
 static PyGetSetDef Request_getset[] = {
   {"method", (getter)Request_get_method, NULL, "", NULL},
   {"path", (getter)Request_get_path, NULL, "", NULL},
   {"version", (getter)Request_get_version, NULL, "", NULL},
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
+  {"body", (getter)Request_get_body, NULL, "", NULL},
   {NULL}
 };
 
@@ -404,7 +436,8 @@ PyInit_crequest(void)
     &RequestType,
     Request_from_raw,
     Request_get_decoded_path,
-    Request_set_match_dict_entries
+    Request_set_match_dict_entries,
+    Request_set_body
   };
   api_capsule = export_capi(m, "request.crequest", &capi);
   if(!api_capsule)

@@ -41,6 +41,7 @@ Path: {0.path}
 Version: {0.version}
 Headers: {0.headers}
 Match: {0.match_dict}
+Body: {0.body}
 """.strip().format(request)
 
     return request.Response(text=text)
