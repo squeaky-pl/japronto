@@ -52,7 +52,7 @@ if __name__ == '__main__':
     aio.set_event_loop(loop)
 
     server_fut = aio.create_subprocess_exec(
-        'python', 'server.py', *args.server.split())
+        'python', 'examples/simple/simple.py', *args.server.split())
     server = loop.run_until_complete(server_fut)
 
     cpu_p = 100
