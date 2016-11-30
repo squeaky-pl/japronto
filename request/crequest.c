@@ -28,6 +28,7 @@ Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->py_headers = NULL;
   self->py_match_dict = NULL;
   self->py_body = NULL;
+  self->py_text = NULL;
   self->response = NULL;
 
   finally:
@@ -39,6 +40,7 @@ static void
 Request_dealloc(Request* self)
 {
   Py_XDECREF(self->response);
+  Py_XDECREF(self->py_text);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_headers);
@@ -326,6 +328,23 @@ Request_get_body(Request* self, void* closure)
 }
 
 
+static PyObject*
+Request_get_text(Request* self, void* closure)
+{
+  if(!self->py_text) {
+    if(self->body)
+      // FIXME: this should take into account Content-Type encoding
+      self->py_text = PyUnicode_FromStringAndSize(
+        self->body, self->body_length);
+    else
+      self->py_text = Py_None;
+  }
+
+  Py_XINCREF(self->py_text);
+  return self->py_text;
+}
+
+
 static PyGetSetDef Request_getset[] = {
   {"method", (getter)Request_get_method, NULL, "", NULL},
   {"path", (getter)Request_get_path, NULL, "", NULL},
@@ -333,6 +352,7 @@ static PyGetSetDef Request_getset[] = {
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {"body", (getter)Request_get_body, NULL, "", NULL},
+  {"text", (getter)Request_get_text, NULL, "", NULL},
   {NULL}
 };
 
