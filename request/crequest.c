@@ -155,9 +155,16 @@ Request_set_body(Request* self, char* body, size_t body_len)
 #define hex_to_dec(x) \
   ((x <= '9' ? 0 : 9) + (x & 0x0f))
 #define is_hex(x) ((x >= '0' && x <= '9') || (x >= 'A' && x <= 'F'))
-static inline size_t percent_decode(char* data, ssize_t length) {
-  char* end = data + length;
-  for(;end - data >= 3; data++) {
+static inline size_t percent_decode(char* data, ssize_t length, char stopchr) {
+  for(char* end = data + length; data < end; data++) {
+    if(*data == stopchr) {
+      length -= end - data;
+      break;
+    }
+
+    if(end - data < 3)
+      continue;
+
     if(*data == '%' && is_hex(*(data + 1)) && is_hex(*(data + 2))) {
       *data = (hex_to_dec(*(data + 1)) << 4) + hex_to_dec(*(data + 2));
       end -= 2;
@@ -175,7 +182,7 @@ static inline size_t percent_decode(char* data, ssize_t length) {
 char*
 Request_get_decoded_path(Request* self, size_t* path_len) {
   if(!self->path_decoded) {
-    self->path_len = percent_decode(self->path, self->path_len);
+    self->path_len = percent_decode(self->path, self->path_len, '?');
     self->path_decoded = true;
   }
 
