@@ -14,7 +14,7 @@ static PyObject* HTTP11;
 static Response_CAPI* response_capi;
 
 static PyObject* json_loads;
-
+static PyObject* request;
 
 static PyObject*
 Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -424,6 +424,32 @@ Request_get_json(Request* self, void* closure)
 }
 
 
+static PyObject*
+Request_get_proxy(Request* self, char* attr)
+{
+  PyObject* callable = NULL;
+  PyObject* result = NULL;
+  if(!(callable = PyObject_GetAttrString(request, attr)))
+    goto error;
+
+  if(!(result = PyObject_CallFunctionObjArgs(callable, self, NULL)))
+    goto error;
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XDECREF(callable);
+
+  return result;
+}
+
+
+#define PROXY(attr) \
+  {#attr, (getter)Request_get_proxy, NULL, "", #attr}
+
 static PyGetSetDef Request_getset[] = {
   {"method", (getter)Request_get_method, NULL, "", NULL},
   {"path", (getter)Request_get_path, NULL, "", NULL},
@@ -434,8 +460,11 @@ static PyGetSetDef Request_getset[] = {
   {"body", (getter)Request_get_body, NULL, "", NULL},
   {"text", (getter)Request_get_text, NULL, "", NULL},
   {"json", (getter)Request_get_json, NULL, "", NULL},
+  PROXY(query),
   {NULL}
 };
+
+#undef PROXY
 
 
 static PyMethodDef Request_methods[] = {
@@ -533,6 +562,10 @@ PyInit_crequest(void)
 
   json = PyImport_ImportModule("json");
   if(!json)
+    goto error;
+
+  request = PyImport_ImportModule("request");
+  if(!request)
     goto error;
 
   json_loads = PyObject_GetAttrString(json, "loads");

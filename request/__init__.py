@@ -1,3 +1,6 @@
+import urllib.parse
+
+
 class HttpRequest(object):
     __slots__ = ('path', 'method', 'version', 'headers', 'body')
 
@@ -18,3 +21,10 @@ class HttpRequest(object):
     def __repr__(self):
         return '<HttpRequest {0.method} {0.path} {0.version}, {1} headers>' \
             .format(self, len(self.headers))
+
+
+def query(request):
+    qs = request.query_string
+    if not qs:
+        return {}
+    return dict(urllib.parse.parse_qsl(qs))
