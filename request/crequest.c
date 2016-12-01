@@ -13,7 +13,6 @@ static PyObject* HTTP11;
 
 static Response_CAPI* response_capi;
 
-static PyObject* json_loads;
 static PyObject* request;
 
 static PyObject*
@@ -391,40 +390,6 @@ Request_get_body(Request* self, void* closure)
 
 
 static PyObject*
-Request_get_text(Request* self, void* closure)
-{
-  if(!self->py_text) {
-    if(self->body)
-      // FIXME: this should take into account Content-Type encoding
-      self->py_text = PyUnicode_FromStringAndSize(
-        self->body, self->body_length);
-    else
-      self->py_text = Py_None;
-  }
-
-  Py_XINCREF(self->py_text);
-  return self->py_text;
-}
-
-
-static PyObject*
-Request_get_json(Request* self, void* closure)
-{
-  PyObject* text = NULL;
-  PyObject* json = NULL;
-  if(!(text = Request_get_text(self, NULL)))
-    goto finally;
-
-  if(!(json = PyObject_CallFunctionObjArgs(json_loads, text, NULL)))
-    goto finally;
-
-  finally:
-  Py_XDECREF(text);
-  return json;
-}
-
-
-static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -458,9 +423,12 @@ static PyGetSetDef Request_getset[] = {
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {"body", (getter)Request_get_body, NULL, "", NULL},
-  {"text", (getter)Request_get_text, NULL, "", NULL},
-  {"json", (getter)Request_get_json, NULL, "", NULL},
+  PROXY(text),
+  PROXY(json),
   PROXY(query),
+  PROXY(mime_type),
+  PROXY(encoding),
+  PROXY(form),
   {NULL}
 };
 
@@ -531,7 +499,6 @@ PyInit_crequest(void)
   PyObject* m = NULL;
   PyObject* api_capsule = NULL;
   PyObject* cresponse = NULL;
-  PyObject* json = NULL;
 
   HTTP10 = NULL;
   HTTP11 = NULL;
@@ -560,16 +527,8 @@ PyInit_crequest(void)
   if(!Response)
     goto error;
 
-  json = PyImport_ImportModule("json");
-  if(!json)
-    goto error;
-
   request = PyImport_ImportModule("request");
   if(!request)
-    goto error;
-
-  json_loads = PyObject_GetAttrString(json, "loads");
-  if(!json_loads)
     goto error;
 
   Py_INCREF(&RequestType);
@@ -599,7 +558,6 @@ PyInit_crequest(void)
   m = NULL;
 
   finally:
-  Py_XDECREF(json);
   Py_XDECREF(cresponse);
   Py_XDECREF(api_capsule);
   return m;

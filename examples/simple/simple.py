@@ -47,6 +47,9 @@ Match: {0.match_dict}
 Body: {0.body}
 QS: {0.query_string}
 query: {0.query}
+mime_type: {0.mime_type}
+encoding: {0.encoding}
+form: {0.form}
 """.strip().format(request)
 
     return request.Response(text=text)
