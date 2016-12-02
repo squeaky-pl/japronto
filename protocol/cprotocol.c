@@ -490,6 +490,16 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   request_capi->Request_set_body(
     (Request*)self->request, body, body_len);
+
+  /* this is only needed when the request would be scheduled in pipeline
+     once we know that from router we can put a condition here
+  */
+  /*PyObject* tmp = self->request;
+  if(!(self->request = request_capi->Request_clone((Request*)self->request)))
+    goto error;
+  // FIXME: leak
+  Py_DECREF(tmp);*/
+
   /* we can get exception from the Python handler, we will pass it
      to python error handler
   */

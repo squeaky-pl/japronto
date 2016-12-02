@@ -85,6 +85,36 @@ Request_init(Request* self)
 
 
 #ifdef REQUEST_OPAQUE
+
+static PyTypeObject RequestType;
+
+static PyObject*
+Request_clone(Request* original)
+{
+  Request* clone = NULL;
+
+  if(!(clone = (Request*)Request_new(&RequestType, NULL, NULL)))
+    goto error;
+
+  if(Request_init(clone, NULL, NULL) == -1)
+    goto error;
+
+  const size_t offset = offsetof(Request, method_len);
+  const size_t length = offsetof(Request, py_method) - offset;
+
+  memcpy((char*)clone + offset, (char*)original + offset, length);
+
+  goto finally;
+
+  error:
+  Py_XDECREF(clone);
+  clone = NULL;
+
+  finally:
+  return (PyObject*)clone;
+}
+
+
 static PyObject*
 Request_Response(Request* self, PyObject *args, PyObject* kw)
 {
@@ -560,6 +590,7 @@ crequest_init(void)
 
   static Request_CAPI capi = {
     &RequestType,
+    Request_clone,
     Request_from_raw,
     Request_get_decoded_path,
     Request_set_match_dict_entries,
