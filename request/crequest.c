@@ -43,7 +43,6 @@ Request_new(PyTypeObject* type, Request* self)
   self->py_headers = NULL;
   self->py_match_dict = NULL;
   self->py_body = NULL;
-  self->py_text = NULL;
   Response_new(response_capi->ResponseType, &self->response);
 
 #ifdef REQUEST_OPAQUE
@@ -61,7 +60,6 @@ void
 Request_dealloc(Request* self)
 {
   Response_dealloc(&self->response);
-  Py_XDECREF(self->py_text);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_headers);

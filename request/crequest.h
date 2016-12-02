@@ -29,7 +29,6 @@ typedef struct {
   PyObject* py_headers;
   PyObject* py_match_dict;
   PyObject* py_body;
-  PyObject* py_text;
   Response response;
 } Request;
 
