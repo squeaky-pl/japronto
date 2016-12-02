@@ -59,3 +59,18 @@ typedef struct {
   void (*Request_set_body)
     (Request* self, char* body, size_t body_len);
 } Request_CAPI;
+
+
+#ifndef REQUEST_OPAQUE
+PyObject*
+Request_new(PyTypeObject* type, Request* self);
+
+void
+Request_dealloc(Request* self);
+
+int
+Request_init(Request* self);
+
+void*
+crequest_init(void);
+#endif

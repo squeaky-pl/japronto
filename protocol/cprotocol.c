@@ -44,6 +44,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   Parser_new(&self->parser);
 #endif
   Pipeline_new(&self->pipeline);
+  Request_new(request_capi->RequestType, &self->static_request);
   self->app = NULL;
   self->matcher = NULL;
   self->error_handler = NULL;
@@ -77,6 +78,7 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
+  Request_dealloc(&self->static_request);
   Pipeline_dealloc(&self->pipeline);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(self->feed_disconnect);
@@ -128,6 +130,9 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 #endif
 
   if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, self) == -1)
+    goto error;
+
+  if(Request_init(&self->static_request) == -1)
     goto error;
 
   if(!PyArg_ParseTuple(args, "O", &self->app))
@@ -324,9 +329,11 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
   Protocol* result = self;
 
   Py_DECREF(self->request);
-  self->request = PyObject_CallFunctionObjArgs(PyRequest, NULL);
-  if(!self->request)
-    goto error;
+  Request_dealloc(&self->static_request);
+  Request_new(request_capi->RequestType, &self->static_request);
+  Request_init(&self->static_request);
+  self->request = (PyObject*)&self->static_request;
+  Py_INCREF(self->request);
 
   request_capi->Request_from_raw(
     (Request*)self->request, method, method_len, path, path_len, minor_version,
@@ -632,6 +639,9 @@ PyInit_cprotocol(void)
 #endif
 
   if(!cpipeline_init())
+    goto error;
+
+  if(!crequest_init())
     goto error;
 
   crequest = PyImport_ImportModule("request.crequest");
