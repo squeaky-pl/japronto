@@ -1,10 +1,29 @@
+#pragma once
+
 #include <Python.h>
 
-struct _Response;
+typedef struct {
+  PyObject_HEAD
 
-#define RESPONSE struct _Response
+  PyObject* status_code;
+  PyObject* mime_type;
+  PyObject* text;
+  PyObject* encoding;
+
+  char buffer[1024];
+} Response;
+
 
 typedef struct {
-  PyObject* (*Response_render)(RESPONSE*);
-  int (*Response_init)(RESPONSE* self, PyObject *args, PyObject *kw);
+  PyTypeObject* ResponseType;
+  PyObject* (*Response_render)(Response*);
+  int (*Response_init)(Response* self, PyObject *args, PyObject *kw);
 } Response_CAPI;
+
+#ifndef RESPONSE_OPAQUE
+PyObject*
+Response_new(PyTypeObject* type, Response* self);
+
+void
+Response_dealloc(Response* self);
+#endif

@@ -5,19 +5,18 @@
 #include "cresponse.h"
 #ifdef REQUEST_OPAQUE
 #include "picohttpparser.h"
-#include "capsule.h"
 #endif
+#include "capsule.h"
 
-static PyObject* Response;
+static PyObject* PyResponse;
 
 #ifdef REQUEST_OPAQUE
 static PyObject* HTTP10;
 static PyObject* HTTP11;
-
-static Response_CAPI* response_capi;
-
 static PyObject* request;
 #endif
+
+static Response_CAPI* response_capi;
 
 #ifdef REQUEST_OPAQUE
 static PyObject*
@@ -45,7 +44,7 @@ Request_new(PyTypeObject* type, Request* self)
   self->py_match_dict = NULL;
   self->py_body = NULL;
   self->py_text = NULL;
-  self->response = NULL;
+  Response_new(response_capi->ResponseType, &self->response);
 
 #ifdef REQUEST_OPAQUE
   finally:
@@ -61,7 +60,7 @@ void
 #endif
 Request_dealloc(Request* self)
 {
-  Py_XDECREF(self->response);
+  Response_dealloc(&self->response);
   Py_XDECREF(self->py_text);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
@@ -83,19 +82,7 @@ int
 Request_init(Request* self)
 #endif
 {
-  int result = 0;
-
-  self->response = PyObject_CallFunctionObjArgs(Response, NULL);
-  if(!self->response)
-    goto error;
-
-  goto finally;
-
-  error:
-  result = -1;
-
-  finally:
-  return result;
+  return 0;
 }
 
 
@@ -103,9 +90,9 @@ Request_init(Request* self)
 static PyObject*
 Request_Response(Request* self, PyObject *args, PyObject* kw)
 {
-  PyObject* result = self->response;
+  Response* result = &self->response;
 
-  if(response_capi->Response_init((RESPONSE*)self->response, args, kw) == -1)
+  if(response_capi->Response_init(result, args, kw) == -1)
     goto error;
 
   goto finally;
@@ -115,7 +102,7 @@ Request_Response(Request* self, PyObject *args, PyObject* kw)
 
   finally:
   Py_XINCREF(result);
-  return result;
+  return (PyObject*)result;
 }
 
 
@@ -538,7 +525,7 @@ crequest_init(void)
   void* m = (void*)1;
 #endif
   PyObject* cresponse = NULL;
-  Response = NULL;
+  PyResponse = NULL;
 
 #ifdef REQUEST_OPAQUE
   if (PyType_Ready(&RequestType) < 0)
@@ -561,8 +548,8 @@ crequest_init(void)
   if(!cresponse)
     goto error;
 
-  Response = PyObject_GetAttrString(cresponse, "Response");
-  if(!Response)
+  PyResponse = PyObject_GetAttrString(cresponse, "Response");
+  if(!PyResponse)
     goto error;
 
 #ifdef REQUEST_OPAQUE
@@ -584,15 +571,15 @@ crequest_init(void)
   if(!api_capsule)
     goto error;
 
+#endif
   response_capi = import_capi("response.cresponse");
   if(!response_capi)
     goto error;
-#endif
 
   goto finally;
 
   error:
-  Py_XDECREF(Response);
+  Py_XDECREF(PyResponse);
 #ifdef REQUEST_OPAQUE
   Py_XDECREF(HTTP10);
   Py_XDECREF(HTTP11);

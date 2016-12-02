@@ -350,7 +350,7 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 #endif
 
 
-static inline Protocol* Protocol_write_response_or_err(Protocol* self, RESPONSE* response)
+static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response* response)
 {
     Protocol* result = self;
     PyObject* memory_view = NULL;
@@ -373,7 +373,7 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, RESPONSE*
 
       PyErr_Clear();
 
-      if(!Protocol_write_response_or_err(self, (RESPONSE*)error_result))
+      if(!Protocol_write_response_or_err(self, (Response*)error_result))
         goto error;
 
       goto finally;
@@ -413,7 +413,7 @@ static void* Protocol_pipeline_ready(PyObject* task, void* closure)
   */
   response = PyObject_CallFunctionObjArgs(get_result, NULL);
 
-  if(!Protocol_write_response_or_err(self, (RESPONSE*)response))
+  if(!Protocol_write_response_or_err(self, (Response*)response))
     goto error;
 
   goto finally;
@@ -506,7 +506,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   assert(PIPELINE_EMPTY(&self->pipeline));
 
-  if(!Protocol_write_response_or_err(self, (RESPONSE*)handler_result))
+  if(!Protocol_write_response_or_err(self, (Response*)handler_result))
     goto error;
 
   goto finally;

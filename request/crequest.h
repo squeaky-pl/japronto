@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "match_dict.h"
+#include "cresponse.h"
 
 typedef struct {
   PyObject_HEAD
@@ -29,7 +30,7 @@ typedef struct {
   PyObject* py_match_dict;
   PyObject* py_body;
   PyObject* py_text;
-  PyObject* response;
+  Response response;
 } Request;
 
 #define REQUEST(r) \
