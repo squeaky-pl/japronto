@@ -61,8 +61,10 @@ if __name__ == '__main__':
         print('CPU usage in 1 sec:', cpu_p)
 
     results = []
+    cpu_usages = []
     for _ in range(10):
         results.append(run_wrk(loop, args.endpoint))
+        cpu_usages.append(psutil.cpu_percent())
         print('.', end='')
         sys.stdout.flush()
 
@@ -71,6 +73,7 @@ if __name__ == '__main__':
 
     print()
     print(results)
+    print(cpu_usages)
     median = statistics.median_grouped(results)
     stdev = round(statistics.stdev(results), 2)
     p = round((stdev / median) * 100, 2)
