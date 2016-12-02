@@ -37,6 +37,7 @@ Request_new(PyTypeObject* type, Request* self)
   ((PyObject*)self)->ob_type = type;
 #endif
 
+  self->transport = NULL;
   self->py_method = NULL;
   self->py_path = NULL;
   self->py_qs = NULL;
@@ -66,6 +67,7 @@ Request_dealloc(Request* self)
   Py_XDECREF(self->py_qs);
   Py_XDECREF(self->py_path);
   Py_XDECREF(self->py_method);
+  Py_XDECREF(self->transport);
 #ifdef REQUEST_OPAQUE
   Py_TYPE(self)->tp_free((PyObject*)self);
 #endif
@@ -433,6 +435,14 @@ Request_get_body(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_transport(Request* self, void* closure)
+{
+  Py_INCREF(self->transport);
+  return self->transport;
+}
+
+
+static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -466,6 +476,7 @@ static PyGetSetDef Request_getset[] = {
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {"body", (getter)Request_get_body, NULL, "", NULL},
+  {"transport", (getter)Request_get_transport, NULL, "", NULL},
   PROXY(text),
   PROXY(json),
   PROXY(query),

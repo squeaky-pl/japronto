@@ -500,6 +500,9 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   // FIXME: leak
   Py_DECREF(tmp);*/
 
+  ((Request*)self->request)->transport = self->transport;
+  Py_INCREF(self->transport);
+
   /* we can get exception from the Python handler, we will pass it
      to python error handler
   */

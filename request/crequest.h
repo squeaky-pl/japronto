@@ -23,6 +23,7 @@ typedef struct {
   char* body;
   size_t body_length;
   char buffer[1024];
+  PyObject* transport;
   PyObject* py_method;
   PyObject* py_path;
   PyObject* py_qs;
