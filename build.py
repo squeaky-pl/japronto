@@ -74,6 +74,9 @@ def main():
         '--profile-use', dest='profile_use', const=True,
         action='store_const', default=False)
     argparser.add_argument(
+        '-flto', dest='flto', const=True,
+        action='store_const', default=False)
+    argparser.add_argument(
         '--disable-reaper', dest='enable_reaper', const=False,
         action='store_const', default=True)
     argparser.add_argument('--path', dest='path')
@@ -114,7 +117,9 @@ def main():
             if ext_module.name == 'parser.cparser':
                 continue
             ext_module.extra_compile_args.append('--profile-use')
-
+    if args.flto:
+        append_compile_args('-flto')
+        append_link_args('-flto')
 
     prune()
 
