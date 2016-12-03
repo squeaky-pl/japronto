@@ -127,7 +127,7 @@ def main():
         append_link_args('-lgcov')
     if args.profile_use:
         for ext_module in ext_modules:
-            if ext_module.name == 'parser.cparser':
+            if ext_module.name in ('parser.cparser', 'pipeline.cpipeline'):
                 continue
             ext_module.extra_compile_args.append('--profile-use')
     if args.flto:
