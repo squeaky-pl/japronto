@@ -19,6 +19,11 @@ static PyObject* Parser;
 #endif
 static PyObject* PyRequest;
 
+static PyObject* socket_str;
+static PyObject* one;
+static PyObject* IPPROTO_TCP;
+static PyObject* TCP_NODELAY;
+
 #ifdef REAPER_ENABLED
 static PyObject* check_interval;
 #endif
@@ -197,9 +202,26 @@ Protocol_schedule_check_idle(Protocol* self)
 static PyObject*
 Protocol_connection_made(Protocol* self, PyObject* args)
 {
+  PyObject* get_extra_info = NULL;
+  PyObject* socket = NULL;
+  PyObject* setsockopt = NULL;
   if(!PyArg_ParseTuple(args, "O", &self->transport))
     goto error;
   Py_INCREF(self->transport);
+
+  if(!(get_extra_info = PyObject_GetAttrString(self->transport, "get_extra_info")))
+    goto error;
+
+  if(!(socket = PyObject_CallFunctionObjArgs(get_extra_info, socket_str, NULL)))
+    goto error;
+
+  if(!(setsockopt = PyObject_GetAttrString(socket, "setsockopt")))
+    goto error;
+
+  PyObject* tmp;
+  if(!(tmp = PyObject_CallFunctionObjArgs(setsockopt, IPPROTO_TCP, TCP_NODELAY, one, NULL)))
+    goto error;
+  Py_DECREF(tmp);
 
   if(!(self->write = PyObject_GetAttrString(self->transport, "write")))
     goto error;
@@ -217,7 +239,11 @@ Protocol_connection_made(Protocol* self, PyObject* args)
 
   error:
   return NULL;
+
   finally:
+  Py_XDECREF(setsockopt);
+  Py_XDECREF(socket);
+  Py_XDECREF(get_extra_info);
   Py_RETURN_NONE;
 }
 
@@ -627,6 +653,11 @@ PyInit_cprotocol(void)
   Parser = NULL;
 #endif
   PyObject* crequest = NULL;
+  PyObject* socket = NULL;
+  socket_str = NULL;
+  one = NULL;
+  IPPROTO_TCP = NULL;
+  TCP_NODELAY = NULL;
 #ifdef REAPER_ENABLED
   check_interval = NULL;
 #endif
@@ -683,6 +714,21 @@ PyInit_cprotocol(void)
     goto error;
 #endif
 
+  if(!(socket_str = PyUnicode_FromString("socket")))
+    goto error;
+
+  if(!(one = PyLong_FromLong(1)))
+    goto error;
+
+  if(!(socket = PyImport_ImportModule("socket")))
+    goto error;
+
+  if(!(IPPROTO_TCP = PyObject_GetAttrString(socket, "IPPROTO_TCP")))
+    goto error;
+
+  if(!(TCP_NODELAY = PyObject_GetAttrString(socket, "TCP_NODELAY")))
+    goto error;
+
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
@@ -698,6 +744,7 @@ PyInit_cprotocol(void)
 #endif
   m = NULL;
   finally:
+  Py_XDECREF(socket);
   Py_XDECREF(crequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(cparser);
