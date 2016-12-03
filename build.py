@@ -63,6 +63,12 @@ def prune():
         os.remove(path)
 
 
+def profile_clean():
+    paths = glob('build/**/*.gcda', recursive=True)
+    for path in paths:
+        os.remove(path)
+
+
 def main():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
@@ -77,10 +83,17 @@ def main():
         '-flto', dest='flto', const=True,
         action='store_const', default=False)
     argparser.add_argument(
+        '--profile-clean', dest='profile_clean', const=True,
+        action='store_const', default=False)
+    argparser.add_argument(
         '--disable-reaper', dest='enable_reaper', const=False,
         action='store_const', default=True)
     argparser.add_argument('--path', dest='path')
     args = argparser.parse_args(sys.argv[1:])
+
+    if args.profile_clean:
+        profile_clean()
+        return
 
     distutils.log.set_verbosity(1)
 
