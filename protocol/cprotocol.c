@@ -490,7 +490,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   */
   handler_result = PyObject_CallFunctionObjArgs(handler, self->request, NULL);
 
-  if(handler_result && PyCoro_CheckExact(handler_result)) {
+  if(handler_result && coro_func) {
     if(!Protocol_handle_coro(self, handler_result))
       goto error;
 
