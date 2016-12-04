@@ -39,6 +39,7 @@ def run_wrk(loop, endpoint=None):
 
 
 if __name__ == '__main__':
+    cpu.change('userspace', cpu.min_freq())
     cpu.dump()
     buggers.silence()
     loop = uvloop.new_event_loop()
@@ -79,6 +80,8 @@ if __name__ == '__main__':
 
     server.terminate()
     loop.run_until_complete(server.wait())
+
+    cpu.change('ondemand')
 
     print()
     print('RPS', results)
