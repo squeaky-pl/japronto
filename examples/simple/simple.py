@@ -3,6 +3,7 @@ import uvloop
 import argparse
 import os.path
 import sys
+import socket
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/../..'))
 
@@ -38,6 +39,8 @@ async def loop(request):
 
 
 def dump(request):
+    sock = request.transport.get_extra_info('socket')
+    no_delay = sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
     text = """
 Method: {0.method}
 Path: {0.path}
@@ -50,7 +53,8 @@ query: {0.query}
 mime_type: {0.mime_type}
 encoding: {0.encoding}
 form: {0.form}
-""".strip().format(request)
+no_delay: {1}
+""".strip().format(request, no_delay)
 
     return request.Response(text=text)
 
