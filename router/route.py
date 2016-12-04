@@ -1,3 +1,6 @@
+import asyncio
+
+
 class Route:
     def __init__(self, pattern, handler, methods):
         self.pattern = pattern
@@ -61,12 +64,13 @@ class SegmentType(IntEnum):
 typedef struct {
   PyObject* route;
   PyObject* handler;
+  bool coro_func;
   size_t pattern_len;
   size_t methods_len;
   char buffer[];
 } MatcherEntry;
 """
-MatcherEntry = Struct('PPNN')
+MatcherEntry = Struct('PP?NN')
 
 """
 typedef enum {
@@ -114,7 +118,9 @@ def compile(route):
         methods_len += 1
 
     return MatcherEntry.pack(
-        id(route), id(route.handler), len(pattern_buf), methods_len) \
+        id(route), id(route.handler),
+        asyncio.iscoroutinefunction(route.handler),
+        len(pattern_buf), methods_len) \
         + pattern_buf + methods_buf
 
 
