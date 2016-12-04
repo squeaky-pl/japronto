@@ -458,6 +458,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
   PyObject* route = NULL; // stolen
   PyObject* handler = NULL; // stolen
+  bool coro_func;
   PyObject* handler_result = NULL;
   MatchDictEntry* entries;
   size_t entries_length;
@@ -469,7 +470,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
 
   route = matcher_capi->Matcher_match_request(
-    (Matcher*)self->matcher, self->request, &handler, &entries, &entries_length);
+    (Matcher*)self->matcher,
+    self->request, &handler, &coro_func, &entries, &entries_length);
   if(!route)
     goto error;
 
