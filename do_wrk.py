@@ -55,6 +55,8 @@ if __name__ == '__main__':
         'python', 'examples/hello/hello.py', *args.server.split())
     server = loop.run_until_complete(server_fut)
 
+    process = psutil.Process(server.pid)
+
     cpu_p = 100
     while cpu_p > 5:
         cpu_p = psutil.cpu_percent(interval=1)
@@ -62,9 +64,12 @@ if __name__ == '__main__':
 
     results = []
     cpu_usages = []
+    process_cpu_usages = []
+    process.cpu_percent()
     for _ in range(10):
         results.append(run_wrk(loop, args.endpoint))
         cpu_usages.append(psutil.cpu_percent())
+        process_cpu_usages.append(process.cpu_percent())
         print('.', end='')
         sys.stdout.flush()
 
@@ -72,8 +77,9 @@ if __name__ == '__main__':
     loop.run_until_complete(server.wait())
 
     print()
-    print(results)
-    print(cpu_usages)
+    print('RPS', results)
+    print('Server', process_cpu_usages)
+    print('System', cpu_usages)
     median = statistics.median_grouped(results)
     stdev = round(statistics.stdev(results), 2)
     p = round((stdev / median) * 100, 2)
