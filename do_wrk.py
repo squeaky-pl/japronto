@@ -65,11 +65,15 @@ if __name__ == '__main__':
     results = []
     cpu_usages = []
     process_cpu_usages = []
+    mem_usages = []
+    conn_cnt = []
     process.cpu_percent()
     for _ in range(10):
         results.append(run_wrk(loop, args.endpoint))
         cpu_usages.append(psutil.cpu_percent())
         process_cpu_usages.append(process.cpu_percent())
+        conn_cnt.append(len(process.connections()))
+        mem_usages.append(round(process.memory_percent('uss'), 2))
         print('.', end='')
         sys.stdout.flush()
 
@@ -78,6 +82,8 @@ if __name__ == '__main__':
 
     print()
     print('RPS', results)
+    print('Mem', mem_usages)
+    print('Conn', conn_cnt)
     print('Server', process_cpu_usages)
     print('System', cpu_usages)
     median = statistics.median_grouped(results)
