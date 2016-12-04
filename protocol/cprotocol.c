@@ -522,11 +522,13 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   /* this is only needed when the request would be scheduled in pipeline
      once we know that from router we can put a condition here
   */
-  /*PyObject* tmp = self->request;
-  if(!(self->request = request_capi->Request_clone((Request*)self->request)))
-    goto error;
-  // FIXME: leak
-  Py_DECREF(tmp);*/
+  if(coro_func) {
+    PyObject* tmp = self->request;
+    if(!(self->request = request_capi->Request_clone((Request*)self->request)))
+      goto error;
+    // FIXME: leak
+    Py_DECREF(tmp);
+  }
 
   ((Request*)self->request)->transport = self->transport;
   Py_INCREF(self->transport);
