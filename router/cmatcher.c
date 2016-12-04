@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <stdbool.h>
 
 #include "cmatcher.h"
 #include "crequest.h"
@@ -16,6 +17,7 @@ struct _Matcher {
 typedef struct {
   PyObject* route;
   PyObject* handler;
+  bool coro_func;
   size_t pattern_len;
   size_t methods_len;
   char buffer[];
