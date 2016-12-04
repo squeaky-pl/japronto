@@ -12,7 +12,7 @@ def get_extension():
 
     return Extension(
         'protocol.cprotocol',
-        sources=['cprotocol.c', '../capsule.c', *cparser.sources, *cpipeline.sources],
+        sources=['cprotocol.c', '../capsule.c', '../request/crequest.c', '../response/cresponse.c', *cparser.sources, *cpipeline.sources],
         include_dirs=['.', '..', '../parser', '../pipeline', '../router', '../request',
                       '../response', *cparser.include_dirs],
         libraries=cparser.libraries, library_dirs=cparser.library_dirs,

@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <stdbool.h>
 
 #include "cmatcher.h"
 #include "crequest.h"
@@ -16,6 +17,7 @@ struct _Matcher {
 typedef struct {
   PyObject* route;
   PyObject* handler;
+  bool coro_func;
   size_t pattern_len;
   size_t methods_len;
   char buffer[];
@@ -142,7 +144,7 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 // borrows route and handler
 PyObject*
 Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
-                      MatchDictEntry** match_dict_entries,
+                      bool* coro_func, MatchDictEntry** match_dict_entries,
                       size_t* match_dict_length)
 {
   PyObject* route = Py_None;
@@ -241,6 +243,8 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
     route = entry->route;
     if(handler)
       *handler = entry->handler;
+    if(coro_func)
+      *coro_func = entry->coro_func;
     if(match_dict_entries)
       *match_dict_entries = _match_dict_entries;
     if(match_dict_length)
@@ -274,7 +278,7 @@ _Matcher_match_request(Matcher* self, PyObject* request)
   PyObject* route_dict = NULL;
 
   if(!(route = Matcher_match_request(
-       self, request, NULL, &entries, &length)))
+       self, request, NULL, NULL, &entries, &length)))
     goto error;
 
   if(route == Py_None)

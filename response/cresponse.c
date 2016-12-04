@@ -4,34 +4,34 @@
 #include "capsule.h"
 #include "reasons.h"
 
-typedef struct _Response {
-  PyObject_HEAD
-
-  PyObject* status_code;
-  PyObject* mime_type;
-  PyObject* text;
-  PyObject* encoding;
-
-  char buffer[1024];
-} Response;
-
-
+#ifdef RESPONSE_OPAQUE
 static PyObject* json_dumps;
+static const size_t reason_offset = 13;
+#endif
 
 static const char header[] = "HTTP/1.1 200 OK\r\n"
   "Connection:                 keep-alive\r\n"
   "Content-Length: ";
 
-static const size_t reason_offset = 13;
 
+#ifdef RESPONSE_OPAQUE
 static PyObject *
 Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+#else
+PyObject*
+Response_new(PyTypeObject* type, Response* self)
+#endif
 {
+#ifdef RESPONSE_OPAQUE
   Response* self = NULL;
 
   self = (Response*)type->tp_alloc(type, 0);
   if(!self)
     goto finally;
+#else
+  ((PyObject*)self)->ob_refcnt = 1;
+  ((PyObject*)self)->ob_type = type;
+#endif
 
   self->status_code = Py_None;
   Py_INCREF(self->status_code);
@@ -44,12 +44,18 @@ Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   memcpy(self->buffer, header, strlen(header));
 
+#ifdef RESPONSE_OPAQUE
   finally:
+#endif
   return (PyObject*)self;
 }
 
 
+#ifdef RESPONSE_OPAQUE
 static void
+#else
+void
+#endif
 Response_dealloc(Response* self)
 {
   Py_XDECREF(self->encoding);
@@ -57,9 +63,12 @@ Response_dealloc(Response* self)
   Py_XDECREF(self->mime_type);
   Py_XDECREF(self->status_code);
 
+#ifdef RESPONSE_OPAQUE
   Py_TYPE(self)->tp_free((PyObject*)self);
+#endif
 }
 
+#ifdef RESPONSE_OPAQUE
 static const size_t code_offset = 9;
 
 int
@@ -321,6 +330,7 @@ PyInit_cresponse(void)
     goto error;
 
   static Response_CAPI capi = {
+    &ResponseType,
     Response_render,
     Response_init
   };
@@ -337,3 +347,4 @@ PyInit_cresponse(void)
   Py_XDECREF(api_capsule);
   return m;
 }
+#endif

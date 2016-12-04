@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "match_dict.h"
+#include "cresponse.h"
 
 typedef struct {
   PyObject_HEAD
@@ -22,14 +23,14 @@ typedef struct {
   char* body;
   size_t body_length;
   char buffer[1024];
+  PyObject* transport;
   PyObject* py_method;
   PyObject* py_path;
   PyObject* py_qs;
   PyObject* py_headers;
   PyObject* py_match_dict;
   PyObject* py_body;
-  PyObject* py_text;
-  PyObject* response;
+  Response response;
 } Request;
 
 #define REQUEST(r) \
@@ -44,6 +45,10 @@ typedef struct {
 
 typedef struct {
   PyTypeObject* RequestType;
+
+  PyObject* (*Request_clone)
+    (Request* original);
+
   void (*Request_from_raw)
     (Request* self, char* method, size_t method_len,
      char* path, size_t path_len,
@@ -59,3 +64,18 @@ typedef struct {
   void (*Request_set_body)
     (Request* self, char* body, size_t body_len);
 } Request_CAPI;
+
+
+#ifndef REQUEST_OPAQUE
+PyObject*
+Request_new(PyTypeObject* type, Request* self);
+
+void
+Request_dealloc(Request* self);
+
+int
+Request_init(Request* self);
+
+void*
+crequest_init(void);
+#endif

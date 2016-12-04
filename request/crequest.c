@@ -3,81 +3,126 @@
 #include "crequest.h"
 
 #include "cresponse.h"
+#ifdef REQUEST_OPAQUE
 #include "picohttpparser.h"
+#endif
 #include "capsule.h"
 
-static PyObject* Response;
+static PyObject* PyResponse;
 
+#ifdef REQUEST_OPAQUE
 static PyObject* HTTP10;
 static PyObject* HTTP11;
+static PyObject* request;
+#endif
 
 static Response_CAPI* response_capi;
 
-static PyObject* request;
-
+#ifdef REQUEST_OPAQUE
 static PyObject*
 Request_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+#else
+PyObject*
+Request_new(PyTypeObject* type, Request* self)
+#endif
 {
+#ifdef REQUEST_OPAQUE
   Request* self = NULL;
 
   self = (Request*)type->tp_alloc(type, 0);
   if(!self)
     goto finally;
+#else
+  ((PyObject*)self)->ob_refcnt = 1;
+  ((PyObject*)self)->ob_type = type;
+#endif
 
+  self->transport = NULL;
   self->py_method = NULL;
   self->py_path = NULL;
   self->py_qs = NULL;
   self->py_headers = NULL;
   self->py_match_dict = NULL;
   self->py_body = NULL;
-  self->py_text = NULL;
-  self->response = NULL;
+  Response_new(response_capi->ResponseType, &self->response);
 
+#ifdef REQUEST_OPAQUE
   finally:
+#endif
   return (PyObject*)self;
 }
 
 
+#ifdef REQUEST_OPAQUE
 static void
+#else
+void
+#endif
 Request_dealloc(Request* self)
 {
-  Py_XDECREF(self->response);
-  Py_XDECREF(self->py_text);
+  Response_dealloc(&self->response);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_headers);
   Py_XDECREF(self->py_qs);
   Py_XDECREF(self->py_path);
   Py_XDECREF(self->py_method);
+  Py_XDECREF(self->transport);
+#ifdef REQUEST_OPAQUE
   Py_TYPE(self)->tp_free((PyObject*)self);
+#endif
 }
 
 
+#ifdef REQUEST_OPAQUE
 static int
 Request_init(Request* self, PyObject *args, PyObject* kw)
+#else
+int
+Request_init(Request* self)
+#endif
 {
-  int result = 0;
+  return 0;
+}
 
-  self->response = PyObject_CallFunctionObjArgs(Response, NULL);
-  if(!self->response)
+
+#ifdef REQUEST_OPAQUE
+
+static PyTypeObject RequestType;
+
+static PyObject*
+Request_clone(Request* original)
+{
+  Request* clone = NULL;
+
+  if(!(clone = (Request*)Request_new(&RequestType, NULL, NULL)))
     goto error;
+
+  if(Request_init(clone, NULL, NULL) == -1)
+    goto error;
+
+  const size_t offset = offsetof(Request, method_len);
+  const size_t length = offsetof(Request, py_method) - offset;
+
+  memcpy((char*)clone + offset, (char*)original + offset, length);
 
   goto finally;
 
   error:
-  result = -1;
+  Py_XDECREF(clone);
+  clone = NULL;
 
   finally:
-  return result;
+  return (PyObject*)clone;
 }
 
 
 static PyObject*
 Request_Response(Request* self, PyObject *args, PyObject* kw)
 {
-  PyObject* result = self->response;
+  Response* result = &self->response;
 
-  if(response_capi->Response_init((RESPONSE*)self->response, args, kw) == -1)
+  if(response_capi->Response_init(result, args, kw) == -1)
     goto error;
 
   goto finally;
@@ -87,7 +132,7 @@ Request_Response(Request* self, PyObject *args, PyObject* kw)
 
   finally:
   Py_XINCREF(result);
-  return result;
+  return (PyObject*)result;
 }
 
 
@@ -390,6 +435,14 @@ Request_get_body(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_transport(Request* self, void* closure)
+{
+  Py_INCREF(self->transport);
+  return self->transport;
+}
+
+
+static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -423,6 +476,7 @@ static PyGetSetDef Request_getset[] = {
   {"headers", (getter)Request_get_headers, NULL, "", NULL},
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {"body", (getter)Request_get_body, NULL, "", NULL},
+  {"transport", (getter)Request_get_transport, NULL, "", NULL},
   PROXY(text),
   PROXY(json),
   PROXY(query),
@@ -490,20 +544,29 @@ static PyModuleDef crequest = {
   -1,
   NULL, NULL, NULL, NULL, NULL
 };
+#endif
 
-
+#ifdef REQUEST_OPAQUE
 PyMODINIT_FUNC
 PyInit_crequest(void)
+#else
+void*
+crequest_init(void)
+#endif
 {
-
+#ifdef REQUEST_OPAQUE
   PyObject* m = NULL;
   PyObject* api_capsule = NULL;
-  PyObject* cresponse = NULL;
 
   HTTP10 = NULL;
   HTTP11 = NULL;
-  Response = NULL;
+#else
+  void* m = (void*)1;
+#endif
+  PyObject* cresponse = NULL;
+  PyResponse = NULL;
 
+#ifdef REQUEST_OPAQUE
   if (PyType_Ready(&RequestType) < 0)
     goto error;
 
@@ -518,15 +581,17 @@ PyInit_crequest(void)
   m = PyModule_Create(&crequest);
   if(!m)
     goto error;
+#endif
 
   cresponse = PyImport_ImportModule("response.cresponse");
   if(!cresponse)
     goto error;
 
-  Response = PyObject_GetAttrString(cresponse, "Response");
-  if(!Response)
+  PyResponse = PyObject_GetAttrString(cresponse, "Response");
+  if(!PyResponse)
     goto error;
 
+#ifdef REQUEST_OPAQUE
   request = PyImport_ImportModule("request");
   if(!request)
     goto error;
@@ -536,6 +601,7 @@ PyInit_crequest(void)
 
   static Request_CAPI capi = {
     &RequestType,
+    Request_clone,
     Request_from_raw,
     Request_get_decoded_path,
     Request_set_match_dict_entries,
@@ -545,6 +611,7 @@ PyInit_crequest(void)
   if(!api_capsule)
     goto error;
 
+#endif
   response_capi = import_capi("response.cresponse");
   if(!response_capi)
     goto error;
@@ -552,13 +619,17 @@ PyInit_crequest(void)
   goto finally;
 
   error:
-  Py_XDECREF(Response);
+  Py_XDECREF(PyResponse);
+#ifdef REQUEST_OPAQUE
   Py_XDECREF(HTTP10);
   Py_XDECREF(HTTP11);
+#endif
   m = NULL;
 
   finally:
   Py_XDECREF(cresponse);
+#ifdef REQUEST_OPAQUE
   Py_XDECREF(api_capsule);
+#endif
   return m;
 }

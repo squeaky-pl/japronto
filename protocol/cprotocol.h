@@ -5,6 +5,7 @@
 #endif
 
 #include "cpipeline.h"
+#include "crequest.h"
 
 typedef struct {
   PyObject_HEAD
@@ -15,6 +16,7 @@ typedef struct {
 #else
   Parser parser;
 #endif
+  Request static_request;
   Pipeline pipeline;
 #ifdef REAPER_ENABLED
   unsigned long idle_time;

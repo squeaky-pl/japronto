@@ -19,6 +19,11 @@ static PyObject* Parser;
 #endif
 static PyObject* PyRequest;
 
+static PyObject* socket_str;
+static PyObject* one;
+static PyObject* IPPROTO_TCP;
+static PyObject* TCP_NODELAY;
+
 #ifdef REAPER_ENABLED
 static PyObject* check_interval;
 #endif
@@ -44,6 +49,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   Parser_new(&self->parser);
 #endif
   Pipeline_new(&self->pipeline);
+  Request_new(request_capi->RequestType, &self->static_request);
   self->app = NULL;
   self->matcher = NULL;
   self->error_handler = NULL;
@@ -77,6 +83,7 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
+  Request_dealloc(&self->static_request);
   Pipeline_dealloc(&self->pipeline);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(self->feed_disconnect);
@@ -128,6 +135,9 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 #endif
 
   if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, self) == -1)
+    goto error;
+
+  if(Request_init(&self->static_request) == -1)
     goto error;
 
   if(!PyArg_ParseTuple(args, "O", &self->app))
@@ -192,9 +202,26 @@ Protocol_schedule_check_idle(Protocol* self)
 static PyObject*
 Protocol_connection_made(Protocol* self, PyObject* args)
 {
+  PyObject* get_extra_info = NULL;
+  PyObject* socket = NULL;
+  PyObject* setsockopt = NULL;
   if(!PyArg_ParseTuple(args, "O", &self->transport))
     goto error;
   Py_INCREF(self->transport);
+
+  if(!(get_extra_info = PyObject_GetAttrString(self->transport, "get_extra_info")))
+    goto error;
+
+  if(!(socket = PyObject_CallFunctionObjArgs(get_extra_info, socket_str, NULL)))
+    goto error;
+
+  if(!(setsockopt = PyObject_GetAttrString(socket, "setsockopt")))
+    goto error;
+
+  PyObject* tmp;
+  if(!(tmp = PyObject_CallFunctionObjArgs(setsockopt, IPPROTO_TCP, TCP_NODELAY, one, NULL)))
+    goto error;
+  Py_DECREF(tmp);
 
   if(!(self->write = PyObject_GetAttrString(self->transport, "write")))
     goto error;
@@ -212,7 +239,11 @@ Protocol_connection_made(Protocol* self, PyObject* args)
 
   error:
   return NULL;
+
   finally:
+  Py_XDECREF(setsockopt);
+  Py_XDECREF(socket);
+  Py_XDECREF(get_extra_info);
   Py_RETURN_NONE;
 }
 
@@ -324,9 +355,11 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
   Protocol* result = self;
 
   Py_DECREF(self->request);
-  self->request = PyObject_CallFunctionObjArgs(PyRequest, NULL);
-  if(!self->request)
-    goto error;
+  Request_dealloc(&self->static_request);
+  Request_new(request_capi->RequestType, &self->static_request);
+  Request_init(&self->static_request);
+  self->request = (PyObject*)&self->static_request;
+  Py_INCREF(self->request);
 
   request_capi->Request_from_raw(
     (Request*)self->request, method, method_len, path, path_len, minor_version,
@@ -343,7 +376,7 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 #endif
 
 
-static inline Protocol* Protocol_write_response_or_err(Protocol* self, RESPONSE* response)
+static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response* response)
 {
     Protocol* result = self;
     PyObject* memory_view = NULL;
@@ -366,7 +399,7 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, RESPONSE*
 
       PyErr_Clear();
 
-      if(!Protocol_write_response_or_err(self, (RESPONSE*)error_result))
+      if(!Protocol_write_response_or_err(self, (Response*)error_result))
         goto error;
 
       goto finally;
@@ -406,7 +439,7 @@ static void* Protocol_pipeline_ready(PyObject* task, void* closure)
   */
   response = PyObject_CallFunctionObjArgs(get_result, NULL);
 
-  if(!Protocol_write_response_or_err(self, (RESPONSE*)response))
+  if(!Protocol_write_response_or_err(self, (Response*)response))
     goto error;
 
   goto finally;
@@ -458,6 +491,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
   PyObject* route = NULL; // stolen
   PyObject* handler = NULL; // stolen
+  bool coro_func;
   PyObject* handler_result = NULL;
   MatchDictEntry* entries;
   size_t entries_length;
@@ -469,7 +503,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
 
   route = matcher_capi->Matcher_match_request(
-    (Matcher*)self->matcher, self->request, &handler, &entries, &entries_length);
+    (Matcher*)self->matcher,
+    self->request, &handler, &coro_func, &entries, &entries_length);
   if(!route)
     goto error;
 
@@ -483,12 +518,27 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   request_capi->Request_set_body(
     (Request*)self->request, body, body_len);
+
+  /* this is only needed when the request would be scheduled in pipeline
+     once we know that from router we can put a condition here
+  */
+  if(coro_func) {
+    PyObject* tmp = self->request;
+    if(!(self->request = request_capi->Request_clone((Request*)self->request)))
+      goto error;
+    // FIXME: leak
+    Py_DECREF(tmp);
+  }
+
+  ((Request*)self->request)->transport = self->transport;
+  Py_INCREF(self->transport);
+
   /* we can get exception from the Python handler, we will pass it
      to python error handler
   */
   handler_result = PyObject_CallFunctionObjArgs(handler, self->request, NULL);
 
-  if(handler_result && PyCoro_CheckExact(handler_result)) {
+  if(handler_result && coro_func) {
     if(!Protocol_handle_coro(self, handler_result))
       goto error;
 
@@ -499,7 +549,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   assert(PIPELINE_EMPTY(&self->pipeline));
 
-  if(!Protocol_write_response_or_err(self, (RESPONSE*)handler_result))
+  if(!Protocol_write_response_or_err(self, (Response*)handler_result))
     goto error;
 
   goto finally;
@@ -607,6 +657,11 @@ PyInit_cprotocol(void)
   Parser = NULL;
 #endif
   PyObject* crequest = NULL;
+  PyObject* socket = NULL;
+  socket_str = NULL;
+  one = NULL;
+  IPPROTO_TCP = NULL;
+  TCP_NODELAY = NULL;
 #ifdef REAPER_ENABLED
   check_interval = NULL;
 #endif
@@ -632,6 +687,9 @@ PyInit_cprotocol(void)
 #endif
 
   if(!cpipeline_init())
+    goto error;
+
+  if(!crequest_init())
     goto error;
 
   crequest = PyImport_ImportModule("request.crequest");
@@ -660,6 +718,21 @@ PyInit_cprotocol(void)
     goto error;
 #endif
 
+  if(!(socket_str = PyUnicode_FromString("socket")))
+    goto error;
+
+  if(!(one = PyLong_FromLong(1)))
+    goto error;
+
+  if(!(socket = PyImport_ImportModule("socket")))
+    goto error;
+
+  if(!(IPPROTO_TCP = PyObject_GetAttrString(socket, "IPPROTO_TCP")))
+    goto error;
+
+  if(!(TCP_NODELAY = PyObject_GetAttrString(socket, "TCP_NODELAY")))
+    goto error;
+
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
@@ -675,6 +748,7 @@ PyInit_cprotocol(void)
 #endif
   m = NULL;
   finally:
+  Py_XDECREF(socket);
   Py_XDECREF(crequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(cparser);
