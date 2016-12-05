@@ -1,7 +1,7 @@
 import atexit
 import subprocess
 
-noisy = ['atom', 'chrome', 'firefox', 'dropbox', 'opera']
+noisy = ['atom', 'chrome', 'firefox', 'dropbox', 'opera', 'spotify']
 
 def silence():
     subprocess.call(['pkill', '--signal', 'STOP', '|'.join(noisy)])
