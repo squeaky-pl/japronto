@@ -368,9 +368,6 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 
   goto finally;
 
-  error:
-  result = NULL;
-
   finally:
   return result;
 }

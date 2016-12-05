@@ -196,7 +196,7 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
         rest += segment->exact.data_length;
         rest_len -= segment->exact.data_length;
       } else if(segment->type == SEGMENT_PLACEHOLDER) {
-        assert(current_mde - _match_dict_entries < sizeof(_match_dict_entries) / sizeof(MatchDictEntry));
+        assert(((size_t)(current_mde - _match_dict_entries)) < sizeof(_match_dict_entries) / sizeof(MatchDictEntry));
 
         char* slash = memchr(rest, '/', rest_len);
         current_mde->value = rest;
