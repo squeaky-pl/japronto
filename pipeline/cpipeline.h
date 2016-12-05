@@ -18,7 +18,7 @@ typedef struct {
 } Pipeline;
 
 
-#define PIPELINE_EMPTY(p) (p)->queue_start == (p)->queue_end
+#define PIPELINE_EMPTY(p) ((p)->queue_start == (p)->queue_end)
 
 #ifndef PIPELINE_OPAQUE
 PyObject*
