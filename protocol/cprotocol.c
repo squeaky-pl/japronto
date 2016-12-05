@@ -201,16 +201,15 @@ Protocol_schedule_check_idle(Protocol* self)
 
 
 static PyObject*
-Protocol_connection_made(Protocol* self, PyObject* args)
+Protocol_connection_made(Protocol* self, PyObject* transport)
 {
   PyObject* get_extra_info = NULL;
   PyObject* socket = NULL;
   PyObject* setsockopt = NULL;
-  if(!PyArg_ParseTuple(args, "O", &self->transport))
-    goto error;
+  self->transport = transport;
   Py_INCREF(self->transport);
 
-  if(!(get_extra_info = PyObject_GetAttrString(self->transport, "get_extra_info")))
+  if(!(get_extra_info = PyObject_GetAttrString(transport, "get_extra_info")))
     goto error;
 
   if(!(socket = PyObject_CallFunctionObjArgs(get_extra_info, socket_str, NULL)))
@@ -224,7 +223,7 @@ Protocol_connection_made(Protocol* self, PyObject* args)
     goto error;
   Py_DECREF(tmp);
 
-  if(!(self->write = PyObject_GetAttrString(self->transport, "write")))
+  if(!(self->write = PyObject_GetAttrString(transport, "write")))
     goto error;
 
 #ifdef REAPER_ENABLED
@@ -312,12 +311,8 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
 
 
 static PyObject*
-Protocol_data_received(Protocol* self, PyObject* args)
+Protocol_data_received(Protocol* self, PyObject* data)
 {
-  PyObject* data = NULL;
-  if(!PyArg_ParseTuple(args, "O", &data))
-    goto error;
-
 #ifdef REAPER_ENABLED
   self->read_ops++;
 #endif
@@ -594,9 +589,9 @@ Protocol_on_error(Protocol* self, PyObject* error)
 
 
 static PyMethodDef Protocol_methods[] = {
-  {"connection_made", (PyCFunction)Protocol_connection_made, METH_VARARGS, ""},
+  {"connection_made", (PyCFunction)Protocol_connection_made, METH_O, ""},
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
-  {"data_received", (PyCFunction)Protocol_data_received, METH_VARARGS, ""},
+  {"data_received", (PyCFunction)Protocol_data_received, METH_O, ""},
 #ifdef REAPER_ENABLED
   {"_check_idle", (PyCFunction)Protocol__check_idle, METH_NOARGS, ""},
 #endif
