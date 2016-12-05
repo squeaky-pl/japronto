@@ -53,6 +53,7 @@ query: {0.query}
 mime_type: {0.mime_type}
 encoding: {0.encoding}
 form: {0.form}
+keep_alive: {0.keep_alive}
 no_delay: {1}
 """.strip().format(request, no_delay)
 

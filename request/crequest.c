@@ -443,6 +443,39 @@ Request_get_transport(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_keep_alive(Request* self, void* closure)
+{
+  struct phr_header* Connection = NULL;
+  for(struct phr_header* header = self->headers;
+      header < self->headers + self->num_headers;
+      header++) {
+      if(header->name_len == strlen("Connection")
+        && strncasecmp(header->name, "Connection", header->name_len)) {
+        Connection = header;
+        break;
+      }
+  }
+
+  if(self->minor_version == 0) {
+    // FIXME: this should check what's before and after
+    if(Connection &&
+      memmem(Connection->value, Connection->value_len,
+        "keep-alive", strlen("keep-alive")))
+      Py_RETURN_TRUE;
+
+    Py_RETURN_FALSE;
+  } else {
+    if(Connection &&
+      memmem(Connection->value, Connection->value_len,
+        "close", strlen("close")))
+      Py_RETURN_FALSE;
+
+    Py_RETURN_TRUE;
+  }
+}
+
+
+static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -477,6 +510,7 @@ static PyGetSetDef Request_getset[] = {
   {"match_dict", (getter)Request_get_match_dict, NULL, "", NULL},
   {"body", (getter)Request_get_body, NULL, "", NULL},
   {"transport", (getter)Request_get_transport, NULL, "", NULL},
+  {"keep_alive", (getter)Request_get_keep_alive, NULL, "", NULL},
   PROXY(text),
   PROXY(json),
   PROXY(query),
