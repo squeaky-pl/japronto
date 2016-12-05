@@ -1,19 +1,33 @@
 #include <Python.h>
 
+#include "generator.h"
 
-typedef struct {
+
+typedef struct _Generator {
   PyObject_HEAD
 
   PyObject* object;
 } Generator;
 
 
+static PyTypeObject GeneratorType;
+
+
+#ifdef GENERATOR_OPAQUE
 static PyObject*
 Generator_new(PyTypeObject* type, PyObject* args, PyObject* kw)
+#else
+PyObject*
+Generator_new(void)
+#endif
 {
   Generator* self = NULL;
 
+#ifdef GENERATOR_OPAQUE
   self = (Generator*)type->tp_alloc(type, 0);
+#else
+  self = (Generator*)GeneratorType.tp_alloc(&GeneratorType, 0);
+#endif
   if(!self)
     goto finally;
 
@@ -24,7 +38,11 @@ Generator_new(PyTypeObject* type, PyObject* args, PyObject* kw)
 }
 
 
+#ifdef GENERATOR_OPAQUE
 static void
+#else
+void
+#endif
 Generator_dealloc(Generator* self)
 {
   Py_XDECREF(self->object);
@@ -33,13 +51,22 @@ Generator_dealloc(Generator* self)
 }
 
 
+#ifdef GENERATOR_OPAQUE
 static int
 Generator_init(Generator* self, PyObject *args, PyObject *kw)
+#else
+int
+Generator_init(Generator* self, PyObject* object)
+#endif
 {
   int result = 0;
 
+#ifdef GENERATOR_OPAQUE
   if(!PyArg_ParseTuple(args, "O", &self->object))
     goto error;
+#else
+  self->object = object;
+#endif
 
   Py_INCREF(self->object);
 
@@ -89,6 +116,7 @@ static PyTypeObject GeneratorType = {
   0,                         /* tp_weaklistoffset */
   PyObject_SelfIter,         /* tp_iter */
   (iternextfunc)Generator_next, /* tp_iternext */
+#ifdef GENERATOR_OPAQUE
   0,                         /* tp_methods */
   0,                         /* tp_members */
   0,                         /* tp_getset */
@@ -100,9 +128,11 @@ static PyTypeObject GeneratorType = {
   (initproc)Generator_init,  /* tp_init */
   0,                         /* tp_alloc */
   Generator_new,             /* tp_new */
+#endif
 };
 
 
+#ifdef GENERATOR_OPAQUE
 static PyModuleDef generator = {
   PyModuleDef_HEAD_INIT,
   "generator",
@@ -110,23 +140,34 @@ static PyModuleDef generator = {
   -1,
   NULL, NULL, NULL, NULL, NULL
 };
+#endif
 
 
+#ifdef GENERATOR_OPAQUE
 PyMODINIT_FUNC
 PyInit_generator(void)
+#else
+void*
+generator_init(void)
+#endif
 {
+#ifdef GENERATOR_OPAQUE
   PyObject* m = NULL;
+#else
+  void* m = &GeneratorType;
+#endif
 
   if(PyType_Ready(&GeneratorType) < 0)
     goto error;
 
+#ifdef GENERATOR_OPAQUE
   m = PyModule_Create(&generator);
   if(!m)
     goto error;
 
   Py_INCREF(&GeneratorType);
   PyModule_AddObject(m, "Generator", (PyObject*)&GeneratorType);
-
+#endif
 
   goto finally;
 

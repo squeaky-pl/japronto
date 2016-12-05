@@ -6,6 +6,7 @@
 #include "crequest.h"
 #include "cresponse.h"
 #include "capsule.h"
+#include "generator.h"
 #include "match_dict.h"
 
 
