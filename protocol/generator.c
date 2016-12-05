@@ -72,8 +72,10 @@ Generator_init(Generator* self, PyObject* object)
 
   goto finally;
 
+#ifdef GENERATOR_OPAQUE
   error:
   result = -1;
+#endif
   finally:
   return result;
 }
@@ -86,6 +88,19 @@ Generator_next(Generator* self)
 
   return NULL;
 }
+
+
+static PyObject*
+Generator_send(Generator* self, PyObject* arg)
+{
+  return Generator_next(self);
+}
+
+
+static PyMethodDef Generator_methods[] = {
+  {"send", (PyCFunction)Generator_send, METH_O, ""},
+  {NULL}
+};
 
 
 static PyTypeObject GeneratorType = {
@@ -116,8 +131,8 @@ static PyTypeObject GeneratorType = {
   0,                         /* tp_weaklistoffset */
   PyObject_SelfIter,         /* tp_iter */
   (iternextfunc)Generator_next, /* tp_iternext */
+  Generator_methods,         /* tp_methods */
 #ifdef GENERATOR_OPAQUE
-  0,                         /* tp_methods */
   0,                         /* tp_members */
   0,                         /* tp_getset */
   0,                         /* tp_base */

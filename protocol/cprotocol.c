@@ -494,6 +494,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   PyObject* handler = NULL; // stolen
   bool coro_func;
   PyObject* handler_result = NULL;
+  PyObject* generator = NULL;
   MatchDictEntry* entries;
   size_t entries_length;
 #ifdef PARSER_STANDALONE
@@ -523,7 +524,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   /* this is only needed when the request would be scheduled in pipeline
      once we know that from router we can put a condition here
   */
-  if(coro_func) {
+  if(coro_func || !PIPELINE_EMPTY(&self->pipeline)) {
     PyObject* tmp = self->request;
     if(!(self->request = request_capi->Request_clone((Request*)self->request)))
       goto error;
@@ -546,9 +547,21 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     goto finally;
   }
 
-  write:
+  if(handler_result && !PIPELINE_EMPTY(&self->pipeline))
+  {
+    if(!(generator = Generator_new()))
+      goto error;
 
-  assert(PIPELINE_EMPTY(&self->pipeline));
+    if(Generator_init((GENERATOR*)generator, handler_result) == -1)
+      goto error;
+
+    if(!Protocol_handle_coro(self, generator))
+      goto error;
+
+    goto finally;
+  }
+
+  write:
 
   if(!Protocol_write_response_or_err(self, (Response*)handler_result))
     goto error;
@@ -559,6 +572,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   result = NULL;
 
   finally:
+  Py_XDECREF(generator);
   Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE
   if(result)
@@ -691,6 +705,9 @@ PyInit_cprotocol(void)
     goto error;
 
   if(!crequest_init())
+    goto error;
+
+  if(!generator_init())
     goto error;
 
   crequest = PyImport_ImportModule("request.crequest");
