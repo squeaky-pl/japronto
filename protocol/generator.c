@@ -52,6 +52,15 @@ Generator_init(Generator* self, PyObject *args, PyObject *kw)
 }
 
 
+static PyObject*
+Generator_next(Generator* self)
+{
+  PyErr_SetObject(PyExc_StopIteration, self->object);
+
+  return NULL;
+}
+
+
 static PyTypeObject GeneratorType = {
   PyVarObject_HEAD_INIT(NULL, 0)
   "protocol.Generator",      /* tp_name */
@@ -78,8 +87,8 @@ static PyTypeObject GeneratorType = {
   0,                         /* tp_clear */
   0,                         /* tp_richcompare */
   0,                         /* tp_weaklistoffset */
-  0,                         /* tp_iter */
-  0,                         /* tp_iternext */
+  PyObject_SelfIter,         /* tp_iter */
+  (iternextfunc)Generator_next, /* tp_iternext */
   0,                         /* tp_methods */
   0,                         /* tp_members */
   0,                         /* tp_getset */
