@@ -6,6 +6,12 @@
 #include "match_dict.h"
 #include "cresponse.h"
 
+typedef enum {
+  KEEP_ALIVE_UNSET,
+  KEEP_ALIVE_TRUE,
+  KEEP_ALIVE_FALSE
+} KEEP_ALIVE;
+
 typedef struct {
   PyObject_HEAD
 
@@ -23,6 +29,7 @@ typedef struct {
   char* body;
   size_t body_length;
   char buffer[1024];
+  KEEP_ALIVE keep_alive;
   PyObject* transport;
   PyObject* py_method;
   PyObject* py_path;

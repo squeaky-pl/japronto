@@ -166,6 +166,7 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   self->minor_version = minor_version;
   self->headers = headers;
   self->num_headers = num_headers;
+  self->keep_alive = KEEP_ALIVE_UNSET;
 }
 
 
@@ -445,33 +446,40 @@ Request_get_transport(Request* self, void* closure)
 static PyObject*
 Request_get_keep_alive(Request* self, void* closure)
 {
-  struct phr_header* Connection = NULL;
-  for(struct phr_header* header = self->headers;
-      header < self->headers + self->num_headers;
-      header++) {
-      if(header->name_len == strlen("Connection")
-        && strncasecmp(header->name, "Connection", header->name_len)) {
-        Connection = header;
-        break;
-      }
+  if(self->keep_alive == KEEP_ALIVE_UNSET) {
+    struct phr_header* Connection = NULL;
+    for(struct phr_header* header = self->headers;
+        header < self->headers + self->num_headers;
+        header++) {
+        if(header->name_len == strlen("Connection")
+          && strncasecmp(header->name, "Connection", header->name_len)) {
+          Connection = header;
+          break;
+        }
+    }
+
+    if(self->minor_version == 0) {
+      // FIXME: this should check what's before and after
+      if(Connection &&
+        memmem(Connection->value, Connection->value_len,
+          "keep-alive", strlen("keep-alive")))
+        self->keep_alive = KEEP_ALIVE_TRUE;
+      else
+        self->keep_alive = KEEP_ALIVE_FALSE;
+    } else {
+      if(Connection &&
+        memmem(Connection->value, Connection->value_len,
+          "close", strlen("close")))
+        self->keep_alive = KEEP_ALIVE_FALSE;
+      else
+        self->keep_alive = KEEP_ALIVE_TRUE;
+    }
   }
 
-  if(self->minor_version == 0) {
-    // FIXME: this should check what's before and after
-    if(Connection &&
-      memmem(Connection->value, Connection->value_len,
-        "keep-alive", strlen("keep-alive")))
-      Py_RETURN_TRUE;
-
-    Py_RETURN_FALSE;
-  } else {
-    if(Connection &&
-      memmem(Connection->value, Connection->value_len,
-        "close", strlen("close")))
-      Py_RETURN_FALSE;
-
+  if(self->keep_alive == KEEP_ALIVE_TRUE)
     Py_RETURN_TRUE;
-  }
+  else
+    Py_RETURN_FALSE;
 }
 
 
