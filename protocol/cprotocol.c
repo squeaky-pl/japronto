@@ -248,23 +248,41 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 }
 
 
+static void*
+Protocol_close(Protocol* self)
+{
+  PyObject* result = Py_None;
+
+  PyObject* close = NULL;
+  close = PyObject_GetAttrString(self->transport, "close");
+  if(!close)
+    goto error;
+  PyObject* tmp = PyObject_CallFunctionObjArgs(close, NULL);
+  if(!tmp)
+    goto error;
+  Py_DECREF(tmp);
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XDECREF(close);
+  return result;
+}
+
+
 #ifdef REAPER_ENABLED
 static PyObject*
 Protocol__check_idle(Protocol* self, PyObject* args)
 {
-  PyObject* close = NULL;
-
   if(self->read_ops == self->last_read_ops) {
     self->idle_time += CHECK_INTERVAL;
 
     if(self->idle_time >= IDLE_TIMEOUT) {
-      close = PyObject_GetAttrString(self->transport, "close");
-      if(!close)
+      if(!Protocol_close(self))
         goto error;
-      PyObject* tmp = PyObject_CallFunctionObjArgs(close, NULL);
-      if(!tmp)
-        goto error;
-      Py_DECREF(tmp);
       goto finally;
     }
   } else {
@@ -281,7 +299,6 @@ Protocol__check_idle(Protocol* self, PyObject* args)
   return NULL;
 
   finally:
-  Py_XDECREF(close);
   Py_RETURN_NONE;
 }
 #endif
@@ -405,6 +422,11 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
     if(!(tmp = PyObject_CallFunctionObjArgs(self->write, memory_view, NULL)))
       goto error;
     Py_DECREF(tmp);
+
+    if(response->keep_alive == KEEP_ALIVE_FALSE) {
+      if(!Protocol_close(self))
+        goto error;
+    }
 
     goto finally;
 
