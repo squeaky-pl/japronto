@@ -1,9 +1,13 @@
 #pragma once
 
 #include <Python.h>
+#include "common.h"
 
 typedef struct {
   PyObject_HEAD
+
+  int minor_version;
+  KEEP_ALIVE keep_alive;
 
   PyObject* status_code;
   PyObject* mime_type;

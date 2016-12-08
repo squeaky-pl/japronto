@@ -5,12 +5,7 @@
 
 #include "match_dict.h"
 #include "cresponse.h"
-
-typedef enum {
-  KEEP_ALIVE_UNSET,
-  KEEP_ALIVE_TRUE,
-  KEEP_ALIVE_FALSE
-} KEEP_ALIVE;
+#include "common.h"
 
 typedef struct {
   PyObject_HEAD

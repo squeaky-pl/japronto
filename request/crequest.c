@@ -117,6 +117,10 @@ Request_clone(Request* original)
 }
 
 
+static KEEP_ALIVE
+_Request_get_keep_alive(Request* self);
+
+
 static PyObject*
 Request_Response(Request* self, PyObject *args, PyObject* kw)
 {
@@ -124,6 +128,9 @@ Request_Response(Request* self, PyObject *args, PyObject* kw)
 
   if(response_capi->Response_init(result, args, kw) == -1)
     goto error;
+
+  result->minor_version = self->minor_version;
+  result->keep_alive = _Request_get_keep_alive(self);
 
   goto finally;
 
@@ -443,8 +450,8 @@ Request_get_transport(Request* self, void* closure)
 }
 
 
-static PyObject*
-Request_get_keep_alive(Request* self, void* closure)
+static KEEP_ALIVE
+_Request_get_keep_alive(Request* self)
 {
   if(self->keep_alive == KEEP_ALIVE_UNSET) {
     struct phr_header* Connection = NULL;
@@ -476,7 +483,14 @@ Request_get_keep_alive(Request* self, void* closure)
     }
   }
 
-  if(self->keep_alive == KEEP_ALIVE_TRUE)
+  return self->keep_alive;
+}
+
+
+static PyObject*
+Request_get_keep_alive(Request* self, void* closure)
+{
+  if(_Request_get_keep_alive(self) == KEEP_ALIVE_TRUE)
     Py_RETURN_TRUE;
   else
     Py_RETURN_FALSE;
