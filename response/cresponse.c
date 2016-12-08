@@ -7,7 +7,12 @@
 #ifdef RESPONSE_OPAQUE
 static PyObject* json_dumps;
 static const size_t reason_offset = 13;
+static const size_t minor_offset = 7;
+static const size_t keep_alive_offset = 45;
+static const char keep_alive_close[] = "     close";
 #endif
+
+
 
 static const char header[] = "HTTP/1.1 200 OK\r\n"
   "Connection:                 keep-alive\r\n"
@@ -140,6 +145,8 @@ Response_render(Response* self)
   *(self->buffer + buffer_offset) = '\n'; \
   buffer_offset++;
 
+  *(self->buffer + minor_offset) = '0' + (char)self->minor_version;
+
   if(self->status_code != Py_None) {
     unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
 
@@ -176,6 +183,9 @@ Response_render(Response* self)
   } else {
     memcpy(self->buffer + code_offset, "200", 3);
   }
+
+  if(self->keep_alive == KEEP_ALIVE_FALSE)
+    memcpy(self->buffer + keep_alive_offset, keep_alive_close, strlen(keep_alive_close));
 
   buffer_offset = strlen(header);
 

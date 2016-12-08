@@ -459,7 +459,7 @@ _Request_get_keep_alive(Request* self)
         header < self->headers + self->num_headers;
         header++) {
         if(header->name_len == strlen("Connection")
-          && strncasecmp(header->name, "Connection", header->name_len)) {
+          && strncasecmp(header->name, "Connection", header->name_len) == 0) {
           Connection = header;
           break;
         }
