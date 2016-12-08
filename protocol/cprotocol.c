@@ -197,6 +197,31 @@ Protocol_schedule_check_idle(Protocol* self)
 
   return self->check_idle_task;
 }
+
+
+static inline void*
+Protocol_cancel_check_idle(Protocol* self)
+{
+  void* result = Py_None;
+  PyObject* cancel = NULL;
+
+  if(!(cancel = PyObject_GetAttrString(self->check_idle_task, "cancel")))
+    goto error;
+
+  PyObject* tmp;
+  if(!(tmp = PyObject_CallFunctionObjArgs(cancel, NULL)))
+    goto error;
+  Py_DECREF(tmp);
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XDECREF(cancel);
+  return result;
+}
 #endif
 
 
@@ -312,9 +337,14 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
     self->feed_disconnect, NULL);
   if(!result)
     goto error;
-  Py_DECREF(result);
+  Py_DECREF(result); // FIXME: result can leak
 #else
   if(!Parser_feed_disconnect(&self->parser))
+    goto error;
+#endif
+
+#ifdef REAPER_ENABLED
+  if(!Protocol_cancel_check_idle(self))
     goto error;
 #endif
 
