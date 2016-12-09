@@ -36,8 +36,9 @@ class Application:
 
     def error_handler(self, request, exception):
         tb = traceback.format_exception(None, exception, exception.__traceback__)
-        print(''.join(tb))
-        return request.Response(500, text='Something went wrong')
+        tb = ''.join(tb)
+        print(tb)
+        return request.Response(500, text=tb)
 
     def serve(self, protocol_factory=None, reuse_port=False):
         self.__freeze()
