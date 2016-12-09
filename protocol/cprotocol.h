@@ -29,11 +29,6 @@ typedef struct {
   PyObject* request;
   PyObject* transport;
   PyObject* write;
-#ifdef REAPER_ENABLED
-  PyObject* call_later;
-  PyObject* check_idle;
-  PyObject* check_idle_task;
-#endif
   PyObject* create_task;
 } Protocol;
 
@@ -45,3 +40,8 @@ Protocol* Protocol_on_headers(Protocol*, char* method, size_t method_len,
 Protocol* Protocol_on_body(Protocol*, char* body, size_t body_len);
 Protocol* Protocol_on_error(Protocol*, PyObject*);
 #endif
+
+typedef struct {
+  void* (*Protocol_close)
+    (Protocol* self);
+} Protocol_CAPI;

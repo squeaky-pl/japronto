@@ -9,12 +9,6 @@
 #include "generator.h"
 #include "match_dict.h"
 
-
-#ifdef REAPER_ENABLED
-const long CHECK_INTERVAL = 10;
-const unsigned long IDLE_TIMEOUT = 60;
-#endif
-
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
 #endif
@@ -24,10 +18,6 @@ static PyObject* socket_str;
 static PyObject* one;
 static PyObject* IPPROTO_TCP;
 static PyObject* TCP_NODELAY;
-
-#ifdef REAPER_ENABLED
-static PyObject* check_interval;
-#endif
 
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
@@ -57,11 +47,6 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->request = NULL;
   self->transport = NULL;
   self->write = NULL;
-#ifdef REAPER_ENABLED
-  self->call_later = NULL;
-  self->check_idle = NULL;
-  self->check_idle_task = NULL;
-#endif
   self->create_task = NULL;
 
   finally:
@@ -73,11 +58,6 @@ static void
 Protocol_dealloc(Protocol* self)
 {
   Py_XDECREF(self->create_task);
-#ifdef REAPER_ENABLED
-  Py_XDECREF(self->check_idle_task);
-  Py_XDECREF(self->check_idle);
-  Py_XDECREF(self->call_later);
-#endif
   Py_XDECREF(self->write);
   Py_XDECREF(self->transport);
   Py_XDECREF(self->request);
@@ -160,16 +140,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(!loop)
     goto error;
 
-#ifdef REAPER_ENABLED
-  self->call_later = PyObject_GetAttrString(loop, "call_later");
-  if(!self->call_later)
-    goto error;
-
-  self->check_idle = PyObject_GetAttrString((PyObject*)self, "_check_idle");
-  if(!self->check_idle)
-    goto error;
-#endif
-
   self->create_task = PyObject_GetAttrString(loop, "create_task");
   if(!self->create_task)
     goto error;
@@ -185,44 +155,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 #endif
   return result;
 }
-
-
-#ifdef REAPER_ENABLED
-static inline PyObject*
-Protocol_schedule_check_idle(Protocol* self)
-{
-  Py_XDECREF(self->check_idle_task);
-  self->check_idle_task = PyObject_CallFunctionObjArgs(
-    self->call_later, check_interval, self->check_idle, NULL);
-
-  return self->check_idle_task;
-}
-
-
-static inline void*
-Protocol_cancel_check_idle(Protocol* self)
-{
-  void* result = Py_None;
-  PyObject* cancel = NULL;
-
-  if(!(cancel = PyObject_GetAttrString(self->check_idle_task, "cancel")))
-    goto error;
-
-  PyObject* tmp;
-  if(!(tmp = PyObject_CallFunctionObjArgs(cancel, NULL)))
-    goto error;
-  Py_DECREF(tmp);
-
-  goto finally;
-
-  error:
-  result = NULL;
-
-  finally:
-  Py_XDECREF(cancel);
-  return result;
-}
-#endif
 
 
 static PyObject*
@@ -255,17 +187,14 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(!(connections = PyObject_GetAttrString(self->app, "_connections")))
     goto error;
 
-  if(PySet_Add(connections, (PyObject*)self) == -1)
-    goto error;
-
 #ifdef REAPER_ENABLED
   self->idle_time = 0;
   self->read_ops = 0;
   self->last_read_ops = 0;
-
-  if(!Protocol_schedule_check_idle(self))
-    goto error;
 #endif
+
+  if(PySet_Add(connections, (PyObject*)self) == -1)
+    goto error;
 
   goto finally;
 
@@ -306,37 +235,6 @@ Protocol_close(Protocol* self)
 }
 
 
-#ifdef REAPER_ENABLED
-static PyObject*
-Protocol__check_idle(Protocol* self, PyObject* args)
-{
-  if(self->read_ops == self->last_read_ops) {
-    self->idle_time += CHECK_INTERVAL;
-
-    if(self->idle_time >= IDLE_TIMEOUT) {
-      if(!Protocol_close(self))
-        goto error;
-      goto finally;
-    }
-  } else {
-    self->idle_time = 0;
-    self->last_read_ops = self->read_ops;
-  }
-
-  if(!Protocol_schedule_check_idle(self))
-    goto error;
-
-  goto finally;
-
-  error:
-  return NULL;
-
-  finally:
-  Py_RETURN_NONE;
-}
-#endif
-
-
 static PyObject*
 Protocol_connection_lost(Protocol* self, PyObject* args)
 {
@@ -350,11 +248,6 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
   Py_DECREF(result); // FIXME: result can leak
 #else
   if(!Parser_feed_disconnect(&self->parser))
-    goto error;
-#endif
-
-#ifdef REAPER_ENABLED
-  if(!Protocol_cancel_check_idle(self))
     goto error;
 #endif
 
@@ -663,9 +556,6 @@ static PyMethodDef Protocol_methods[] = {
   {"connection_made", (PyCFunction)Protocol_connection_made, METH_O, ""},
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_O, ""},
-#ifdef REAPER_ENABLED
-  {"_check_idle", (PyCFunction)Protocol__check_idle, METH_NOARGS, ""},
-#endif
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
@@ -734,15 +624,13 @@ PyInit_cprotocol(void)
   PyObject* cparser = NULL;
   Parser = NULL;
 #endif
+  PyObject* api_capsule = NULL;
   PyObject* crequest = NULL;
   PyObject* socket = NULL;
   socket_str = NULL;
   one = NULL;
   IPPROTO_TCP = NULL;
   TCP_NODELAY = NULL;
-#ifdef REAPER_ENABLED
-  check_interval = NULL;
-#endif
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -793,12 +681,6 @@ PyInit_cprotocol(void)
   if(!response_capi)
     goto error;
 
-#ifdef REAPER_ENABLED
-  check_interval = PyLong_FromLong(CHECK_INTERVAL);
-  if(!check_interval)
-    goto error;
-#endif
-
   if(!(socket_str = PyUnicode_FromString("socket")))
     goto error;
 
@@ -817,18 +699,23 @@ PyInit_cprotocol(void)
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
+  static Protocol_CAPI capi = {
+    Protocol_close
+  };
+  api_capsule = export_capi(m, "protocol.cprotocol", &capi);
+  if(!api_capsule)
+    goto error;
+
   goto finally;
 
   error:
-#ifdef REAPER_ENABLED
-  Py_XDECREF(check_interval);
-#endif
   Py_XDECREF(PyRequest);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(Parser);
 #endif
   m = NULL;
   finally:
+  Py_XDECREF(api_capsule);
   Py_XDECREF(socket);
   Py_XDECREF(crequest);
 #ifdef PARSER_STANDALONE
