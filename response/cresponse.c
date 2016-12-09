@@ -134,16 +134,43 @@ static const char charset[] = "; charset=";
 static const char utf8[] = "utf-8";
 static const char text_plain[] = "text/plain";
 
-PyObject*
-Response_render(Response* self)
-{
-  size_t buffer_offset;
 
-# define CRLF \
+#define CRLF \
   *(self->buffer + buffer_offset) = '\r'; \
   buffer_offset++; \
   *(self->buffer + buffer_offset) = '\n'; \
   buffer_offset++;
+
+
+static inline size_t
+Response_render_slow_path(Response* self, size_t buffer_offset)
+{
+  memcpy(self->buffer + buffer_offset, "Connection: ", strlen("Connection: "));
+  buffer_offset += strlen("Connection: ");
+
+  if(self->keep_alive == KEEP_ALIVE_FALSE) {
+    memcpy(self->buffer + buffer_offset, "close", strlen("close"));
+    buffer_offset += strlen("close");
+  } else {
+    memcpy(self->buffer + buffer_offset, "keep-alive", strlen("keep-alive"));
+    buffer_offset += strlen("keep-alive");
+  }
+
+  CRLF
+
+  memcpy(self->buffer + buffer_offset, "Content-Length: ", strlen("Content-Length: "));
+  buffer_offset += strlen("Content-Length: ");
+
+  return buffer_offset;
+}
+
+
+PyObject*
+Response_render(Response* self)
+{
+  size_t buffer_offset;
+  Py_ssize_t body_len = 0;
+  const char* body = NULL;
 
   *(self->buffer + minor_offset) = '0' + (char)self->minor_version;
 
@@ -171,13 +198,16 @@ Response_render(Response* self)
     const char* reason = reason_range->reasons[status_rest];
     size_t reason_len = strlen(reason);
 
-    assert(reason_len <= 16);
 
     memcpy(self->buffer + reason_offset, reason, reason_len);
-
     buffer_offset = reason_offset + reason_len;
 
     CRLF
+
+    if(reason_len > 16) {
+      buffer_offset = Response_render_slow_path(self, buffer_offset);
+      goto write_rest;
+    }
 
     memcpy(self->buffer + buffer_offset, "Connection:", strlen("Connection:"));
   } else {
@@ -189,8 +219,7 @@ Response_render(Response* self)
 
   buffer_offset = strlen(header);
 
-  Py_ssize_t body_len = 0;
-  const char* body = NULL;
+  write_rest:
   if(self->text != Py_None) {
     if(self->encoding == Py_None) {
       body = PyUnicode_AsUTF8AndSize(self->text, &body_len);
