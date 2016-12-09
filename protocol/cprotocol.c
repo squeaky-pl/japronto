@@ -349,6 +349,7 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
       if(!error_result)
         goto error;
 
+      PyErr_Restore(etype, evalue, etraceback);
       PyErr_Clear();
 
       if(!Protocol_write_response_or_err(self, (Response*)error_result))
