@@ -59,11 +59,13 @@ Reaper_schedule_check_idle(Reaper* self)
 
   return self->check_idle_handle;
 }
+#endif
 
 
-static inline void*
-Reaper_cancel_check_idle(Reaper* self)
+static PyObject*
+Reaper_stop(Reaper* self)
 {
+#ifdef REAPER_ENABLED
   void* result = Py_None;
   PyObject* cancel = NULL;
 
@@ -81,10 +83,13 @@ Reaper_cancel_check_idle(Reaper* self)
   result = NULL;
 
   finally:
+  Py_XINCREF(result);
   Py_XDECREF(cancel);
   return result;
-}
+#else
+  Py_RETURN_NONE;
 #endif
+}
 
 
 static int
@@ -166,13 +171,16 @@ Reaper__check_idle(Reaper* self, PyObject* args)
   Py_XINCREF(result);
   return result;
 }
+#endif
 
 
 static PyMethodDef Reaper_methods[] = {
+#ifdef REAPER_ENABLED
   {"_check_idle", (PyCFunction)Reaper__check_idle, METH_NOARGS, ""},
+#endif
+  {"stop", (PyCFunction)Reaper_stop, METH_NOARGS, ""},
   {NULL}
 };
-#endif
 
 
 static PyTypeObject ReaperType = {
@@ -203,11 +211,7 @@ static PyTypeObject ReaperType = {
   0,                         /* tp_weaklistoffset */
   0,                         /* tp_iter */
   0,                         /* tp_iternext */
-#ifdef REAPER_ENABLED
   Reaper_methods,            /* tp_methods */
-#else
-  0,                         /* tp_methods */
-#endif
   0,                         /* tp_members */
   0,                         /* tp_getset */
   0,                         /* tp_base */

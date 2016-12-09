@@ -58,4 +58,5 @@ class Application:
         try:
             loop.run_forever()
         finally:
+            self._reaper.stop()
             loop.close()
