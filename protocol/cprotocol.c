@@ -231,6 +231,7 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   PyObject* get_extra_info = NULL;
   PyObject* socket = NULL;
   PyObject* setsockopt = NULL;
+  PyObject* connections = NULL;
   self->transport = transport;
   Py_INCREF(self->transport);
 
@@ -251,6 +252,12 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
     goto error;
 
+  if(!(connections = PyObject_GetAttrString(self->app, "_connections")))
+    goto error;
+
+  if(PySet_Add(connections, (PyObject*)self) == -1)
+    goto error;
+
 #ifdef REAPER_ENABLED
   self->idle_time = 0;
   self->read_ops = 0;
@@ -266,6 +273,7 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   return NULL;
 
   finally:
+  Py_XDECREF(connections);
   Py_XDECREF(setsockopt);
   Py_XDECREF(socket);
   Py_XDECREF(get_extra_info);
@@ -332,6 +340,8 @@ Protocol__check_idle(Protocol* self, PyObject* args)
 static PyObject*
 Protocol_connection_lost(Protocol* self, PyObject* args)
 {
+  PyObject* connections = NULL;
+  PyObject* result = Py_None;
 #ifdef PARSER_STANDALONE
   PyObject* result = PyObject_CallFunctionObjArgs(
     self->feed_disconnect, NULL);
@@ -348,12 +358,21 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
     goto error;
 #endif
 
+  if(!(connections = PyObject_GetAttrString(self->app, "_connections")))
+    goto error;
+
+  if(PySet_Discard(connections, (PyObject*)self) == -1)
+    goto error;
+
   goto finally;
 
   error:
-  return NULL;
+  result = NULL;
+
   finally:
-  Py_RETURN_NONE;
+  Py_XDECREF(connections);
+  Py_XINCREF(result);
+  return result;
 }
 
 

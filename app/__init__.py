@@ -7,12 +7,13 @@ import uvloop
 import router.cmatcher
 
 from protocol.cprotocol import Protocol as CProtocol
-
+from protocol.creaper import Reaper
 
 class Application:
     def __init__(self, loop=None):
         self._router = None
         self._loop = None
+        self._connections = set()
 
     def get_loop(self):
         if not self._loop:
@@ -29,6 +30,7 @@ class Application:
     def __freeze(self):
         self.get_loop()
         self.get_router()
+        self._reaper = Reaper(self)
 
         self._matcher = self._router.get_matcher()
 
