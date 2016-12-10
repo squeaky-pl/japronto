@@ -13,6 +13,7 @@ typedef struct {
   PyObject* mime_type;
   PyObject* text;
   PyObject* encoding;
+  PyObject* headers;
 
   char buffer[1024];
 } Response;

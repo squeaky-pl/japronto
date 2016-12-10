@@ -46,6 +46,8 @@ Response_new(PyTypeObject* type, Response* self)
   Py_INCREF(self->text);
   self->encoding = Py_None;
   Py_INCREF(self->encoding);
+  self->headers = Py_None;
+  Py_INCREF(self->headers);
 
   memcpy(self->buffer, header, strlen(header));
 
@@ -63,6 +65,7 @@ void
 #endif
 Response_dealloc(Response* self)
 {
+  Py_XDECREF(self->headers);
   Py_XDECREF(self->encoding);
   Py_XDECREF(self->text);
   Py_XDECREF(self->mime_type);
@@ -79,18 +82,19 @@ static const size_t code_offset = 9;
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
-  static char *kwlist[] = {"status_code", "text", "json", "mime_type", "encoding", NULL};
+  static char *kwlist[] = {"status_code", "text", "json", "mime_type", "encoding", "headers", NULL};
 
   PyObject* status_code = Py_None;
   PyObject* text = Py_None;
   PyObject* json = NULL;
   PyObject* mime_type = Py_None;
   PyObject* encoding = Py_None;
+  PyObject* headers = Py_None;
 
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
-      args, kw, "|OOOOO", kwlist,
-      &status_code, &text, &json, &mime_type, &encoding))
+      args, kw, "|OOOOOO", kwlist,
+      &status_code, &text, &json, &mime_type, &encoding, &headers))
       goto error;
 
   Py_DECREF(self->status_code);
@@ -119,6 +123,10 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   Py_DECREF(self->encoding);
   self->encoding = encoding;
   Py_INCREF(self->encoding);
+
+  Py_DECREF(self->headers);
+  self->headers = headers;
+  Py_INCREF(self->headers);
 
   goto finally;
 
@@ -266,6 +274,47 @@ Response_render(Response* self)
   buffer_offset += (size_t)encoding_len;
 
   CRLF
+
+  if(self->headers == Py_None)
+    goto empty_headers;
+
+  Py_ssize_t headers_len;
+  if((headers_len = PyDict_Size(self->headers)) < 0)
+    goto error;
+
+  if(!headers_len)
+    goto empty_headers;
+
+  PyObject *name, *value;
+  Py_ssize_t pos = 0;
+
+  while (PyDict_Next(self->headers, &pos, &name, &value)) {
+    const char* cname;
+    Py_ssize_t name_len;
+    const char* cvalue;
+    Py_ssize_t value_len;
+
+    if(!(cname = PyUnicode_AsUTF8AndSize(name, &name_len)))
+      goto error;
+
+    memcpy(self->buffer + buffer_offset, cname, (size_t)name_len);
+    buffer_offset += (size_t)name_len;
+
+    *(self->buffer + buffer_offset) = ':';
+    buffer_offset++;
+    *(self->buffer + buffer_offset) = ' ';
+    buffer_offset++;
+
+    if(!(cvalue = PyUnicode_AsUTF8AndSize(value, &value_len)))
+      goto error;
+
+    memcpy(self->buffer + buffer_offset, cvalue, (size_t)value_len);
+    buffer_offset += (size_t)value_len;
+
+    CRLF
+  }
+
+  empty_headers:
   CRLF
 
   if(body) {
