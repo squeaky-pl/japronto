@@ -3,4 +3,5 @@ uvloop
 cffi
 pytoml
 pytest
-psutils
+psutil
+urllib3
