@@ -1,10 +1,15 @@
 import atexit
-import subprocess
+import psutil
 
 noisy = ['atom', 'chrome', 'firefox', 'dropbox', 'opera', 'spotify']
 
 def silence():
-    subprocess.call(['pkill', '--signal', 'STOP', '|'.join(noisy)])
+    for proc in psutil.process_iter():
+        if proc.name() in noisy:
+            proc.suspend()
+
     def noise():
-        subprocess.call(['pkill', '--signal', 'CONT', '|'.join(noisy)])
+        for proc in psutil.process_iter():
+            if proc.name() in noisy:
+                proc.resume()
     atexit.register(noise)
