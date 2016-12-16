@@ -548,6 +548,17 @@ Protocol_on_error(Protocol* self, PyObject *args)
 Protocol*
 Protocol_on_error(Protocol* self, PyObject* error)
 {
+  PyErr_SetObject(PyExc_ValueError, error);
+
+  if(!Protocol_write_response_or_err(self, NULL))
+    goto error;
+
+  goto finally;
+
+  error:
+  self = NULL;
+
+  finally:
   return self;
 }
 #endif
