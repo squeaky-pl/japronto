@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <sys/param.h>
 
 #include "cresponse.h"
 #include "capsule.h"
@@ -49,6 +50,8 @@ Response_new(PyTypeObject* type, Response* self)
   self->headers = Py_None;
   Py_INCREF(self->headers);
 
+  self->buffer = self->inline_buffer;
+  self->buffer_len = RESPONSE_INITIAL_BUFFER_LEN;
   memcpy(self->buffer, header, strlen(header));
 
 #ifdef RESPONSE_OPAQUE
@@ -65,6 +68,9 @@ void
 #endif
 Response_dealloc(Response* self)
 {
+  if(self->buffer != self->inline_buffer)
+    free(self->buffer);
+
   Py_XDECREF(self->headers);
   Py_XDECREF(self->encoding);
   Py_XDECREF(self->text);
@@ -172,6 +178,27 @@ Response_render_slow_path(Response* self, size_t buffer_offset)
   return buffer_offset;
 }
 
+
+#define bfrcpy(data, len) \
+  if(buffer_offset + len > self->buffer_len) \
+  { \
+    self->buffer_len = MAX(self->buffer_len * 2, self->buffer_len + len); \
+    \
+    if(self->buffer == self->inline_buffer) \
+    { \
+      self->buffer = malloc(self->buffer_len); \
+      if(!self->buffer) \
+        assert(0); \
+      memcpy(self->buffer, self->inline_buffer, buffer_offset); \
+    } else { \
+      self->buffer = realloc(self->buffer, self->buffer_len); \
+      if(!self->buffer) \
+        assert(0); \
+    } \
+  } \
+  \
+  memcpy(self->buffer + buffer_offset, data, len); \
+  buffer_offset += len;
 
 PyObject*
 Response_render(Response* self)
@@ -318,8 +345,7 @@ Response_render(Response* self)
   CRLF
 
   if(body) {
-    memcpy(self->buffer + buffer_offset, body, (size_t)body_len);
-    buffer_offset += (size_t)body_len;
+    bfrcpy(body, (size_t)body_len)
   }
 
 #undef CRLF
