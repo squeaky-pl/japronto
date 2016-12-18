@@ -8,6 +8,7 @@ import time
 import json
 import urllib.parse
 import string
+import re
 from hypothesis import given, strategies as st, settings, Verbosity
 
 
@@ -61,5 +62,29 @@ def test_match_dict(param1, param2):
 
     assert response.status == 200
     assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
+
+    connection.close()
+
+
+name_alphabet = string.digits + string.ascii_letters + '!#$%&\'*+-.^_`|~'
+names = st.text(name_alphabet, min_size=1).map(lambda x: 'X-' + x)
+value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)
+is_illegal_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
+values = st.text(value_alphabet, min_size=1) \
+    .filter(lambda x: not is_illegal_value(x)).map(lambda x: x.strip())
+@given(headers=st.dictionaries(names, values))
+@settings(verbosity=Verbosity.verbose)
+def test_headers(headers):
+    connection = connect()
+    connection.request('GET', '/dump/1/2', headers=headers)
+    response = connection.getresponse()
+    json_body = json.loads(response.read().decode('utf-8'))
+
+    assert response.status == 200
+    # these are added automatically by client lib
+    del json_body['headers']['Accept-Encoding']
+    del json_body['headers']['Host']
+    headers = {k.title(): v for k, v in headers.items()}
+    assert json_body['headers'] == headers
 
     connection.close()
