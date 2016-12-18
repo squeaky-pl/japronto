@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <sys/param.h>
 
 #include "crequest.h"
 
@@ -37,6 +38,11 @@ Request_new(PyTypeObject* type, Request* self)
   ((PyObject*)self)->ob_type = type;
 #endif
 
+  self->path = NULL;
+  self->headers = NULL;
+  self->match_dict_entries = NULL;
+  self->body = NULL;
+
   self->transport = NULL;
   self->py_method = NULL;
   self->py_path = NULL;
@@ -44,8 +50,11 @@ Request_new(PyTypeObject* type, Request* self)
   self->py_headers = NULL;
   self->py_match_dict = NULL;
   self->py_body = NULL;
+
   Response_new(response_capi->ResponseType, &self->response);
 
+  self->buffer = self->inline_buffer;
+  self->buffer_len = REQUEST_INITIAL_BUFFER_LEN;
 #ifdef REQUEST_OPAQUE
   finally:
 #endif
@@ -60,6 +69,9 @@ void
 #endif
 Request_dealloc(Request* self)
 {
+  if(self->buffer != self->inline_buffer)
+    free(self->buffer);
+
   Response_dealloc(&self->response);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
@@ -143,6 +155,70 @@ Request_Response(Request* self, PyObject *args, PyObject* kw)
 }
 
 
+static inline char*
+bfrcpy(Request* self, char* dst, const char* src, const size_t len)
+{
+  ptrdiff_t shift = 0;
+
+  if(dst + len > self->buffer + self->buffer_len)
+  {
+    self->buffer_len = MAX(self->buffer_len * 2, self->buffer_len + len);
+    char* old_buffer = self->buffer;
+
+    if(self->buffer == self->inline_buffer)
+    {
+      self->buffer = malloc(self->buffer_len);
+      if(!self->buffer)
+        assert(0);
+      memcpy(self->buffer, self->inline_buffer, REQUEST_INITIAL_BUFFER_LEN);
+    } else {
+      self->buffer = realloc(self->buffer, self->buffer_len);
+      if(!self->buffer)
+         assert(0);
+    }
+
+    if(old_buffer != self->buffer) {
+      // correct offsets
+      shift = self->buffer - old_buffer;
+
+      if(!self->path)
+        goto copy;
+      self->path += shift;
+
+      if(!self->headers)
+        goto copy;
+      self->headers = (struct phr_header*)((char*)self->headers + shift);
+      for(struct phr_header* header = self->headers;
+          header < self->headers + self->num_headers;
+          header++) {
+        header->name += shift;
+        header->value += shift;
+      }
+
+      if(!self->match_dict_entries)
+        goto copy;
+      self->match_dict_entries =
+        (MatchDictEntry*)((char*)self->match_dict_entries + shift);
+      for(MatchDictEntry* entry = self->match_dict_entries;
+          entry < self->match_dict_entries + self->match_dict_length; entry++) {
+        entry->key += shift;
+        entry->value += shift;
+      }
+
+      if(!self->body)
+        goto copy;
+      self->body += shift;
+    }
+  }
+
+  copy:
+
+  memcpy(dst + shift, src, len);
+
+  return self->buffer;
+}
+
+
 static void
 Request_from_raw(Request* self, char* method, size_t method_len, char* path, size_t path_len,
                  int minor_version,
@@ -156,7 +232,7 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   } else
     span = path + path_len - method;
   memcpy(self->buffer, method, span);
-  memcpy(self->buffer + span, headers, sizeof(struct phr_header) * num_headers);
+  bfrcpy(self, self->buffer + span, (char*)headers, sizeof(struct phr_header) * num_headers);
   headers = (struct phr_header*)(self->buffer + span);
 
   // correct offsets
@@ -188,10 +264,7 @@ Request_set_match_dict_entries(Request* self, MatchDictEntry* entries,
   self->match_dict_entries =
     (MatchDictEntry*)(&self->headers[self->num_headers]);
   self->match_dict_length = length;
-  assert(
-    (char*)self->match_dict_entries + sizeof(MatchDictEntry) * length <=
-    self->buffer + sizeof(self->buffer));
-  memcpy(self->match_dict_entries, entries, sizeof(MatchDictEntry) * length);
+  bfrcpy(self, (char*)self->match_dict_entries, (char*)entries, sizeof(MatchDictEntry) * length);
 }
 
 
@@ -206,8 +279,7 @@ Request_set_body(Request* self, char* body, size_t body_len)
   self->body = (char*)self->match_dict_entries + sizeof(MatchDictEntry)
     * self->match_dict_length;
   self->body_length = body_len;
-  assert(self->body + self->body_length <= self->buffer + sizeof(self->buffer));
-  memcpy(self->body, body, body_len);
+  bfrcpy(self, self->body, body, body_len);
 }
 
 
