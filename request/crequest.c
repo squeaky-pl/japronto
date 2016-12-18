@@ -149,8 +149,12 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
                  struct phr_header* headers, size_t num_headers)
 {
   // copy the whole block;
-  struct phr_header* last_header = &headers[num_headers - 1];
-  size_t span = last_header->value + last_header->value_len - method;
+  size_t span;
+  if(num_headers) {
+    struct phr_header* last_header = &headers[num_headers - 1];
+    span = last_header->value + last_header->value_len - method;
+  } else
+    span = path + path_len - method;
   memcpy(self->buffer, method, span);
   memcpy(self->buffer + span, headers, sizeof(struct phr_header) * num_headers);
   headers = (struct phr_header*)(self->buffer + span);
