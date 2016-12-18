@@ -159,8 +159,8 @@ static int _parse_headers(Parser* self) {
   char* path;
   size_t path_len;
   int minor_version;
-  struct phr_header headers[10];
-  size_t num_headers = 10;
+  struct phr_header headers[50];
+  size_t num_headers = sizeof(headers) / sizeof(struct phr_header);
 
   result = phr_parse_request(
     self->buffer + self->buffer_start, self->buffer_end - self->buffer_start,
