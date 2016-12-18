@@ -20,6 +20,7 @@ typedef struct {
   bool coro_func;
   size_t pattern_len;
   size_t methods_len;
+  size_t placeholder_cnt;
   char buffer[];
 } MatcherEntry;
 
@@ -225,6 +226,9 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
       continue;
 
     if(!value_length)
+      continue;
+
+    if((size_t)(current_mde - _match_dict_entries) != entry->placeholder_cnt)
       continue;
 
     if(!entry->methods_len)

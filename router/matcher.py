@@ -3,8 +3,8 @@ class Matcher:
         self._routes = routes
 
     def match_request(self, request):
-        match_dict = {}
         for route in self._routes:
+            match_dict = {}
             rest = request.path
 
             value = True
@@ -27,6 +27,9 @@ class Matcher:
                 continue
 
             if not value:
+                continue
+
+            if len(match_dict) != route.placeholder_cnt:
                 continue
 
             if route.methods and request.method not in route.methods:

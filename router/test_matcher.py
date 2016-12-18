@@ -47,7 +47,8 @@ def parametrize_make_matcher():
             '/',
             '/test GET',
             '/hi/{there} POST,DELETE',
-            '/{oh}/{dear} PATCH'
+            '/{oh}/{dear} PATCH',
+            '/lets PATCH'
         ]]
 
         return cls(routes)
@@ -72,7 +73,8 @@ def parametrize_request_route_and_dict(cases):
     ('POST /', '/', {}),
     ('GET /test', '/test GET', {}),
     ('DELETE /hi/jane', '/hi/{there} POST,DELETE', {'there': 'jane'}),
-    ('PATCH /lets/dance', '/{oh}/{dear} PATCH', {'oh': 'lets', 'dear': 'dance'})
+    ('PATCH /lets/dance', '/{oh}/{dear} PATCH', {'oh': 'lets', 'dear': 'dance'}),
+    ('PATCH /lets', '/lets PATCH', {})
 ])
 @parametrize_make_matcher()
 def test_matcher(make_matcher, req, route, match_dict):

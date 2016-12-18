@@ -7,6 +7,8 @@ class Route:
         self.handler = handler
         self.methods = methods
         self.segments = parse(pattern)
+        self.placeholder_cnt = \
+            sum(1 for s in self.segments if s[0] == 'placeholder')
 
     def __repr__(self):
         return '<Route {}, {} {}>'.format(self.pattern, self.methods, hex(id(self)))
@@ -67,10 +69,11 @@ typedef struct {
   bool coro_func;
   size_t pattern_len;
   size_t methods_len;
+  size_t placeholder_cnt;
   char buffer[];
 } MatcherEntry;
 """
-MatcherEntry = Struct('PP?NN')
+MatcherEntry = Struct('PP?NNN')
 
 """
 typedef enum {
@@ -120,7 +123,7 @@ def compile(route):
     return MatcherEntry.pack(
         id(route), id(route.handler),
         asyncio.iscoroutinefunction(route.handler),
-        len(pattern_buf), methods_len) \
+        len(pattern_buf), methods_len, route.placeholder_cnt) \
         + pattern_buf + methods_buf
 
 
