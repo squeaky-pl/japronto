@@ -38,7 +38,7 @@ class Application:
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)
         print(tb)
-        return request.Response(500, text=tb)
+        return request.Response(status_code=500, text=tb)
 
     def serve(self, protocol_factory=None, reuse_port=False):
         self.__freeze()
