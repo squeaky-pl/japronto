@@ -109,3 +109,21 @@ def test_body(size_k, body):
     assert response_body == body
 
     connection.close()
+
+
+@given(body=st.lists(st.binary()))
+@settings(verbosity=Verbosity.verbose)
+@pytest.mark.parametrize(
+    'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
+def test_chunked(size_k, body):
+    length = sum(len(b) for b in body)
+    if size_k and length:
+        body = body * ((size_k * 1024) // length + 1)
+
+    connection = connect()
+    connection.request_chunked('POST', '/dump/body', body=body)
+    response_body = connection.getresponse().read()
+
+    assert response_body == b''.join(body)
+
+    connection.close()
