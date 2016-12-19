@@ -92,7 +92,14 @@ def test_headers(headers):
 
 @given(body=st.binary())
 @settings(verbosity=Verbosity.verbose)
-def test_body(body):
+@pytest.mark.parametrize(
+    'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
+def test_body(size_k, body):
+    if size_k and body:
+        body = body * ((size_k * 1024) // len(body) + 1)
+
+    print(len(body))
+
     connection = connect()
     connection.request('POST', '/dump/body', body=body)
     response_body = connection.getresponse().read()
