@@ -76,14 +76,16 @@ values = st.text(value_alphabet, min_size=1) \
 @settings(verbosity=Verbosity.verbose)
 def test_headers(headers):
     connection = connect()
-    connection.request('GET', '/dump/1/2', headers=headers)
+    connection.putrequest(
+        'GET', '/dump/1/2', skip_host=True, skip_accept_encoding=True)
+    for name, value in headers.items():
+        connection.putheader(name, value)
+    connection.endheaders()
+
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
     assert response.status == 200
-    # these are added automatically by client lib
-    del json_body['headers']['Accept-Encoding']
-    del json_body['headers']['Host']
     headers = {k.title(): v for k, v in headers.items()}
     assert json_body['headers'] == headers
 
