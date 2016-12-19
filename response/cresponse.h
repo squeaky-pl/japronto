@@ -14,7 +14,7 @@ typedef struct {
 
   PyObject* status_code;
   PyObject* mime_type;
-  PyObject* text;
+  PyObject* body;
   PyObject* encoding;
   PyObject* headers;
 

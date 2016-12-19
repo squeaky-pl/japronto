@@ -88,3 +88,15 @@ def test_headers(headers):
     assert json_body['headers'] == headers
 
     connection.close()
+
+
+@given(body=st.binary())
+@settings(verbosity=Verbosity.verbose)
+def test_body(body):
+    connection = connect()
+    connection.request('POST', '/dump/body', body=body)
+    response_body = connection.getresponse().read()
+
+    assert response_body == body
+
+    connection.close()

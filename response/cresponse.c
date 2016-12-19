@@ -43,8 +43,8 @@ Response_new(PyTypeObject* type, Response* self)
   Py_INCREF(self->status_code);
   self->mime_type = Py_None;
   Py_INCREF(self->mime_type);
-  self->text = Py_None;
-  Py_INCREF(self->text);
+  self->body = Py_None;
+  Py_INCREF(self->body);
   self->encoding = Py_None;
   Py_INCREF(self->encoding);
   self->headers = Py_None;
@@ -73,7 +73,7 @@ Response_dealloc(Response* self)
 
   Py_XDECREF(self->headers);
   Py_XDECREF(self->encoding);
-  Py_XDECREF(self->text);
+  Py_XDECREF(self->body);
   Py_XDECREF(self->mime_type);
   Py_XDECREF(self->status_code);
 
@@ -88,10 +88,11 @@ static const size_t code_offset = 9;
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
-  static char *kwlist[] = {"status_code", "text", "json", "mime_type", "encoding", "headers", NULL};
+  static char *kwlist[] = {"text", "status_code", "body", "json", "mime_type", "encoding", "headers", NULL};
 
   PyObject* status_code = Py_None;
-  PyObject* text = Py_None;
+  PyObject* body = NULL;
+  PyObject* text = NULL;
   PyObject* json = NULL;
   PyObject* mime_type = Py_None;
   PyObject* encoding = Py_None;
@@ -99,21 +100,37 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
 
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
-      args, kw, "|OOOOOO", kwlist,
-      &status_code, &text, &json, &mime_type, &encoding, &headers))
+      args, kw, "|OOOOOOO", kwlist,
+      &text, &status_code, &body, &json, &mime_type, &encoding, &headers))
       goto error;
 
   Py_DECREF(self->status_code);
   self->status_code = status_code;
   Py_INCREF(self->status_code);
 
-  Py_DECREF(self->text);
   if(json) {
-    if(!(self->text = PyObject_CallFunctionObjArgs(json_dumps, json, NULL)))
+    assert(!text && !body);
+
+    if(!(text = PyObject_CallFunctionObjArgs(json_dumps, json, NULL)))
       goto error;
-  } else {
-    self->text = text;
-    Py_INCREF(self->text);
+  } else if(text) {
+    Py_INCREF(text);
+  }
+
+  if(text) {
+    assert(!body);
+
+    Py_DECREF(self->body);
+    // TODO handle other encodings
+    if(!(self->body = PyUnicode_AsUTF8String(text)))
+      goto error;
+    Py_DECREF(text);
+  }
+
+  if(body) {
+    Py_DECREF(self->body);
+    self->body = body;
+    Py_INCREF(self->body);
   }
 
   Py_DECREF(self->mime_type);
@@ -255,14 +272,9 @@ Response_render(Response* self)
   buffer_offset = strlen(header);
 
   write_rest:
-  if(self->text != Py_None) {
-    if(self->encoding == Py_None) {
-      body = PyUnicode_AsUTF8AndSize(self->text, &body_len);
-      if(!body)
-        goto error;
-    } else {
-      /* TODO handle other encodings */
-    }
+  if(self->body != Py_None) {
+    if(PyBytes_AsStringAndSize(self->body, (char**)&body, &body_len) == -1)
+      goto error;
 
     int result = sprintf(
       self->buffer + buffer_offset, "%ld", (unsigned long)body_len);
