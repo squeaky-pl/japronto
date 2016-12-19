@@ -34,11 +34,12 @@ def test_parse_error(pattern, error):
 from collections import namedtuple
 
 DecodedRoute = namedtuple(
-    'DecodedRoute', 'route_id,handler_id,coro_func,segments,methods')
+    'DecodedRoute',
+    'route_id,handler_id,coro_func,placeholder_cnt,segments,methods')
 
 
 def decompile(buffer):
-    route_id, handler_id, coro_func, pattern_len, methods_len \
+    route_id, handler_id, coro_func, pattern_len, methods_len, placeholder_cnt \
         = MatcherEntry.unpack_from(buffer, 0)
     offset = MatcherEntry.size
     pattern_offset_end = offset + pattern_len
@@ -56,7 +57,8 @@ def decompile(buffer):
     methods = buffer[offset:offset + methods_len].strip().decode('ascii') \
         .split()
 
-    return DecodedRoute(route_id, handler_id, coro_func, segments, methods)
+    return DecodedRoute(
+        route_id, handler_id, coro_func, placeholder_cnt, segments, methods)
 
 
 def handler():
@@ -80,5 +82,6 @@ def test_compile(route):
     assert decompiled.route_id == id(route)
     assert decompiled.handler_id == id(route.handler)
     assert decompiled.coro_func == asyncio.iscoroutinefunction(route.handler)
+    assert decompiled.placeholder_cnt == route.placeholder_cnt
     assert decompiled.segments == route.segments
     assert decompiled.methods == route.methods
