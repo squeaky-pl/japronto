@@ -66,6 +66,22 @@ def test_match_dict(param1, param2):
     connection.close()
 
 
+@given(query_string=st.text())
+@settings(verbosity=Verbosity.verbose)
+def test_query_string(query_string):
+    connection = connect()
+    connection.request('GET', '/dump/1/2?' + urllib.parse.quote(query_string))
+    response = connection.getresponse()
+    json_body = json.loads(response.read().decode('utf-8'))
+
+    assert response.status == 200
+    if not query_string:
+        query_string = None
+    assert json_body['query_string'] == query_string
+
+    connection.close()
+
+
 name_alphabet = string.digits + string.ascii_letters + '!#$%&\'*+-.^_`|~'
 names = st.text(name_alphabet, min_size=1).map(lambda x: 'X-' + x)
 value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)

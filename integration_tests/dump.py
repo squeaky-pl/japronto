@@ -11,13 +11,8 @@ def dump(request):
         "method": request.method,
         "path": request.path,
         "query_string": request.query_string,
-        "query": request.query,
         "headers": request.headers,
-        "match_dict": request.match_dict,
-        "mime_type": request.mime_type,
-        "encoding": request.encoding,
-        "keep_alive": request.keep_alive,
-        "form": request.form
+        "match_dict": request.match_dict
     }
 
     return request.Response(json=result)
