@@ -172,8 +172,6 @@ bfrcpy(Request* self, const RequestCopy what)
     header_entries_len = sizeof(struct phr_header) * self->num_headers;
   } else {
     headers_len = self->path + self->path_len + self->qs_len - self->method;
-    if(self->qs_len)
-      headers_len++;
     header_entries_len = 0;
   }
 
@@ -381,9 +379,6 @@ Request_get_decoded_path(Request* self, size_t* path_len) {
     self->path_decoded = true;
 
     self->qs_len = self->path_len - *path_len - shifted_bytes;
-    if(self->qs_len)
-      self->qs_len--;
-
     self->path_len = *path_len;
   }
 
@@ -399,7 +394,7 @@ Request_get_decoded_qs(Request* self, size_t* qs_len) {
     return NULL;
   }
 
-  char* qs = self->path + self->path_len + 1;
+  char* qs = self->path + self->path_len;
 
   if(!self->qs_decoded) {
     self->qs_len = percent_decode(qs, self->qs_len, NULL, NULL);
@@ -520,7 +515,8 @@ Request_get_qs(Request* self, void* closure)
     if(!qs)
       self->py_qs = Py_None;
     else
-      self->py_qs = PyUnicode_FromStringAndSize(qs, qs_len);
+      // skip the ? char
+      self->py_qs = PyUnicode_FromStringAndSize(qs + 1, qs_len - 1);
   }
 
   Py_XINCREF(self->py_qs);

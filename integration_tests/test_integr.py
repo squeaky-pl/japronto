@@ -182,8 +182,6 @@ def test_all(size_k, method, param1, param2, query_string, headers, body):
     json_body = json.loads(response.read().decode('utf-8'))
     assert json_body['method'] == method
     assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
-    if not query_string:
-        query_string = None
     assert json_body['query_string'] == query_string
     headers = {k.title(): v for k, v in headers.items()}
     assert json_body['headers'] == headers
