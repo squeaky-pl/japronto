@@ -12,6 +12,7 @@
 typedef struct {
   PyObject_HEAD
 
+  char* method;
   size_t method_len;
   char* path;
   bool path_decoded;

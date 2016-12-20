@@ -155,66 +155,143 @@ Request_Response(Request* self, PyObject *args, PyObject* kw)
 }
 
 
+typedef enum {
+  REQUEST_HEADERS,
+  REQUEST_MATCH_DICT,
+  REQUEST_BODY
+} RequestCopy;
+
+
 static inline char*
-bfrcpy(Request* self, char* dst, const char* src, const size_t len)
+bfrcpy(Request* self, const RequestCopy what)
 {
-  ptrdiff_t shift = 0;
+  size_t len;
+  char* dst;
+  char* old_buffer = self->buffer;
+  size_t headers_len;
+  size_t header_entries_len;
+
+  if(self->num_headers) {
+    struct phr_header* last_header = &self->headers[self->num_headers - 1];
+    headers_len = last_header->value + last_header->value_len - self->method;
+    header_entries_len = sizeof(struct phr_header) * self->num_headers;
+  } else {
+    headers_len = self->path + self->path_len - self->method;
+    header_entries_len = 0;
+  }
+
+  switch(what) {
+    case REQUEST_HEADERS:
+    len = headers_len + header_entries_len;
+    dst = self->buffer;
+    break;
+
+    case REQUEST_MATCH_DICT:
+    len = sizeof(MatchDictEntry) * self->match_dict_length;
+    dst = self->buffer + headers_len + header_entries_len;
+    break;
+
+    case REQUEST_BODY:
+    len = self->body_length;
+    dst = (char*)self->match_dict_entries \
+      + sizeof(MatchDictEntry) * self->match_dict_length;
+    break;
+
+    default:
+    assert(0);
+  }
 
   if(dst + len > self->buffer + self->buffer_len)
   {
     self->buffer_len = MAX(self->buffer_len * 2, self->buffer_len + len);
-    char* old_buffer = self->buffer;
 
     if(self->buffer == self->inline_buffer)
     {
       self->buffer = malloc(self->buffer_len);
       if(!self->buffer)
         assert(0);
+        // TODO, propagate memory error
       memcpy(self->buffer, self->inline_buffer, REQUEST_INITIAL_BUFFER_LEN);
     } else {
       self->buffer = realloc(self->buffer, self->buffer_len);
       if(!self->buffer)
          assert(0);
-    }
-
-    if(old_buffer != self->buffer) {
-      // correct offsets
-      shift = self->buffer - old_buffer;
-
-      if(!self->path)
-        goto copy;
-      self->path += shift;
-
-      if(!self->headers)
-        goto copy;
-      self->headers = (struct phr_header*)((char*)self->headers + shift);
-      for(struct phr_header* header = self->headers;
-          header < self->headers + self->num_headers;
-          header++) {
-        header->name += shift;
-        header->value += shift;
-      }
-
-      if(!self->match_dict_entries)
-        goto copy;
-      self->match_dict_entries =
-        (MatchDictEntry*)((char*)self->match_dict_entries + shift);
-      for(MatchDictEntry* entry = self->match_dict_entries;
-          entry < self->match_dict_entries + self->match_dict_length; entry++) {
-        entry->key += shift;
-        entry->value += shift;
-      }
-
-      if(!self->body)
-        goto copy;
-      self->body += shift;
+         // TODO, propagate memory error
     }
   }
 
-  copy:
+  size_t buffer_shift = self->buffer - old_buffer;
+  dst += buffer_shift;
+  size_t shift;
 
-  memcpy(dst + shift, src, len);
+  if(what == REQUEST_HEADERS) {
+    shift = dst - self->method;
+    goto copy_headers;
+  }
 
+  if(buffer_shift) {
+    self->method += buffer_shift;
+    self->path += buffer_shift;
+    self->headers = (struct phr_header*)((char*)self->headers + buffer_shift);
+    for(struct phr_header* header = self->headers;
+        header < self->headers + self->num_headers;
+        header++) {
+      header->name += buffer_shift;
+      header->value += buffer_shift;
+    }
+  }
+
+  if(what == REQUEST_MATCH_DICT) {
+    shift = dst - (char*)self->match_dict_entries;
+    goto copy_match_dict;
+  }
+
+  if(buffer_shift) {
+    self->match_dict_entries =
+      (MatchDictEntry*)((char*)self->match_dict_entries + buffer_shift);
+    for(MatchDictEntry* entry = self->match_dict_entries;
+        entry < self->match_dict_entries + self->match_dict_length; entry++) {
+      // the keys didnt move, they reference immutable memory from the router
+      entry->value += buffer_shift;
+    }
+  }
+
+  if(what == REQUEST_BODY) {
+    shift = dst - self->body;
+    goto copy_body;
+  }
+
+  assert(0);
+
+  copy_headers:
+  memcpy(dst, self->method, headers_len);
+  self->method += shift;
+  self->path += shift;
+  memcpy(dst + headers_len, (char*)self->headers, header_entries_len);
+  self->headers = (struct phr_header*)((char*)dst + headers_len);
+  for(struct phr_header* header = self->headers;
+      header < self->headers + self->num_headers;
+      header++) {
+    header->name += shift;
+    header->value += shift;
+  }
+  goto finally;
+
+  copy_match_dict:
+  memcpy(dst, (char*)self->match_dict_entries, len);
+  self->match_dict_entries =
+    (MatchDictEntry*)((char*)self->match_dict_entries + shift);
+  /* match_dict_entires values don't need moving by shift because the block
+   * they reference couldnt move (the previous call)
+   */
+  goto finally;
+
+  copy_body:
+  memcpy(dst, self->body, len);
+  self->body += shift;
+  goto finally;
+
+  finally:
   return self->buffer;
 }
 
@@ -224,27 +301,8 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
                  int minor_version,
                  struct phr_header* headers, size_t num_headers)
 {
-  // copy the whole block;
-  size_t span;
-  if(num_headers) {
-    struct phr_header* last_header = &headers[num_headers - 1];
-    span = last_header->value + last_header->value_len - method;
-  } else
-    span = path + path_len - method;
-  memcpy(self->buffer, method, span);
-  bfrcpy(self, self->buffer + span, (char*)headers, sizeof(struct phr_header) * num_headers);
-  headers = (struct phr_header*)(self->buffer + span);
-
-  // correct offsets
-  ptrdiff_t shift = self->buffer - method;
-  path += shift;
-  for(struct phr_header* header = headers; header < headers + num_headers;
-      header++) {
-    header->name += shift;
-    header->value += shift;
-  }
-
   // fill
+  self->method = method;
   self->method_len = method_len;
   self->path = path;
   self->path_decoded = false;
@@ -254,6 +312,8 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   self->headers = headers;
   self->num_headers = num_headers;
   self->keep_alive = KEEP_ALIVE_UNSET;
+
+  bfrcpy(self, REQUEST_HEADERS);
 }
 
 
@@ -261,10 +321,9 @@ static void
 Request_set_match_dict_entries(Request* self, MatchDictEntry* entries,
                                size_t length)
 {
-  self->match_dict_entries =
-    (MatchDictEntry*)(&self->headers[self->num_headers]);
+  self->match_dict_entries = entries;
   self->match_dict_length = length;
-  bfrcpy(self, (char*)self->match_dict_entries, (char*)entries, sizeof(MatchDictEntry) * length);
+  bfrcpy(self, REQUEST_MATCH_DICT);
 }
 
 
@@ -276,10 +335,9 @@ Request_set_body(Request* self, char* body, size_t body_len)
     return;
   }
 
-  self->body = (char*)self->match_dict_entries + sizeof(MatchDictEntry)
-    * self->match_dict_length;
+  self->body = body;
   self->body_length = body_len;
-  bfrcpy(self, self->body, body, body_len);
+  bfrcpy(self, REQUEST_BODY);
 }
 
 
