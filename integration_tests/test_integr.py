@@ -9,6 +9,7 @@ import json
 import urllib.parse
 import string
 import re
+import base64
 from hypothesis import given, strategies as st, settings, Verbosity
 
 
@@ -119,10 +120,12 @@ def test_body(size_k, body):
     print(len(body))
 
     connection = connect()
-    connection.request('POST', '/dump/body', body=body)
-    response_body = connection.getresponse().read()
+    connection.request('POST', '/dump/1/2', body=body)
+    response = connection.getresponse()
+    assert response.status == 200
+    json_body = json.loads(response.read().decode('utf-8'))
 
-    assert response_body == body
+    assert base64.b64decode(json_body['body']) == body
 
     connection.close()
 
@@ -137,9 +140,11 @@ def test_chunked(size_k, body):
         body = body * ((size_k * 1024) // length + 1)
 
     connection = connect()
-    connection.request_chunked('POST', '/dump/body', body=body)
-    response_body = connection.getresponse().read()
+    connection.request_chunked('POST', '/dump/1/2', body=body)
+    response = connection.getresponse()
+    assert response.status == 200
+    json_body = json.loads(response.read().decode('utf-8'))
 
-    assert response_body == b''.join(body)
+    assert base64.b64decode(json_body['body']) == b''.join(body)
 
     connection.close()
