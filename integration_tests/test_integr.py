@@ -148,3 +148,42 @@ def test_chunked(size_k, body):
     assert base64.b64decode(json_body['body']) == b''.join(body)
 
     connection.close()
+
+
+@given(
+    method=st.text(method_alphabet, min_size=1),
+    param1=param, param2=param,
+    query_string=st.text(),
+    headers=st.dictionaries(names, values),
+    body=st.one_of(st.binary(), st.none())
+)
+@settings(verbosity=Verbosity.verbose)
+def test_all(method, param1, param2, query_string, headers, body):
+    connection = connect()
+    url = urllib.parse.quote('/dump/{}/{}'.format(param1, param2)) + '?' \
+        + urllib.parse.quote(query_string)
+    connection.putrequest(
+        method, url, skip_host=True, skip_accept_encoding=True)
+    for name, value in headers.items():
+        connection.putheader(name, value)
+    if body is not None:
+        headers['Content-Length'] = str(len(body))
+        connection.putheader('Content-Length', len(body))
+    connection.endheaders(body)
+    response = connection.getresponse()
+
+    assert response.status == 200
+    json_body = json.loads(response.read().decode('utf-8'))
+    assert json_body['method'] == method
+    assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
+    if not query_string:
+        query_string = None
+    assert json_body['query_string'] == query_string
+    headers = {k.title(): v for k, v in headers.items()}
+    assert json_body['headers'] == headers
+    if body is not None:
+        assert base64.b64decode(json_body['body']) == body
+    else:
+        assert json_body['body'] is None
+
+    connection.close()
