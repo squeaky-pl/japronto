@@ -38,11 +38,6 @@ Request_new(PyTypeObject* type, Request* self)
   ((PyObject*)self)->ob_type = type;
 #endif
 
-  self->path = NULL;
-  self->headers = NULL;
-  self->match_dict_entries = NULL;
-  self->body = NULL;
-
   self->transport = NULL;
   self->py_method = NULL;
   self->py_path = NULL;
@@ -176,7 +171,9 @@ bfrcpy(Request* self, const RequestCopy what)
     headers_len = last_header->value + last_header->value_len - self->method;
     header_entries_len = sizeof(struct phr_header) * self->num_headers;
   } else {
-    headers_len = self->path + self->path_len - self->method;
+    headers_len = self->path + self->path_len + self->qs_len - self->method;
+    if(self->qs_len)
+      headers_len++;
     header_entries_len = 0;
   }
 
@@ -307,6 +304,7 @@ Request_from_raw(Request* self, char* method, size_t method_len, char* path, siz
   self->path = path;
   self->path_decoded = false;
   self->path_len = path_len;
+  self->qs_len = 0;
   self->qs_decoded = false;
   self->minor_version = minor_version;
   self->headers = headers;
