@@ -89,7 +89,9 @@ value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)
 is_illegal_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
 values = st.text(value_alphabet, min_size=1) \
     .filter(lambda x: not is_illegal_value(x)).map(lambda x: x.strip())
-@given(headers=st.dictionaries(names, values))
+headers_st = st.dictionaries(names, values).filter(
+    lambda x: len(x) == len(set(n.lower() for n in x)))
+@given(headers=headers_st)
 @settings(verbosity=Verbosity.verbose)
 def test_headers(headers):
     connection = connect()
@@ -154,7 +156,7 @@ def test_chunked(size_k, body):
     method=st.text(method_alphabet, min_size=1),
     param1=param, param2=param,
     query_string=st.text(),
-    headers=st.dictionaries(names, values),
+    headers=headers_st,
     body=st.one_of(st.binary(), st.none())
 )
 @settings(verbosity=Verbosity.verbose)
