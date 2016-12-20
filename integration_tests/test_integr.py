@@ -158,8 +158,12 @@ def test_chunked(size_k, body):
     body=st.one_of(st.binary(), st.none())
 )
 @settings(verbosity=Verbosity.verbose)
-def test_all(method, param1, param2, query_string, headers, body):
+@pytest.mark.parametrize(
+    'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
+def test_all(size_k, method, param1, param2, query_string, headers, body):
     connection = connect()
+    if size_k and body:
+        body = body * ((size_k * 1024) // len(body) + 1)
     url = urllib.parse.quote('/dump/{}/{}'.format(param1, param2)) + '?' \
         + urllib.parse.quote(query_string)
     connection.putrequest(
