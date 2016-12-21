@@ -36,7 +36,8 @@ def connect():
 
 
 method_alphabet = string.digits + string.ascii_letters + string.punctuation
-@given(method=st.text(method_alphabet, min_size=1))
+st_method = method=st.text(method_alphabet, min_size=1)
+@given(method=st_method)
 @settings(verbosity=Verbosity.verbose)
 def test_method(method):
     connection = connect()
@@ -52,8 +53,8 @@ def test_method(method):
 
 param_alphabet = st.characters(blacklist_characters='/?') \
     .filter(lambda x: not any(0xD800 <= ord(c) <= 0xDFFF for c in x))
-param = st.text(param_alphabet, min_size=1)
-@given(param1=param, param2=param)
+st_param = st.text(param_alphabet, min_size=1)
+@given(param1=st_param, param2=st_param)
 @settings(verbosity=Verbosity.verbose)
 def test_match_dict(param1, param2):
     connection = connect()
@@ -67,11 +68,15 @@ def test_match_dict(param1, param2):
     connection.close()
 
 
-@given(query_string=st.text())
+st_query_string = st.one_of(st.text(), st.none())
+@given(query_string=st_query_string)
 @settings(verbosity=Verbosity.verbose)
 def test_query_string(query_string):
     connection = connect()
-    connection.request('GET', '/dump/1/2?' + urllib.parse.quote(query_string))
+    url = '/dump/1/2'
+    if query_string is not None:
+        url += '?' + urllib.parse.quote(query_string)
+    connection.request('GET', url)
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
@@ -87,9 +92,9 @@ value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)
 is_illegal_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
 values = st.text(value_alphabet, min_size=1) \
     .filter(lambda x: not is_illegal_value(x)).map(lambda x: x.strip())
-headers_st = st.dictionaries(names, values).filter(
+st_headers = st.dictionaries(names, values).filter(
     lambda x: len(x) == len(set(n.lower() for n in x)))
-@given(headers=headers_st)
+@given(headers=st_headers)
 @settings(verbosity=Verbosity.verbose)
 def test_headers(headers):
     connection = connect()
@@ -109,7 +114,8 @@ def test_headers(headers):
     connection.close()
 
 
-@given(body=st.binary())
+st_body = st.one_of(st.binary(), st.none())
+@given(body=st_body)
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
@@ -117,15 +123,20 @@ def test_body(size_k, body):
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
 
-    print(len(body))
-
     connection = connect()
-    connection.request('POST', '/dump/1/2', body=body)
+    connection.putrequest('GET', '/dump/1/2')
+    if body is not None:
+        connection.putheader('Content-Length', len(body))
+    connection.endheaders(body)
     response = connection.getresponse()
+
     assert response.status == 200
     json_body = json.loads(response.read().decode('utf-8'))
 
-    assert base64.b64decode(json_body['body']) == body
+    if body is not None:
+        assert base64.b64decode(json_body['body']) == body
+    else:
+        assert json_body['body'] == body
 
     connection.close()
 
@@ -151,11 +162,11 @@ def test_chunked(size_k, body):
 
 
 @given(
-    method=st.text(method_alphabet, min_size=1),
-    param1=param, param2=param,
-    query_string=st.text(),
-    headers=headers_st,
-    body=st.one_of(st.binary(), st.none())
+    method=st_method,
+    param1=st_param, param2=st_param,
+    query_string=st_query_string,
+    headers=st_headers,
+    body=st_body
 )
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
@@ -164,8 +175,9 @@ def test_all(size_k, method, param1, param2, query_string, headers, body):
     connection = connect()
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
-    url = urllib.parse.quote('/dump/{}/{}'.format(param1, param2)) + '?' \
-        + urllib.parse.quote(query_string)
+    url = urllib.parse.quote('/dump/{}/{}'.format(param1, param2))
+    if query_string is not None:
+        url += '?' + urllib.parse.quote(query_string)
     connection.putrequest(
         method, url, skip_host=True, skip_accept_encoding=True)
     for name, value in headers.items():

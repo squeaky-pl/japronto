@@ -39,16 +39,11 @@ Response_new(PyTypeObject* type, Response* self)
   ((PyObject*)self)->ob_type = type;
 #endif
 
-  self->status_code = Py_None;
-  Py_INCREF(self->status_code);
-  self->mime_type = Py_None;
-  Py_INCREF(self->mime_type);
-  self->body = Py_None;
-  Py_INCREF(self->body);
-  self->encoding = Py_None;
-  Py_INCREF(self->encoding);
-  self->headers = Py_None;
-  Py_INCREF(self->headers);
+  self->status_code = NULL;
+  self->mime_type = NULL;
+  self->body = NULL;
+  self->encoding = NULL;
+  self->headers = NULL;
 
   self->buffer = self->inline_buffer;
   self->buffer_len = RESPONSE_INITIAL_BUFFER_LEN;
@@ -90,13 +85,13 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
 {
   static char *kwlist[] = {"text", "status_code", "body", "json", "mime_type", "encoding", "headers", NULL};
 
-  PyObject* status_code = Py_None;
+  PyObject* status_code = NULL;
   PyObject* body = NULL;
   PyObject* text = NULL;
   PyObject* json = NULL;
-  PyObject* mime_type = Py_None;
-  PyObject* encoding = Py_None;
-  PyObject* headers = Py_None;
+  PyObject* mime_type = NULL;
+  PyObject* encoding = NULL;
+  PyObject* headers = NULL;
 
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
@@ -104,9 +99,10 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
       &text, &status_code, &body, &json, &mime_type, &encoding, &headers))
       goto error;
 
-  Py_DECREF(self->status_code);
-  self->status_code = status_code;
-  Py_INCREF(self->status_code);
+  if(status_code) {
+    self->status_code = status_code;
+    Py_INCREF(self->status_code);
+  }
 
   if(json) {
     assert(!text && !body);
@@ -120,7 +116,6 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   if(text) {
     assert(!body);
 
-    Py_DECREF(self->body);
     // TODO handle other encodings
     if(!(self->body = PyUnicode_AsUTF8String(text)))
       goto error;
@@ -128,28 +123,30 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   }
 
   if(body) {
-    Py_DECREF(self->body);
     self->body = body;
     Py_INCREF(self->body);
   }
 
-  Py_DECREF(self->mime_type);
-  if(json && mime_type == Py_None) {
-    // TODO moveto static const
-    if(!(self->mime_type = PyUnicode_FromString("application/json")))
-      goto error;
-  } else {
+  if(mime_type) {
     self->mime_type = mime_type;
     Py_INCREF(self->mime_type);
+  } else {
+    // TODO moveto static const
+    if(json) {
+      if(!(self->mime_type = PyUnicode_FromString("application/json")))
+        goto error;
+    }
   }
 
-  Py_DECREF(self->encoding);
-  self->encoding = encoding;
-  Py_INCREF(self->encoding);
+  if(encoding) {
+    self->encoding = encoding;
+    Py_INCREF(self->encoding);
+  }
 
-  Py_DECREF(self->headers);
-  self->headers = headers;
-  Py_INCREF(self->headers);
+  if(headers) {
+    self->headers = headers;
+    Py_INCREF(self->headers);
+  }
 
   goto finally;
 
@@ -226,7 +223,7 @@ Response_render(Response* self)
 
   *(self->buffer + minor_offset) = '0' + (char)self->minor_version;
 
-  if(self->status_code != Py_None) {
+  if(self->status_code) {
     unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
 
     if(status_code < 100 || status_code > 599) {
@@ -272,7 +269,7 @@ Response_render(Response* self)
   buffer_offset = strlen(header);
 
   write_rest:
-  if(self->body != Py_None) {
+  if(self->body) {
     if(PyBytes_AsStringAndSize(self->body, (char**)&body, &body_len) == -1)
       goto error;
 
@@ -291,7 +288,7 @@ Response_render(Response* self)
 
   Py_ssize_t mime_type_len = strlen(text_plain);
   const char* mime_type = text_plain;
-  if(self->mime_type != Py_None) {
+  if(self->mime_type) {
     mime_type = PyUnicode_AsUTF8AndSize(self->mime_type, &mime_type_len);
     if(!mime_type)
       goto error;
@@ -304,7 +301,7 @@ Response_render(Response* self)
 
   Py_ssize_t encoding_len = strlen(utf8);
   const char* encoding = utf8;
-  if(self->encoding != Py_None) {
+  if(self->encoding) {
     encoding = PyUnicode_AsUTF8AndSize(self->encoding, &encoding_len);
     if(!encoding)
       goto error;
@@ -314,7 +311,7 @@ Response_render(Response* self)
 
   CRLF
 
-  if(self->headers == Py_None)
+  if(!self->headers)
     goto empty_headers;
 
   Py_ssize_t headers_len;

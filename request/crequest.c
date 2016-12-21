@@ -485,9 +485,10 @@ Request_decode_headers(Request* self)
 static PyObject*
 Request_get_method(Request* self, void* closure)
 {
-  if(!self->py_method)
+  if(!self->py_method) {
     self->py_method = PyUnicode_FromStringAndSize(
       REQUEST_METHOD(self), self->method_len);
+  }
 
   Py_XINCREF(self->py_method);
   return self->py_method;
@@ -560,12 +561,11 @@ Request_get_match_dict(Request* self, void* closure)
 static PyObject*
 Request_get_body(Request* self, void* closure)
 {
-  if(!self->py_body) {
-    if(self->body)
+  if(!self->body)
+    Py_RETURN_NONE;
+
+  if(!self->py_body)
       self->py_body = PyBytes_FromStringAndSize(self->body, self->body_length);
-    else
-      self->py_body = Py_None;
-  }
 
   Py_XINCREF(self->py_body);
   return self->py_body;
