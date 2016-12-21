@@ -18,6 +18,9 @@ def server():
     server = subprocess.Popen([sys.executable, 'integration_tests/dump.py'])
     proc = psutil.Process(server.pid)
 
+    collector = subprocess.Popen([
+        sys.executable, 'integration_tests/collector.py', str(server.pid)])
+
     # wait until the server socket is open
     while 1:
         if proc.connections():
@@ -25,10 +28,13 @@ def server():
         time.sleep(.001)
 
     yield server
+
     server.terminate()
     server.wait()
-
     assert server.returncode == 0
+
+    collector.wait()
+    assert collector.returncode == 0
 
 
 def connect():
