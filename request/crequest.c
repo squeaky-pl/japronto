@@ -357,11 +357,11 @@ static inline size_t percent_decode(char* data, ssize_t length, size_t* shifted_
 
     if(*data == '%' && is_hex(*(data + 1)) && is_hex(*(data + 2))) {
       *data = (hex_to_dec(*(data + 1)) << 4) + hex_to_dec(*(data + 2));
-      end -= 2;
       length -= 2;
       if(shifted_bytes)
         *shifted_bytes += 2;
-      memmove(data + 1, data + 3, length - 1);
+      memmove(data + 1, data + 3, end - (data + 3));
+      end -= 2;
     }
   }
 
