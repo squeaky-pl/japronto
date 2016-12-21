@@ -76,8 +76,6 @@ def test_query_string(query_string):
     json_body = json.loads(response.read().decode('utf-8'))
 
     assert response.status == 200
-    if not query_string:
-        query_string = None
     assert json_body['query_string'] == query_string
 
     connection.close()
