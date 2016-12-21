@@ -13,7 +13,7 @@ import base64
 from hypothesis import given, strategies as st, settings, Verbosity
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope='module')
 def server():
     server = subprocess.Popen([sys.executable, 'integration_tests/dump.py'])
     proc = psutil.Process(server.pid)
@@ -141,7 +141,7 @@ def test_body(size_k, body):
     connection.close()
 
 
-@given(body=st.lists(st.binary()))
+@given(body=st.lists(st.binary(min_size=24)))
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
