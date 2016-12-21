@@ -215,13 +215,26 @@ bfrcpy(Request* self, const RequestCopy what)
     }
   }
 
-  size_t buffer_shift = self->buffer - old_buffer;
+  ptrdiff_t buffer_shift = self->buffer - old_buffer;
   dst += buffer_shift;
-  size_t shift;
+  ptrdiff_t shift;
 
   if(what == REQUEST_HEADERS) {
     shift = dst - self->method;
-    goto copy_headers;
+
+    memcpy(dst, self->method, headers_len);
+    self->method += shift;
+    self->path += shift;
+    memcpy(dst + headers_len, (char*)self->headers, header_entries_len);
+    self->headers = (struct phr_header*)((char*)dst + headers_len);
+    for(struct phr_header* header = self->headers;
+        header < self->headers + self->num_headers;
+        header++) {
+      header->name += shift;
+      header->value += shift;
+    }
+
+    goto finally;
   }
 
   if(buffer_shift) {
@@ -236,14 +249,24 @@ bfrcpy(Request* self, const RequestCopy what)
     }
   }
 
+  if(what == REQUEST_HEADERS)
+    goto finally;
+
   if(what == REQUEST_MATCH_DICT) {
     shift = dst - (char*)self->match_dict_entries;
-    goto copy_match_dict;
+
+    memcpy(dst, (char*)self->match_dict_entries, len);
+    self->match_dict_entries =
+      (MatchDictEntry*)((char*)self->match_dict_entries + shift);
+    /* match_dict_entires values don't need moving by shift because the block
+     * they reference couldnt move (the previous call)
+     */
   }
 
   if(buffer_shift) {
-    self->match_dict_entries =
-      (MatchDictEntry*)((char*)self->match_dict_entries + buffer_shift);
+    if(what != REQUEST_MATCH_DICT)
+      self->match_dict_entries =
+        (MatchDictEntry*)((char*)self->match_dict_entries + buffer_shift);
     for(MatchDictEntry* entry = self->match_dict_entries;
         entry < self->match_dict_entries + self->match_dict_length; entry++) {
       // the keys didnt move, they reference immutable memory from the router
@@ -251,40 +274,19 @@ bfrcpy(Request* self, const RequestCopy what)
     }
   }
 
+  if(what == REQUEST_MATCH_DICT)
+    goto finally;
+
   if(what == REQUEST_BODY) {
     shift = dst - self->body;
-    goto copy_body;
+
+    memcpy(dst, self->body, len);
+    self->body += shift;
+
+    goto finally;
   }
 
   assert(0);
-
-  copy_headers:
-  memcpy(dst, self->method, headers_len);
-  self->method += shift;
-  self->path += shift;
-  memcpy(dst + headers_len, (char*)self->headers, header_entries_len);
-  self->headers = (struct phr_header*)((char*)dst + headers_len);
-  for(struct phr_header* header = self->headers;
-      header < self->headers + self->num_headers;
-      header++) {
-    header->name += shift;
-    header->value += shift;
-  }
-  goto finally;
-
-  copy_match_dict:
-  memcpy(dst, (char*)self->match_dict_entries, len);
-  self->match_dict_entries =
-    (MatchDictEntry*)((char*)self->match_dict_entries + shift);
-  /* match_dict_entires values don't need moving by shift because the block
-   * they reference couldnt move (the previous call)
-   */
-  goto finally;
-
-  copy_body:
-  memcpy(dst, self->body, len);
-  self->body += shift;
-  goto finally;
 
   finally:
   return self->buffer;
