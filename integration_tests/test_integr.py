@@ -21,6 +21,7 @@ def server():
 
     collector = subprocess.Popen([
         sys.executable, 'integration_tests/collector.py', str(server.pid)])
+    c_proc = psutil.Process(collector.pid)
 
     # wait until the server socket is open
     while 1:
@@ -28,14 +29,45 @@ def server():
             break
         time.sleep(.001)
 
+    # wait until the collector socket is open
+    while 1:
+        if c_proc.connections():
+            break
+        time.sleep(.001)
+
     yield server
 
     server.terminate()
+    server.mark('terminate')
     server.wait()
     assert server.returncode == 0
 
     collector.wait()
     assert collector.returncode == 0
+
+
+@pytest.fixture(scope='module')
+def mark(server):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(('localhost', 8081))
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+    def send(data):
+        if data.startswith('test-'):
+            data = data[5:]
+        data += '\n'
+        sock.sendall(data.encode('utf-8'))
+
+    server.mark = send
+
+    yield send
+
+    sock.close()
+
+
+@pytest.fixture(autouse=True)
+def marker(request, mark):
+    mark(request.node.name)
 
 
 @pytest.fixture(params=['example', 'test'])
