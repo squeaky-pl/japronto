@@ -13,6 +13,8 @@ aio.set_event_loop(loop)
 
 
 def report(pid, samples):
+    plt.figure(figsize=(25,10))
+
     x = [s['t'] for s in samples if s['type'] == 'proc']
 
     lines = [s for s in samples if s['type'] == 'event']
@@ -23,8 +25,8 @@ def report(pid, samples):
     ussplot.plot(
         x, [s['uss'] for s in samples if s['type'] == 'proc'], '.')
     for l in lines:
-        ussplot.text(l['t'], minuss, l['event'], horizontalalignment='right',
-            rotation=-90, rotation_mode='anchor')
+#        ussplot.text(l['t'], minuss, l['event'], horizontalalignment='right',
+#            rotation=-90, rotation_mode='anchor')
         ussplot.axvline(l['t'])
 
     connplot = plt.subplot(212)
