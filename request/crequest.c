@@ -516,10 +516,10 @@ Request_get_qs(Request* self, void* closure)
     size_t qs_len;
     char* qs = Request_get_decoded_qs(self, &qs_len);
     if(!qs)
-      self->py_qs = Py_None;
-    else
-      // skip the ? char
-      self->py_qs = PyUnicode_FromStringAndSize(qs + 1, qs_len - 1);
+      Py_RETURN_NONE;
+
+    // skip the ? char
+    self->py_qs = PyUnicode_FromStringAndSize(qs + 1, qs_len - 1);
   }
 
   Py_XINCREF(self->py_qs);
