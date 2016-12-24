@@ -60,7 +60,6 @@ async def sample_process(pid, samples):
 async def receive_samples(tasks, samples, reader, writer):
     task = aio.Task.current_task()
     tasks.add(task)
-    print('Connected')
     while 1:
         line = await reader.readline()
         if not line:
@@ -68,7 +67,6 @@ async def receive_samples(tasks, samples, reader, writer):
         samples.append({
             't': time.monotonic(),
             'event': line.decode('utf-8'), 'type': 'event'})
-    print('Disconnected')
     tasks.remove(task)
 
 

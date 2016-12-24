@@ -2,6 +2,7 @@ import pytest
 import subprocess
 import sys
 import urllib3.connection
+import client
 import socket
 import psutil
 import time
@@ -246,5 +247,29 @@ def test_all(connect, size_k, method, param1, param2, query_string, headers, bod
         assert base64.b64decode(json_body['body']) == body
     else:
         assert json_body['body'] is None
+
+    connection.close()
+
+
+st_request = st.fixed_dictionaries({'method': st_method})
+st_requests = st.lists(st_request, min_size=2)
+@given(requests=st_requests)
+@settings(verbosity=Verbosity.verbose)
+def test_pipeline(requests):
+    connection = client.Connection('localhost:8080')
+
+    for request in requests:
+        connection.putrequest(request['method'], '/dump/1/2')
+        connection.endheaders()
+
+    responses = []
+    for request in requests:
+        responses.append(connection.getresponse())
+        print(responses[-1].body)
+
+    for request, response in zip(requests, responses):
+        assert response.status == 200
+        json_body = json.loads(response.body.decode('utf-8'))
+        assert json_body['method'] == request['method']
 
     connection.close()
