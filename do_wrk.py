@@ -39,16 +39,21 @@ def run_wrk(loop, endpoint=None):
 
 
 if __name__ == '__main__':
-    cpu.change('userspace', cpu.min_freq())
-    cpu.dump()
     buggers.silence()
     loop = uvloop.new_event_loop()
 
     argparser = argparse.ArgumentParser('do_wrk')
     argparser.add_argument('-s', dest='server', default='')
     argparser.add_argument('-e', dest='endpoint')
+    argparser.add_argument(
+        '--no-cpu', dest='cpu_change', default=True,
+        action='store_const', const=False)
 
     args = argparser.parse_args(sys.argv[1:])
+
+    if args.cpu_change:
+        cpu.change('userspace', cpu.min_freq())
+    cpu.dump()
 
     aio.set_event_loop(loop)
 
@@ -81,7 +86,8 @@ if __name__ == '__main__':
     server.terminate()
     loop.run_until_complete(server.wait())
 
-    cpu.change('ondemand')
+    if args.cpu_change:
+        cpu.change('ondemand')
 
     print()
     print('RPS', results)
