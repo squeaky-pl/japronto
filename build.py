@@ -121,7 +121,7 @@ def main():
     append_compile_args('-frecord-gcc-switches', '-UNDEBUG')
 
     if args.debug:
-        append_compile_args('-g', '-O0', '-Wp,-U_FORTIFY_SOURCE')
+        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE')
     if args.profile_generate:
         append_compile_args('--profile-generate')
         append_link_args('-lgcov')
