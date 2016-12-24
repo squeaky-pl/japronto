@@ -26,6 +26,7 @@ class Response:
 
         self.read_status_line()
         self.read_headers()
+        self.read_body()
 
     def read_status_line(self):
         status_line = b''
@@ -47,8 +48,8 @@ class Response:
             value = value.strip().decode('latin1')
             self.headers[name] = value
 
-    def read(self):
-        return readexact(self.sock, int(self.headers['Content-Length']))
+    def read_body(self):
+        self.body = readexact(self.sock, int(self.headers['Content-Length']))
 
 
 class Connection:
@@ -93,3 +94,6 @@ class Connection:
 
     def getresponse(self):
         return Response(self.sock)
+
+    def close(self):
+        self.sock.close()
