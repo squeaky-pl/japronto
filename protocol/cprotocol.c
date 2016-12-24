@@ -331,7 +331,7 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response* response)
 {
     Protocol* result = self;
-    PyObject* memory_view = NULL;
+    PyObject* response_py_buf = NULL;
     PyObject* error_result = NULL;
 
     if(!response) {
@@ -358,11 +358,16 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
       goto finally;
     }
 
-    if(!(memory_view = response_capi->Response_render(response)))
+    char* response_buf;
+    size_t response_len;
+    if(!(response_buf = response_capi->Response_render(response, &response_len)))
+      goto error;
+
+    if(!(response_py_buf = PyBytes_FromStringAndSize(response_buf, response_len)))
       goto error;
 
     PyObject* tmp;
-    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, memory_view, NULL)))
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_py_buf, NULL)))
       goto error;
     Py_DECREF(tmp);
 
@@ -378,7 +383,7 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
 
     finally:
     Py_XDECREF(error_result);
-    Py_XDECREF(memory_view);
+    Py_XDECREF(response_py_buf);
     return result;
 }
 

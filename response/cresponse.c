@@ -214,8 +214,9 @@ Response_render_slow_path(Response* self, size_t buffer_offset)
   memcpy(self->buffer + buffer_offset, data, len); \
   buffer_offset += len;
 
-PyObject*
-Response_render(Response* self)
+
+char*
+Response_render(Response* self, size_t* len)
 {
   size_t buffer_offset;
   Py_ssize_t body_len = 0;
@@ -359,13 +360,8 @@ Response_render(Response* self)
 
 #undef CRLF
 
-  /* FIXME we should implement buffer protocol instead */
-  PyObject* view = PyMemoryView_FromMemory(
-    self->buffer, buffer_offset, PyBUF_READ);
-  if(!view)
-    goto error;
-
-  return view;
+  *len = buffer_offset;
+  return self->buffer;
 
   error:
     return NULL;
