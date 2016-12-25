@@ -89,6 +89,7 @@ def main():
         '--disable-reaper', dest='enable_reaper', const=False,
         action='store_const', default=True)
     argparser.add_argument('--path', dest='path')
+    argparser.add_argument('--extra-compile', dest='extra_compile', default='')
     args = argparser.parse_args(sys.argv[1:])
 
     if args.profile_clean:
@@ -133,6 +134,9 @@ def main():
     if args.flto:
         append_compile_args('-flto')
         append_link_args('-flto')
+
+    if args.extra_compile:
+        append_compile_args(args.extra_compile)
 
     prune()
 
