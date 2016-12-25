@@ -80,6 +80,8 @@ Response_dealloc(Response* self)
 #ifdef RESPONSE_OPAQUE
 static const size_t code_offset = 9;
 
+#define empty(v) (!v || v == Py_None)
+
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
@@ -99,22 +101,22 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
       &text, &status_code, &body, &json, &mime_type, &encoding, &headers))
       goto error;
 
-  if(status_code) {
+  if(!empty(status_code)) {
     self->status_code = status_code;
     Py_INCREF(self->status_code);
   }
 
-  if(json) {
-    assert(!text && !body);
+  if(!empty(json)) {
+    assert(empty(text) && empty(body));
 
     if(!(text = PyObject_CallFunctionObjArgs(json_dumps, json, NULL)))
       goto error;
-  } else if(text) {
+  } else if(!empty(text)) {
     Py_INCREF(text);
   }
 
-  if(text) {
-    assert(!body);
+  if(!empty(text)) {
+    assert(empty(body));
 
     // TODO handle other encodings
     if(!(self->body = PyUnicode_AsUTF8String(text)))
@@ -122,28 +124,28 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
     Py_DECREF(text);
   }
 
-  if(body) {
+  if(!empty(body)) {
     self->body = body;
     Py_INCREF(self->body);
   }
 
-  if(mime_type) {
+  if(!empty(mime_type)) {
     self->mime_type = mime_type;
     Py_INCREF(self->mime_type);
   } else {
     // TODO moveto static const
-    if(json) {
+    if(!empty(json)) {
       if(!(self->mime_type = PyUnicode_FromString("application/json")))
         goto error;
     }
   }
 
-  if(encoding) {
+  if(!empty(encoding)) {
     self->encoding = encoding;
     Py_INCREF(self->encoding);
   }
 
-  if(headers) {
+  if(!empty(headers)) {
     self->headers = headers;
     Py_INCREF(self->headers);
   }

@@ -12,8 +12,6 @@ import client
 
 @pytest.fixture(scope='function')
 def server(request):
-    pytest.set_trace()
-
     cprotocol_so = 'protocol/cprotocol.{}.so' \
         .format(sysconfig.get_config_var('SOABI'))
 
