@@ -17,8 +17,9 @@ def server(request):
 
     with open(cprotocol_so, 'rb') as f:
         elf = ELFFile(f)
-        command_line = elf.get_section_by_name('.GCC.command.line').data() \
-            .split(b'\x00')
+        command_line = elf.get_section_by_name('.GCC.command.line').data()
+
+    command_line = command_line.split(b'\x00') if command_line else []
 
     if b'-D PROTOCOL_TRACK_REFCNT=1' not in command_line:
         subprocess.check_call([
