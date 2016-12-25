@@ -39,7 +39,6 @@ def server():
     yield server
 
     server.terminate()
-    server.mark('terminate')
     server.wait()
     assert server.returncode == 0
 
@@ -58,8 +57,6 @@ def mark(server):
             data = data[5:]
         data += '\n'
         sock.sendall(data.encode('utf-8'))
-
-    server.mark = send
 
     yield send
 
@@ -251,8 +248,6 @@ def test_all(connect, size_k, method, param1, param2, query_string, headers, bod
     connection.close()
 
 
-st_headers = st.dictionaries(names, values).filter(
-    lambda x: len(x) == len(set(n.lower() for n in x)))
 st_request = st.fixed_dictionaries({
     'method': st_method,
     'param1': st_param,
