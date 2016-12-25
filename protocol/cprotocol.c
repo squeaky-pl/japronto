@@ -196,6 +196,12 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(PySet_Add(connections, (PyObject*)self) == -1)
     goto error;
 
+#ifdef PROTOCOL_TRACK_REFCNT
+  self->none_cnt = Py_REFCNT(Py_None);
+  self->true_cnt = Py_REFCNT(Py_True);
+  self->false_cnt = Py_REFCNT(Py_False);
+#endif
+
   goto finally;
 
   error:
@@ -256,6 +262,12 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
 
   if(PySet_Discard(connections, (PyObject*)self) == -1)
     goto error;
+
+#ifdef PROTOCOL_TRACK_REFCNT
+  assert(Py_REFCNT(Py_None) == self->none_cnt);
+  assert(Py_REFCNT(Py_True) == self->true_cnt);
+  assert(Py_REFCNT(Py_False) == self->false_cnt);
+#endif
 
   goto finally;
 
