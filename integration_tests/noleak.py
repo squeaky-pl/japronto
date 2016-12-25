@@ -14,9 +14,9 @@ if prop == 'method':
 elif prop == 'path':
     def noleak(request):
         return request.Response(text=request.path)
-elif prop == 'query_dict':
+elif prop == 'match_dict':
     def noleak(request):
-        return request.Response(json=request.query_dict)
+        return request.Response(json=request.match_dict)
 elif prop == 'query_string':
     def noleak(request):
         return request.Response(text=request.query_string)
