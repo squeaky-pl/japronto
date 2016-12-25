@@ -12,7 +12,7 @@ import string
 import re
 import base64
 from functools import partial
-from hypothesis import given, strategies as st, settings, Verbosity
+from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -251,25 +251,49 @@ def test_all(connect, size_k, method, param1, param2, query_string, headers, bod
     connection.close()
 
 
-st_request = st.fixed_dictionaries({'method': st_method})
+st_headers = st.dictionaries(names, values).filter(
+    lambda x: len(x) == len(set(n.lower() for n in x)))
+st_request = st.fixed_dictionaries({
+    'method': st_method,
+    'param1': st_param,
+    'param2': st_param,
+    'query_string': st_query_string,
+    'headers': st_headers,
+    'body': st_body
+})
 st_requests = st.lists(st_request, min_size=2)
 @given(requests=st_requests)
-@settings(verbosity=Verbosity.verbose)
+@settings(
+    verbosity=Verbosity.verbose,
+    suppress_health_check=[HealthCheck.too_slow])
 def test_pipeline(requests):
     connection = client.Connection('localhost:8080')
 
     for request in requests:
-        connection.putrequest(request['method'], '/dump/1/2')
-        connection.endheaders()
+        connection.putrequest(
+            request['method'], '/dump/{param1}/{param2}'.format_map(request),
+            request['query_string'])
+        for name, value in request['headers'].items():
+            connection.putheader(name, value)
+        if request['body'] is not None:
+            body_len = str(len(request['body']))
+            request['headers']['Content-Length'] = body_len
+            connection.putheader('Content-Length', body_len)
+        connection.endheaders(request['body'])
 
-    responses = []
     for request in requests:
-        responses.append(connection.getresponse())
-        print(responses[-1].body)
-
-    for request, response in zip(requests, responses):
+        response = connection.getresponse()
         assert response.status == 200
         json_body = json.loads(response.body.decode('utf-8'))
         assert json_body['method'] == request['method']
+        assert json_body['match_dict'] == \
+            {'p1': request['param1'], 'p2': request['param2']}
+        assert json_body['query_string'] == request['query_string']
+        assert json_body['headers'] == {k.title(): v for k, v in request['headers'].items()}
+        if request['body'] is not None:
+            assert base64.b64decode(json_body['body']) == request['body']
+        else:
+            assert json_body['body'] is None
+
 
     connection.close()
