@@ -119,6 +119,8 @@ def test_body(connection):
 
     for body in bodies:
         connection.putrequest('GET', '/noleak/1/2')
+        if body:
+            connection.putheader('Content-Length', str(len(body)))
         connection.endheaders(body)
 
         response = connection.getresponse()
