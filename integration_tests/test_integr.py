@@ -213,7 +213,10 @@ def test_chunked(connect, size_k, body):
     headers=st_headers,
     body=st_body
 )
-@settings(verbosity=Verbosity.verbose)
+@settings(
+    verbosity=Verbosity.verbose,
+    suppress_health_check=[HealthCheck.too_slow]
+)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
 def test_all(connect, size_k, method, param1, param2, query_string, headers, body):

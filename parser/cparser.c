@@ -105,10 +105,8 @@ Parser_init(Parser* self, void* protocol)
 
     _reset_state(self, true);
 
-    self->buffer_capacity = 4096;
-    self->buffer = malloc(self->buffer_capacity);
-    if(!self->buffer)
-      return -1;
+    self->buffer_capacity = PARSER_INITIAL_BUFFER_SIZE;
+    self->buffer = self->inline_buffer;
 
     return 0;
 }
@@ -127,7 +125,7 @@ Parser_dealloc(Parser* self)
 #endif
 #endif
 
-    if(self->buffer)
+    if(self->buffer != self->inline_buffer)
       free(self->buffer);
 
 #ifdef PARSER_STANDALONE
@@ -550,7 +548,13 @@ Parser_feed(Parser* self, PyObject* py_data)
     self->buffer_capacity = MAX(
       self->buffer_capacity * 2,
       self->buffer_end - self->buffer_start + data_len);
-    self->buffer = realloc(self->buffer, self->buffer_capacity);
+    if(self->buffer == self->inline_buffer) {
+      self->buffer = malloc(self->buffer_capacity);
+      memcpy(self->buffer + self->buffer_start,
+             self->inline_buffer + self->buffer_start,
+             self->buffer_end - self->buffer_start);
+    } else
+      self->buffer = realloc(self->buffer, self->buffer_capacity);
     if(!self->buffer)
       goto error;
   }

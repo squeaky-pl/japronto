@@ -25,6 +25,7 @@ enum Parser_connection {
   PARSER_KEEP_ALIVE
 };
 
+#define PARSER_INITIAL_BUFFER_SIZE 4096
 
 typedef struct {
 #ifdef PARSER_STANDALONE
@@ -43,6 +44,7 @@ typedef struct {
     size_t buffer_start;
     size_t buffer_end;
     size_t buffer_capacity;
+    char inline_buffer[PARSER_INITIAL_BUFFER_SIZE];
 
 #ifdef PARSER_STANDALONE
     PyObject* on_headers;
