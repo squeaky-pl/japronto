@@ -34,6 +34,18 @@ class Application:
 
         self._matcher = self._router.get_matcher()
 
+    def protocol_error_handler(self, error):
+        print(error)
+
+        error = error.encode('utf-8')
+
+        response = [
+            'HTTP/1.0 400 Bad Request\r\n',
+            'Content-Type: text/plain; charset=utf-8\r\n',
+            'Content-Length: {}\r\n\r\n'.format(len(error))]
+
+        return ''.join(response).encode('utf-8') + error
+
     def error_handler(self, request, exception):
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)

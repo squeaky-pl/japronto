@@ -219,7 +219,7 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 static void*
 Protocol_close(Protocol* self)
 {
-  PyObject* result = Py_None;
+  void* result = self;
 
   PyObject* close = NULL;
   close = PyObject_GetAttrString(self->transport, "close");
@@ -565,9 +565,23 @@ Protocol_on_error(Protocol* self, PyObject *args)
 Protocol*
 Protocol_on_error(Protocol* self, PyObject* error)
 {
-  PyErr_SetObject(PyExc_ValueError, error);
+  PyObject* protocol_error_handler = NULL;
+  PyObject* response = NULL;
 
-  if(!Protocol_write_response_or_err(self, NULL))
+  if(!(protocol_error_handler =
+       PyObject_GetAttrString(self->app, "protocol_error_handler")))
+    goto error;
+
+  if(!(response =
+       PyObject_CallFunctionObjArgs(protocol_error_handler, error, NULL)))
+    goto error;
+
+  PyObject* tmp;
+  if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response, NULL)))
+    goto error;
+  Py_DECREF(tmp);
+
+  if(!Protocol_close(self))
     goto error;
 
   goto finally;
@@ -576,6 +590,8 @@ Protocol_on_error(Protocol* self, PyObject* error)
   self = NULL;
 
   finally:
+  Py_XDECREF(response);
+  Py_XDECREF(protocol_error_handler);
   return self;
 }
 #endif
