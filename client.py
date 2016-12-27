@@ -73,6 +73,8 @@ class Connection:
     def putline(self, line=None):
         line = line or b''
         sock = self.maybe_connect()
+        if not isinstance(line, bytes):
+            line = str(line).encode('latin1')
         sock.sendall(line + b'\r\n')
 
     def putrequest(self, method, path, query_string=None):
@@ -81,11 +83,11 @@ class Connection:
             url += '?' + urllib.parse.quote(query_string)
 
         request_line = "{method} {url} HTTP/1.1" \
-            .format(method=method, url=url).encode('ascii')
+            .format(method=method, url=url)
         self.putline(request_line)
 
     def putheader(self, name, value):
-        header_line = name.encode('ascii') + b': ' + value.encode('latin1')
+        header_line = name + ': ' + value
         self.putline(header_line)
 
     def endheaders(self, body=None):
