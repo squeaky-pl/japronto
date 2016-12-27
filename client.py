@@ -70,26 +70,28 @@ class Connection:
 
         return self.sock
 
+    def putline(self, line=None):
+        line = line or b''
+        sock = self.maybe_connect()
+        sock.sendall(line + b'\r\n')
+
     def putrequest(self, method, path, query_string=None):
         url = urllib.parse.quote(path)
         if query_string is not None:
             url += '?' + urllib.parse.quote(query_string)
 
-        request_line = "{method} {url} HTTP/1.1\r\n" \
+        request_line = "{method} {url} HTTP/1.1" \
             .format(method=method, url=url).encode('ascii')
-        sock = self.maybe_connect()
-        sock.sendall(request_line)
+        self.putline(request_line)
 
     def putheader(self, name, value):
-        sock = self.maybe_connect()
-        header_line = name.encode('ascii') + b': ' + value.encode('latin1') \
-            + b'\r\n'
-        sock.sendall(header_line)
+        header_line = name.encode('ascii') + b': ' + value.encode('latin1')
+        self.putline(header_line)
 
     def endheaders(self, body=None):
-        sock = self.maybe_connect()
-        sock.sendall(b'\r\n')
+        self.putline()
         if body:
+            sock = self.maybe_connect()
             sock.sendall(body)
 
     def getresponse(self):
