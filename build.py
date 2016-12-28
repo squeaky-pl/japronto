@@ -88,6 +88,9 @@ def main():
     argparser.add_argument(
         '--disable-reaper', dest='enable_reaper', const=False,
         action='store_const', default=True)
+    argparser.add_argument(
+        '--coverage', dest='coverage', const=True,
+        action='store_const', default=False)
     argparser.add_argument('--path', dest='path')
     argparser.add_argument('--extra-compile', dest='extra_compile', default='')
     args = argparser.parse_args(sys.argv[1:])
@@ -134,7 +137,9 @@ def main():
     if args.flto:
         append_compile_args('-flto')
         append_link_args('-flto')
-
+    if args.coverage:
+        append_compile_args('--coverage')
+        append_link_args('-lgcov')
     if args.extra_compile:
         append_compile_args(args.extra_compile)
 
