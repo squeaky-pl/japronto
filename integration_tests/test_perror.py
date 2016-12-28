@@ -4,6 +4,8 @@ import subprocess
 import psutil
 import sys
 import time
+import queue
+import threading
 from functools import partial
 
 import client
@@ -11,7 +13,9 @@ import client
 
 @pytest.fixture(autouse=True, scope='module')
 def server():
-    server = subprocess.Popen([sys.executable, 'integration_tests/dump.py'])
+    server = subprocess.Popen(
+        [sys.executable, '-u', 'integration_tests/dump.py'],
+        stdout=subprocess.PIPE)
     proc = psutil.Process(server.pid)
 
     # wait until the server socket is open
@@ -27,6 +31,25 @@ def server():
     assert server.returncode == 0
 
 
+@pytest.fixture
+def line_getter(server):
+    q = queue.Queue()
+
+    def enqueue_output():
+        q.put(server.stdout.readline().strip().decode('utf-8'))
+
+    class LineGetter:
+        def start(self):
+            self.thread = threading.Thread(target=enqueue_output)
+            self.thread.start()
+
+        def wait(self):
+            self.thread.join()
+            return q.get()
+
+    return LineGetter()
+
+
 @pytest.fixture()
 def connect(request):
     return partial(client.Connection, 'localhost:8080')
@@ -40,9 +63,12 @@ def make_truncated_request_line(cut):
 st_request_cut = st.integers(min_value=1, max_value=len(full_request_line) - 1)
 @given(request_line=st.builds(make_truncated_request_line, st_request_cut))
 @settings(verbosity=Verbosity.verbose)
-def test_truncated_request_line(connect, request_line):
+def test_truncated_request_line(line_getter, connect, request_line):
     connection = connect()
+    line_getter.start()
     connection.putline(request_line)
+
+    assert line_getter.wait() == 'malformed_headers'
 
     response = connection.getresponse()
     assert response.status == 400
