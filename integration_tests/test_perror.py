@@ -95,14 +95,29 @@ def make_truncated_header(cut):
 
 
 st_header_cut = st.integers(min_value=5, max_value=len(full_header) - 1)
-@given(header_line=st.builds(make_truncated_header, st_header_cut))
+st_header_line = st.builds(make_truncated_header, st_header_cut)
+@given(header_line=st_header_line)
 @settings(verbosity=Verbosity.verbose, max_examples=20)
-def test_truncated_header(connect, header_line):
+def test_truncated_header(line_getter, connect, header_line):
     connection = connect()
+    line_getter.start()
     connection.putline(full_request_line)
     connection.putline(header_line)
     connection.putline()
 
+    assert line_getter.wait() == 'malformed_headers'
+
     response = connection.getresponse()
     assert response.status == 400
     assert response.body.decode('utf-8') == 'malformed_headers'
+
+
+@given(header_line=st_header_line)
+@settings(verbosity=Verbosity.verbose, max_examples=20)
+def test_truncated_header_disconnect(line_getter, connect, header_line):
+    connection = connect()
+    line_getter.start()
+    connection.putline(full_request_line)
+    connection.putclose(header_line)
+
+    assert line_getter.wait() == 'incomplete_headers'
