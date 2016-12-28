@@ -77,6 +77,13 @@ class Connection:
             line = str(line).encode('latin1')
         sock.sendall(line + b'\r\n')
 
+    def putclose(self, data):
+        sock = self.maybe_connect()
+        if not isinstance(data, bytes):
+            data = str(data).encode('latin1')
+        sock.sendall(data)
+        self.close()
+
     def putrequest(self, method, path, query_string=None):
         url = urllib.parse.quote(path)
         if query_string is not None:
