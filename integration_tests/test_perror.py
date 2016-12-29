@@ -74,7 +74,7 @@ def test_truncated_request_line(line_getter, connect, request_line):
 
     response = connection.getresponse()
     assert response.status == 400
-    assert response.body.decode('utf-8') == 'malformed_headers'
+    assert response.text == 'malformed_headers'
 
 
 
@@ -109,7 +109,7 @@ def test_truncated_header(line_getter, connect, header_line):
 
     response = connection.getresponse()
     assert response.status == 400
-    assert response.body.decode('utf-8') == 'malformed_headers'
+    assert response.text == 'malformed_headers'
 
 
 @given(header_line=st_header_line)
@@ -141,4 +141,4 @@ def test_invalid_content_length(line_getter, connect, value):
 
     response = connection.getresponse()
     assert response.status == 400
-    assert response.body.decode('utf-8') == 'invalid_headers'
+    assert response.text == 'invalid_headers'

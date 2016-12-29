@@ -48,8 +48,22 @@ class Response:
             value = value.strip().decode('latin1')
             self.headers[name] = value
 
+    @property
+    def encoding(self):
+        content_type = self.headers.get('Content-Type')
+        if not content_type:
+            return 'latin1'
+
+        _, *rest = [v.split('=') for v in content_type.split(';')]
+
+        rest = {k.strip(): v.strip() for k, v in rest}
+
+        return rest.get('charset')
+
+
     def read_body(self):
         self.body = readexact(self.sock, int(self.headers['Content-Length']))
+        self.text = self.body.decode(self.encoding)
 
 
 class Connection:
