@@ -8,6 +8,7 @@ import shutil
 from importlib import import_module
 import os
 import sys
+import pytoml
 
 
 class BuildSystem:
@@ -54,6 +55,10 @@ class BuildSystem:
 
 def dest_folder(mod_name):
     return '/'.join(mod_name.split('.')[:-1])
+
+
+def build_toml(mod_name):
+    return '/'.join(mod_name.split('.')) + '.build.toml'
 
 
 def prune():
@@ -142,6 +147,14 @@ def main():
         append_link_args('-lgcov')
     if args.extra_compile:
         append_compile_args(args.extra_compile)
+
+    for ext_module in ext_modules:
+        with open(build_toml(ext_module.name), 'w') as f:
+            build_info = {
+                'extra_compile_args': ext_module.extra_compile_args,
+                'extra_link_args': ext_module.extra_link_args
+            }
+            pytoml.dump(f, build_info)
 
     prune()
 
