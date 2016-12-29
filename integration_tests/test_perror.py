@@ -121,3 +121,24 @@ def test_truncated_header_disconnect(line_getter, connect, header_line):
     connection.putclose(header_line)
 
     assert line_getter.wait() == 'incomplete_headers'
+
+
+@pytest.mark.parametrize('value', [
+    '',
+    '+5',
+    '-5',
+    '0x12',
+    '12a'
+])
+def test_invalid_content_length(line_getter, connect, value):
+    connection = connect()
+    line_getter.start()
+    connection.putline(full_request_line)
+    connection.putheader('Content-Length', value)
+    connection.putline()
+
+    assert line_getter.wait() == 'invalid_headers'
+
+    response = connection.getresponse()
+    assert response.status == 400
+    assert response.body.decode('utf-8') == 'invalid_headers'
