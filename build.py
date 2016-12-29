@@ -6,6 +6,7 @@ from glob import glob
 import os.path
 import shutil
 from importlib import import_module
+import sysconfig
 import os
 import sys
 import pytoml
@@ -74,6 +75,25 @@ def profile_clean():
         os.remove(path)
 
 
+def get_so(ext):
+    return '/'.join(ext.name.split('.')) + '.' + \
+        sysconfig.get_config_var('SOABI') + '.so'
+
+
+def should_rebuild(ext):
+    so = get_so(ext)
+    if not os.path.exists(so):
+        return True
+
+    so_mtime = os.stat(so).st_mtime
+    sources_mtimes = [os.stat(s).st_mtime for s in ext.sources]
+
+    if max(sources_mtimes) > so_mtime:
+        return True
+
+    return False
+
+
 def main():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
@@ -112,6 +132,9 @@ def main():
         ext_modules = [system.get_extension_by_path(args.path)]
     else:
         ext_modules = system.discover_extensions()
+
+    ext_modules = [e for e in ext_modules if should_rebuild(e)]
+
     dist = Distribution(dict(ext_modules=ext_modules))
 
     def append_args(arg_name, values):
