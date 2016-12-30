@@ -12,12 +12,18 @@ import sys
 import pytoml
 
 
+SRC_LOCATION = 'src'
+sys.path.insert(0, SRC_LOCATION)
+
+
 class BuildSystem:
     def __init__(self, args):
         self.args = args
 
     def get_extension_by_path(self, path):
-        module_import = os.path.splitext(path)[0].replace('/', '.')
+        path = SRC_LOCATION + '/' + path
+        module_import = os.path.relpath(os.path.splitext(path)[0], SRC_LOCATION) \
+            .replace('/', '.')
         module = import_module(module_import)
         module.system = self
         extension = module.get_extension()
@@ -48,18 +54,19 @@ class BuildSystem:
     def discover_extensions(self):
         self.extensions = []
 
-        ext_files = glob('**/*_ext.py', recursive=True)
+        ext_files = glob(SRC_LOCATION + '/**/*_ext.py', recursive=True)
+        ext_files = [os.path.relpath(p, SRC_LOCATION) for p in ext_files]
         self.extensions = [self.get_extension_by_path(f) for f in ext_files]
 
         return self.extensions
 
 
 def dest_folder(mod_name):
-    return '/'.join(mod_name.split('.')[:-1])
+    return SRC_LOCATION + '/' + '/'.join(mod_name.split('.')[:-1])
 
 
 def build_toml(mod_name):
-    return '/'.join(mod_name.split('.')) + '.build.toml'
+    return SRC_LOCATION +  '/' + '/'.join(mod_name.split('.')) + '.build.toml'
 
 
 def prune():
@@ -76,7 +83,7 @@ def profile_clean():
 
 
 def get_so(ext):
-    return '/'.join(ext.name.split('.')) + '.' + \
+    return SRC_LOCATION + '/' + '/'.join(ext.name.split('.')) + '.' + \
         sysconfig.get_config_var('SOABI') + '.so'
 
 
