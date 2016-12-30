@@ -80,6 +80,21 @@ def get_so(ext):
         sysconfig.get_config_var('SOABI') + '.so'
 
 
+def flags_changed(ext):
+    toml = build_toml(ext.name)
+    if not os.path.exists(toml):
+        return True
+
+    with open(toml) as f:
+        flags = pytoml.load(f)
+
+    ext_flags = {
+        "extra_compile_args": ext.extra_compile_args,
+        "extra_link_args": ext.extra_link_args}
+
+    return flags != ext_flags
+
+
 def should_rebuild(ext):
     so = get_so(ext)
     if not os.path.exists(so):
@@ -91,6 +106,9 @@ def should_rebuild(ext):
     input_mtimes = [os.stat(s).st_mtime for s in ext.sources + includes]
 
     if max(input_mtimes) > so_mtime:
+        return True
+
+    if flags_changed(ext):
         return True
 
     return False
@@ -159,10 +177,6 @@ def main():
     else:
         ext_modules = system.discover_extensions()
 
-    ext_modules = [e for e in ext_modules if should_rebuild(e)]
-
-    dist = Distribution(dict(ext_modules=ext_modules))
-
     def append_args(arg_name, values):
         for ext_module in ext_modules:
             arg_value = getattr(ext_module, arg_name) or []
@@ -197,13 +211,11 @@ def main():
     if args.extra_compile:
         append_compile_args(args.extra_compile)
 
-    for ext_module in ext_modules:
-        with open(build_toml(ext_module.name), 'w') as f:
-            build_info = {
-                'extra_compile_args': ext_module.extra_compile_args,
-                'extra_link_args': ext_module.extra_link_args
-            }
-            pytoml.dump(f, build_info)
+    ext_modules = [e for e in ext_modules if should_rebuild(e)]
+    if not ext_modules:
+        return
+
+    dist = Distribution(dict(ext_modules=ext_modules))
 
     prune()
 
@@ -220,6 +232,13 @@ def main():
             cmd.get_ext_fullpath(ext_module.name),
             dest_folder(ext_module.name))
 
+    for ext_module in ext_modules:
+        with open(build_toml(ext_module.name), 'w') as f:
+            build_info = {
+                'extra_compile_args': ext_module.extra_compile_args,
+                'extra_link_args': ext_module.extra_link_args
+            }
+            pytoml.dump(f, build_info)
 
 if __name__ == '__main__':
     main()
