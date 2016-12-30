@@ -86,12 +86,38 @@ def should_rebuild(ext):
         return True
 
     so_mtime = os.stat(so).st_mtime
-    sources_mtimes = [os.stat(s).st_mtime for s in ext.sources]
 
-    if max(sources_mtimes) > so_mtime:
+    includes = get_includes(ext)
+    input_mtimes = [os.stat(s).st_mtime for s in ext.sources + includes]
+
+    if max(input_mtimes) > so_mtime:
         return True
 
     return False
+
+
+def get_includes(ext):
+    includes = []
+
+    include_base = dest_folder(ext.name)
+    include_paths = [os.path.join(include_base, i) for i in ext.include_dirs]
+
+    for source in ext.sources:
+        with open(source) as f:
+            for line in f:
+                line = line.strip()
+                if not line.startswith('#include'):
+                    continue
+
+                header = line.split()[1][1:-1]
+                for path in include_paths:
+                    if not os.path.exists(os.path.join(path, header)):
+                        continue
+
+                    includes.append(os.path.join(path, header))
+                    break
+
+    return includes
 
 
 def main():
