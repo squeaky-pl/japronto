@@ -4,7 +4,7 @@ from functools import partial
 import sys
 import json
 
-sys.path.append(os.path.dirname(__file__) + '/../..')
+sys.path.insert(0, os.path.dirname(__file__) + '/../../src')
 
 from app import Application
 

@@ -5,7 +5,7 @@ import os.path
 import sys
 import socket
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/../..'))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/../../src'))
 
 import protocol.handler
 
