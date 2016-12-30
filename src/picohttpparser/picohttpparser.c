@@ -36,7 +36,7 @@
 #endif
 #include "picohttpparser.h"
 
-/* $Id$ */
+/* $Id: 3228bad61525d68b757d7542bb817ccba6d7bc7f $ */
 
 #if __GNUC__ >= 3
 #define likely(x) __builtin_expect(!!(x), 1)
