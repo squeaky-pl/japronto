@@ -1,32 +1,32 @@
 import subprocess
 import sys
-import sysconfig
 
 import psutil
 import pytest
 import time
-from elftools.elf.elffile import ELFFile
+import os
 
 import client
 
+@pytest.fixture(scope='module')
+def build_with_track():
+    os.putenv('PYTHONPATH', '.test/noleak')
+
+    subprocess.check_call([
+        sys.executable, 'build.py', '--coverage', '--dest', '.test/noleak',
+        '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1'])
+
+    yield
+
+    os.putenv('PYTHONPATH', '.test')
+
+
+
 
 @pytest.fixture(scope='function')
-def server(request):
-    cprotocol_so = 'protocol/cprotocol.{}.so' \
-        .format(sysconfig.get_config_var('SOABI'))
-
-    with open(cprotocol_so, 'rb') as f:
-        elf = ELFFile(f)
-        command_line = elf.get_section_by_name('.GCC.command.line').data()
-
-    command_line = command_line.split(b'\x00') if command_line else []
-
-    if b'-D PROTOCOL_TRACK_REFCNT=1' not in command_line:
-        subprocess.check_call([
-            sys.executable, 'build.py',
-            '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1'])
-
+def server(build_with_track, request):
     arg = request.node.get_marker('arg').args[0]
+
     server = subprocess.Popen([
         sys.executable, 'integration_tests/noleak.py', arg])
     proc = psutil.Process(server.pid)
