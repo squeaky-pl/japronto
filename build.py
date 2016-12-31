@@ -19,6 +19,7 @@ sys.path.insert(0, SRC_LOCATION)
 class BuildSystem:
     def __init__(self, args):
         self.args = args
+        self.dest = self.args.dest
 
     def get_extension_by_path(self, path):
         path = SRC_LOCATION + '/' + path
@@ -60,13 +61,47 @@ class BuildSystem:
 
         return self.extensions
 
+    def dest_folder(self, mod_name):
+        return self.dest + '/' + '/'.join(mod_name.split('.')[:-1])
 
-def dest_folder(mod_name):
-    return SRC_LOCATION + '/' + '/'.join(mod_name.split('.')[:-1])
+    def build_toml(self, mod_name):
+        return self.dest +  '/' + '/'.join(mod_name.split('.')) + '.build.toml'
 
+    def get_so(self, ext):
+        return self.dest + '/' + '/'.join(ext.name.split('.')) + '.' + \
+            sysconfig.get_config_var('SOABI') + '.so'
 
-def build_toml(mod_name):
-    return SRC_LOCATION +  '/' + '/'.join(mod_name.split('.')) + '.build.toml'
+    def flags_changed(self, ext):
+        toml = self.build_toml(ext.name)
+        if not os.path.exists(toml):
+            return True
+
+        with open(toml) as f:
+            flags = pytoml.load(f)
+
+        ext_flags = {
+            "extra_compile_args": ext.extra_compile_args,
+            "extra_link_args": ext.extra_link_args}
+
+        return flags != ext_flags
+
+    def should_rebuild(self, ext):
+        so = self.get_so(ext)
+        if not os.path.exists(so):
+            return True
+
+        so_mtime = os.stat(so).st_mtime
+
+        includes = get_includes(ext)
+        input_mtimes = [os.stat(s).st_mtime for s in ext.sources + includes]
+
+        if max(input_mtimes) > so_mtime:
+            return True
+
+        if self.flags_changed(ext):
+            return True
+
+        return False
 
 
 def prune():
@@ -82,49 +117,10 @@ def profile_clean():
         os.remove(path)
 
 
-def get_so(ext):
-    return SRC_LOCATION + '/' + '/'.join(ext.name.split('.')) + '.' + \
-        sysconfig.get_config_var('SOABI') + '.so'
-
-
-def flags_changed(ext):
-    toml = build_toml(ext.name)
-    if not os.path.exists(toml):
-        return True
-
-    with open(toml) as f:
-        flags = pytoml.load(f)
-
-    ext_flags = {
-        "extra_compile_args": ext.extra_compile_args,
-        "extra_link_args": ext.extra_link_args}
-
-    return flags != ext_flags
-
-
-def should_rebuild(ext):
-    so = get_so(ext)
-    if not os.path.exists(so):
-        return True
-
-    so_mtime = os.stat(so).st_mtime
-
-    includes = get_includes(ext)
-    input_mtimes = [os.stat(s).st_mtime for s in ext.sources + includes]
-
-    if max(input_mtimes) > so_mtime:
-        return True
-
-    if flags_changed(ext):
-        return True
-
-    return False
-
-
 def get_includes(ext):
     includes = []
 
-    include_base = dest_folder(ext.name)
+    include_base = SRC_LOCATION + '/' + '/'.join(ext.name.split('.')[:-1])
     include_paths = [os.path.join(include_base, i) for i in ext.include_dirs]
 
     for source in ext.sources:
@@ -145,6 +141,32 @@ def get_includes(ext):
     return includes
 
 
+def symlink_python_files(dest):
+    if dest == SRC_LOCATION:
+        return
+
+    for parent, dirs, files in os.walk(SRC_LOCATION):
+        if os.path.basename(parent) == '__pycache__':
+            continue
+
+        files = [
+            f for f in files
+            if f.endswith('.py') and not f.endswith('_ext.py')
+            and not f.startswith('test_')]
+
+        if not files:
+            continue
+
+        dest_parent = os.path.join(dest, *os.path.split(parent)[1:])
+        os.makedirs(dest_parent, exist_ok=True)
+        for file in files:
+            dst = os.path.join(dest_parent, file)
+            src = os.path.relpath(os.path.join(parent, file), dest_parent)
+            if os.path.exists(dst):
+                os.unlink(dst)
+            os.symlink(src, dst)
+
+
 def main():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
@@ -152,6 +174,7 @@ def main():
     argparser.add_argument(
         '--profile-generate', dest='profile_generate', const=True,
         action='store_const', default=False)
+    argparser.add_argument('--dest', dest='dest', default='src')
     argparser.add_argument(
         '--profile-use', dest='profile_use', const=True,
         action='store_const', default=False)
@@ -218,7 +241,7 @@ def main():
     if args.extra_compile:
         append_compile_args(args.extra_compile)
 
-    ext_modules = [e for e in ext_modules if should_rebuild(e)]
+    ext_modules = [e for e in ext_modules if system.should_rebuild(e)]
     if not ext_modules:
         return
 
@@ -234,13 +257,16 @@ def main():
     except CompileError:
         sys.exit(1)
 
-    for ext_module in ext_modules:
-        shutil.copy(
-            cmd.get_ext_fullpath(ext_module.name),
-            dest_folder(ext_module.name))
+    symlink_python_files(args.dest)
 
     for ext_module in ext_modules:
-        with open(build_toml(ext_module.name), 'w') as f:
+        os.makedirs(system.dest_folder(ext_module.name), exist_ok=True)
+        shutil.copy(
+            cmd.get_ext_fullpath(ext_module.name),
+            system.dest_folder(ext_module.name))
+
+    for ext_module in ext_modules:
+        with open(system.build_toml(ext_module.name), 'w') as f:
             build_info = {
                 'extra_compile_args': ext_module.extra_compile_args,
                 'extra_link_args': ext_module.extra_link_args
