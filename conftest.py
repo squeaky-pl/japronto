@@ -2,18 +2,22 @@ import subprocess
 import sys
 import os
 import shutil
+import pytest
 
 
-def pytest_configure(config):
-    os.putenv('PYTHONPATH', 'src')
-    subprocess.check_call([sys.executable, 'build.py', '--coverage'])
+@pytest.fixture(scope='session', autouse=True)
+def global_fixture():
+    os.putenv('PYTHONPATH', '.test')
+    sys.path.insert(0, '.test')
+    subprocess.check_call([
+        sys.executable, 'build.py', '--coverage', '--dest', '.test'])
 
     subprocess.check_call([
         'lcov', '--base-directory', '.', '--directory',
         'build/temp.linux-x86_64-3.5', '--zerocounters', '-q'])
 
+    yield
 
-def pytest_unconfigure(config):
     try:
         os.unlink('coverage.info')
     except FileNotFoundError:

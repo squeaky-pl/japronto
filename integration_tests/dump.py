@@ -2,7 +2,6 @@ import os.path
 import sys
 import base64
 
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/..'))
 
 from app import Application
 
