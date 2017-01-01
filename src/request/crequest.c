@@ -133,7 +133,9 @@ Request_clone(Request* original)
       // the keys didnt move, they reference immutable memory from the router
       entry->value += shift;
     }
-    clone->body += shift;
+    if(clone->body)
+      // body can be NULL
+      clone->body += shift;
   } else {
     // just steal the buffer since the original request will be destroyed anyway
     clone->buffer = original->buffer;

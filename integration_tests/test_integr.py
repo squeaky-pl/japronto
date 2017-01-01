@@ -172,12 +172,12 @@ st_body = st.one_of(st.binary(), st.none())
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
-def test_body(connect, size_k, body):
+def test_body(prefix, connect, size_k, body):
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
 
     connection = connect()
-    connection.putrequest('GET', '/dump/1/2')
+    connection.putrequest('GET', prefix + '/1/2')
     if body is not None:
         connection.putheader('Content-Length', len(body))
     connection.endheaders(body)
@@ -198,13 +198,13 @@ def test_body(connect, size_k, body):
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
-def test_chunked(connect, size_k, body):
+def test_chunked(prefix, connect, size_k, body):
     length = sum(len(b) for b in body)
     if size_k and length:
         body = body * ((size_k * 1024) // length + 1)
 
     connection = connect()
-    connection.request_chunked('POST', '/dump/1/2', body=body)
+    connection.request_chunked('POST', prefix + '/1/2', body=body)
     response = connection.getresponse()
     assert response.status == 200
     json_body = json.loads(response.read().decode('utf-8'))
