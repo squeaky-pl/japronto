@@ -14,7 +14,7 @@ def global_fixture():
 
     subprocess.check_call([
         'lcov', '--base-directory', '.', '--directory',
-        'build/temp.linux-x86_64-3.5', '--zerocounters', '-q'])
+        '.test/.build/temp', '--zerocounters', '-q'])
 
     yield
 
@@ -25,7 +25,7 @@ def global_fixture():
 
     subprocess.check_call([
         'lcov', '--base-directory', '.', '--directory',
-        'build/temp.linux-x86_64-3.5', '-c', '-o', 'coverage.info', '-q'])
+        '.test/.build/temp', '-c', '-o', 'coverage.info', '-q'])
     subprocess.check_call([
         'lcov', '--remove', 'coverage.info',
         '/usr*', '-o', 'coverage.info', '-q'])
