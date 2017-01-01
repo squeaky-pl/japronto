@@ -80,13 +80,16 @@ def connect(request):
         close()
 
 
+@pytest.fixture(params=['/dump', '/adump'], ids=['sync', 'async'])
+def prefix(request):
+    return request.param
+
+
 method_alphabet = string.digits + string.ascii_letters + string.punctuation
 st_method = method=st.text(method_alphabet, min_size=1)
 @given(method=st_method)
 @settings(verbosity=Verbosity.verbose)
-@pytest.mark.parametrize('sync', [True, False])
-def test_method(sync, connect, method):
-    prefix = '/dump' if sync else '/adump'
+def test_method(prefix, connect, method):
     connection = connect()
     connection.request(method, prefix + '/1/2')
     response = connection.getresponse()
