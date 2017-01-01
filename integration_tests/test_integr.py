@@ -227,11 +227,11 @@ def test_chunked(prefix, connect, size_k, body):
 )
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
-def test_all(connect, size_k, method, param1, param2, query_string, headers, body):
+def test_all(prefix, connect, size_k, method, param1, param2, query_string, headers, body):
     connection = connect()
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
-    url = urllib.parse.quote('/dump/{}/{}'.format(param1, param2))
+    url = urllib.parse.quote(prefix + '/{}/{}'.format(param1, param2))
     if query_string is not None:
         url += '?' + urllib.parse.quote(query_string)
     connection.putrequest(
