@@ -108,10 +108,26 @@ Request_clone(Request* original)
   if(Request_init(clone, NULL, NULL) == -1)
     goto error;
 
-  const size_t offset = offsetof(Request, method_len);
-  const size_t length = offsetof(Request, py_method) - offset;
+  const size_t offset = offsetof(Request, method);
+  const size_t length = offsetof(Request, transport) - offset;
 
   memcpy((char*)clone + offset, (char*)original + offset, length);
+
+  if(original->buffer == original->inline_buffer) {
+    clone->buffer = clone->inline_buffer;
+
+    ptrdiff_t shift = (char*)clone - (char*)original;
+    clone->method += shift;
+    clone->path += shift;
+    clone->headers += shift;
+    // shift keys and values
+    clone->match_dict_entries =
+      (MatchDictEntry*)((char*)clone->match_dict_entries + shift);
+    // shift values
+    clone->body += shift;
+  } else {
+    abort();
+  }
 
   goto finally;
 

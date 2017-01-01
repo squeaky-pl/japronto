@@ -10,7 +10,7 @@ def global_fixture():
     os.putenv('PYTHONPATH', '.test')
     sys.path.insert(0, '.test')
     subprocess.check_call([
-        sys.executable, 'build.py', '--coverage', '--dest', '.test'])
+        sys.executable, 'build.py', '--coverage', '--dest', '.test', '-d'])
 
     subprocess.check_call([
         'lcov', '--base-directory', '.', '--directory',

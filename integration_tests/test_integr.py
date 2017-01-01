@@ -84,9 +84,11 @@ method_alphabet = string.digits + string.ascii_letters + string.punctuation
 st_method = method=st.text(method_alphabet, min_size=1)
 @given(method=st_method)
 @settings(verbosity=Verbosity.verbose)
-def test_method(connect, method):
+@pytest.mark.parametrize('sync', [True, False])
+def test_method(sync, connect, method):
+    prefix = '/dump' if sync else '/adump'
     connection = connect()
-    connection.request(method, '/dump/1/2')
+    connection.request(method, prefix + '/1/2')
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
