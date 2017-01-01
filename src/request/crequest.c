@@ -123,7 +123,11 @@ Request_clone(Request* original)
     // shift keys and values
     clone->match_dict_entries =
       (MatchDictEntry*)((char*)clone->match_dict_entries + shift);
-    // shift values
+    for(MatchDictEntry* entry = clone->match_dict_entries;
+        entry < clone->match_dict_entries + clone->match_dict_length; entry++) {
+      // the keys didnt move, they reference immutable memory from the router
+      entry->value += shift;
+    }
     clone->body += shift;
   } else {
     abort();

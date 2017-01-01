@@ -106,9 +106,9 @@ param_alphabet = st.characters(blacklist_characters='/?') \
 st_param = st.text(param_alphabet, min_size=1)
 @given(param1=st_param, param2=st_param)
 @settings(verbosity=Verbosity.verbose)
-def test_match_dict(connect, param1, param2):
+def test_match_dict(prefix, connect, param1, param2):
     connection = connect()
-    connection.request('GET', urllib.parse.quote('/dump/{}/{}'.format(param1, param2)))
+    connection.request('GET', urllib.parse.quote(prefix + '/{}/{}'.format(param1, param2)))
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
