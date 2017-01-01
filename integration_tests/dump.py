@@ -1,6 +1,7 @@
 import os.path
 import sys
 import base64
+import asyncio
 
 
 from app import Application
@@ -22,10 +23,19 @@ def dump(request):
 
     return request.Response(json=result)
 
+
+async def adump(request):
+    sleep = int(request.query.get('sleep', 0))
+    await asyncio.sleep(sleep)
+
+    return dump(request)
+
+
 app = Application()
 
 r = app.get_router()
 r.add_route('/dump/{p1}/{p2}', dump)
+r.add_route('/adump/{p1}/{p2}', adump)
 
 
 if __name__ == '__main__':
