@@ -121,9 +121,9 @@ def test_match_dict(prefix, connect, param1, param2):
 st_query_string = st.one_of(st.text(), st.none())
 @given(query_string=st_query_string)
 @settings(verbosity=Verbosity.verbose)
-def test_query_string(connect, query_string):
+def test_query_string(prefix, connect, query_string):
     connection = connect()
-    url = '/dump/1/2'
+    url = prefix + '/1/2'
     if query_string is not None:
         url += '?' + urllib.parse.quote(query_string)
     connection.request('GET', url)
@@ -149,10 +149,10 @@ st_headers = st.dictionaries(names, values, max_size=49).filter(
     verbosity=Verbosity.verbose,
     suppress_health_check=[HealthCheck.too_slow]
 )
-def test_headers(connect, headers):
+def test_headers(prefix, connect, headers):
     connection = connect()
     connection.putrequest(
-        'GET', '/dump/1/2', skip_host=True, skip_accept_encoding=True)
+        'GET', prefix + '/1/2', skip_host=True, skip_accept_encoding=True)
     for name, value in headers.items():
         connection.putheader(name, value)
     connection.endheaders()

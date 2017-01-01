@@ -119,8 +119,13 @@ Request_clone(Request* original)
     ptrdiff_t shift = (char*)clone - (char*)original;
     clone->method += shift;
     clone->path += shift;
-    clone->headers += shift;
-    // shift keys and values
+    clone->headers = (struct phr_header*)((char*)clone->headers + shift);
+    for(struct phr_header* header = clone->headers;
+        header < clone->headers + clone->num_headers;
+        header++) {
+      header->name += shift;
+      header->value += shift;
+    }
     clone->match_dict_entries =
       (MatchDictEntry*)((char*)clone->match_dict_entries + shift);
     for(MatchDictEntry* entry = clone->match_dict_entries;
@@ -130,7 +135,9 @@ Request_clone(Request* original)
     }
     clone->body += shift;
   } else {
-    abort();
+    // just steal the buffer since the original request will be destroyed anyway
+    clone->buffer = original->buffer;
+    original->buffer = original->inline_buffer;
   }
 
   goto finally;
