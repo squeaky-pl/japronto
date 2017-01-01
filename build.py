@@ -250,6 +250,8 @@ def main():
     prune()
 
     cmd = build_ext(dist)
+    cmd.build_lib = os.path.join(args.dest, '.build/lib')
+    cmd.build_temp = os.path.join(args.dest, '.build/temp')
     cmd.finalize_options()
 
     try:
