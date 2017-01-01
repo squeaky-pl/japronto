@@ -140,7 +140,10 @@ values = st.text(value_alphabet, min_size=1) \
 st_headers = st.dictionaries(names, values, max_size=49).filter(
     lambda x: len(x) == len(set(n.lower() for n in x)))
 @given(headers=st_headers)
-@settings(verbosity=Verbosity.verbose)
+@settings(
+    verbosity=Verbosity.verbose,
+    suppress_health_check=[HealthCheck.too_slow]
+)
 def test_headers(connect, headers):
     connection = connect()
     connection.putrequest(
