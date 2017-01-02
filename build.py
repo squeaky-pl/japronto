@@ -104,9 +104,9 @@ class BuildSystem:
         return False
 
 
-def prune():
-    paths = glob('build/**/*.o', recursive=True)
-    paths.extend(glob('build/**/*.so', recursive=True))
+def prune(dest):
+    paths = glob(os.path.join(dest, '.build/**/*.o'), recursive=True)
+    paths.extend(glob(os.path.join(dest, '.build/**/*.so'), recursive=True))
     for path in paths:
         os.remove(path)
 
@@ -247,7 +247,7 @@ def main():
 
     dist = Distribution(dict(ext_modules=ext_modules))
 
-    prune()
+    prune(args.dest)
 
     cmd = build_ext(dist)
     cmd.build_lib = os.path.join(args.dest, '.build/lib')
