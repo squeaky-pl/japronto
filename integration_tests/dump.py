@@ -25,7 +25,7 @@ def dump(request):
 
 
 async def adump(request):
-    sleep = int(request.query.get('sleep', 0))
+    sleep = float(request.query.get('sleep', 0))
     await asyncio.sleep(sleep)
 
     return dump(request)

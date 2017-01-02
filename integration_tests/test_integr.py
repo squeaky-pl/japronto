@@ -303,3 +303,21 @@ def test_pipeline(requests):
 
 
     connection.close()
+
+
+def test_async_pipeline():
+    connection = client.Connection('localhost:8080')
+
+    requests = [{'query_string': 'sleep=.02'}, {'query_string': 'sleep=.01'}]
+
+    for request in requests:
+        connection.putrequest('GET', '/adump/1/2', request['query_string'])
+        connection.endheaders()
+
+    for request in requests:
+        response = connection.getresponse()
+        assert response.status == 200
+        json_body = response.json
+        assert json_body['query_string'] == request['query_string']
+
+    connection.close()

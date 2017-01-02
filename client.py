@@ -1,5 +1,6 @@
 import socket
 import urllib.parse
+import json
 
 
 def readline(sock):
@@ -64,6 +65,10 @@ class Response:
     def read_body(self):
         self.body = readexact(self.sock, int(self.headers['Content-Length']))
         self.text = self.body.decode(self.encoding)
+
+    @property
+    def json(self):
+        return json.loads(self.text)
 
 
 class Connection:
