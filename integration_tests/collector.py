@@ -1,7 +1,7 @@
 import psutil
 import sys
 import time
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import os
 import uvloop
 import asyncio as aio
@@ -86,8 +86,8 @@ def main():
     loop.run_until_complete(server.wait_closed())
     loop.close()
 
-    path = report(pid, samples)
-    print('Report saved to:', path)
+#    path = report(pid, samples)
+#    print('Report saved to:', path)
 
 
 if __name__ == '__main__':
