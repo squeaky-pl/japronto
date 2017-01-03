@@ -5,3 +5,4 @@ pytoml
 pytest
 psutil
 urllib3
+hypothesis
