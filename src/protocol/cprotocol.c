@@ -545,7 +545,6 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   finally:
   if(request != (PyObject*)&self->static_request)
     Py_XDECREF(request);
-  // todo fixme
   Py_XDECREF(generator);
   Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE

@@ -2,6 +2,7 @@
 
 #include <Python.h>
 
+#ifdef PIPELINE_PAIR
 typedef struct {
   PyObject* request;
   PyObject* task;
@@ -27,6 +28,27 @@ PipelineEntry_get_task(PipelineEntry entry)
 {
   return entry.task;
 }
+#else
+typedef PyObject* PipelineEntry;
+
+static inline void
+PipelineEntry_DECREF(PipelineEntry entry)
+{
+    Py_DECREF(entry);
+}
+
+static inline void
+PipelineEntry_INCREF(PipelineEntry entry)
+{
+    Py_INCREF(entry);
+}
+
+static inline PyObject*
+PipelineEntry_get_task(PipelineEntry entry)
+{
+  return entry;
+}
+#endif
 
 
 typedef struct {
