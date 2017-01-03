@@ -6,7 +6,6 @@
 #include "crequest.h"
 #include "cresponse.h"
 #include "capsule.h"
-#include "generator.h"
 #include "match_dict.h"
 
 #ifdef PARSER_STANDALONE
@@ -405,13 +404,17 @@ static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure)
   PyObject* request = entry.request;
   PyObject* task = entry.task;
 
-  if(!(get_result = PyObject_GetAttrString(task, "result")))
-    goto error;
+  if(PipelineEntry_is_task(entry)) {
+    if(!(get_result = PyObject_GetAttrString(task, "result")))
+      goto error;
 
-  /* we can get exception from the Python handler, we will pass it
-     to python error handler
-  */
-  response = PyObject_CallFunctionObjArgs(get_result, NULL);
+    /* we can get exception from the Python handler, we will pass it
+       to python error handler
+    */
+    response = PyObject_CallFunctionObjArgs(get_result, NULL);
+  } else {
+    response = task;
+  }
 
   if(!Protocol_write_response_or_err(self, request, (Response*)response))
     goto error;
@@ -422,7 +425,8 @@ static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure)
   self = NULL;
 
   finally:
-  Py_XDECREF(response);
+  if(PipelineEntry_is_task(entry))
+    Py_XDECREF(response);
   Py_XDECREF(get_result);
   return self;
 }
@@ -437,7 +441,7 @@ Protocol_handle_coro(Protocol* self, PyObject* request, PyObject* coro)
   if(!(task = PyObject_CallFunctionObjArgs(self->create_task, coro, NULL)))
     goto error;
 
-  if(!Pipeline_queue(&self->pipeline, (PipelineEntry){request, task}))
+  if(!Pipeline_queue(&self->pipeline, (PipelineEntry){true, request, task}))
     goto error;
 
   goto finally;
@@ -469,7 +473,6 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   PyObject* request = NULL;
   bool coro_func;
   PyObject* handler_result = NULL;
-  PyObject* generator = NULL;
   MatchDictEntry* entries;
   size_t entries_length;
 #ifdef PARSER_STANDALONE
@@ -523,13 +526,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   if(handler_result && !PIPELINE_EMPTY(&self->pipeline))
   {
-    if(!(generator = Generator_new()))
-      goto error;
-
-    if(Generator_init((GENERATOR*)generator, handler_result) == -1)
-      goto error;
-
-    if(!Protocol_handle_coro(self, request, generator))
+    if(!Pipeline_queue(&self->pipeline, (PipelineEntry){false, request, handler_result}))
       goto error;
 
     goto finally;
@@ -549,7 +546,6 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   finally:
   if(request != (PyObject*)&self->static_request)
     Py_XDECREF(request);
-  Py_XDECREF(generator);
   Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE
   if(result)
@@ -704,9 +700,6 @@ PyInit_cprotocol(void)
     goto error;
 
   if(!crequest_init())
-    goto error;
-
-  if(!generator_init())
     goto error;
 
   crequest = PyImport_ImportModule("request.crequest");

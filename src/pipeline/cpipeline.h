@@ -1,13 +1,22 @@
 #pragma once
 
+#include <stdbool.h>
+
 #include <Python.h>
 
 #ifdef PIPELINE_PAIR
+
 typedef struct {
+  bool is_task;
   PyObject* request;
   PyObject* task;
 } PipelineEntry;
 
+static inline bool
+PipelineEntry_is_task(PipelineEntry entry)
+{
+  return entry.is_task;
+}
 
 static inline void
 PipelineEntry_DECREF(PipelineEntry entry)
@@ -30,6 +39,12 @@ PipelineEntry_get_task(PipelineEntry entry)
 }
 #else
 typedef PyObject* PipelineEntry;
+
+static inline bool
+PipelineEntry_is_task(PipelineEntry entry)
+{
+  return true;
+}
 
 static inline void
 PipelineEntry_DECREF(PipelineEntry entry)

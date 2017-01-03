@@ -96,17 +96,21 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
       queue_entry < self->queue + self->queue_end; queue_entry++) {
     PyObject* done = NULL;
     PyObject* done_result = NULL;
-    task = PipelineEntry_get_task(*queue_entry);
+    result = Py_True;
 
-    if(!(done = PyObject_GetAttrString(task, "done")))
-      goto loop_error;
+    if(PipelineEntry_is_task(*queue_entry)) {
+      task = PipelineEntry_get_task(*queue_entry);
 
-    if(!(done_result = PyObject_CallFunctionObjArgs(done, NULL)))
-      goto loop_error;
+      if(!(done = PyObject_GetAttrString(task, "done")))
+        goto loop_error;
 
-    if(done_result == Py_False) {
-      result = Py_False;
-      goto loop_finally;
+      if(!(done_result = PyObject_CallFunctionObjArgs(done, NULL)))
+        goto loop_error;
+
+      if(done_result == Py_False) {
+        result = Py_False;
+        goto loop_finally;
+      }
     }
 
 #ifdef PIPELINE_OPAQUE
@@ -156,7 +160,6 @@ Pipeline_queue(Pipeline* self, PipelineEntry entry)
 {
   PyObject* result = Py_None;
   PyObject* add_done_callback = NULL;
-  PyObject* task = PipelineEntry_get_task(entry);
 
   if(PIPELINE_EMPTY(self))
     self->queue_start = self->queue_end = 0;
@@ -169,13 +172,16 @@ Pipeline_queue(Pipeline* self, PipelineEntry entry)
 
   self->queue_end++;
 
-  if(!(add_done_callback = PyObject_GetAttrString(task, "add_done_callback")))
-    goto error;
+  if(PipelineEntry_is_task(entry)) {
+    PyObject* task = PipelineEntry_get_task(entry);
+    if(!(add_done_callback = PyObject_GetAttrString(task, "add_done_callback")))
+      goto error;
 
-  PyObject* tmp;
-  if(!(tmp = PyObject_CallFunctionObjArgs(add_done_callback, self->task_done, NULL)))
-    goto error;
-  Py_DECREF(tmp);
+    PyObject* tmp;
+    if(!(tmp = PyObject_CallFunctionObjArgs(add_done_callback, self->task_done, NULL)))
+      goto error;
+    Py_DECREF(tmp);
+  }
 
   goto finally;
 

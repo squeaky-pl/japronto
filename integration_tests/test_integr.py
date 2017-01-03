@@ -306,7 +306,7 @@ def test_pipeline(requests):
 
 
 def format_sleep_qs(val):
-    return 'sleep=' + str(val / 50)
+    return 'sleep=' + str(val / 100)
 st_sleep = st.builds(format_sleep_qs, st.integers(min_value=0, max_value=10))
 st_prefix = st.sampled_from(['/dump', '/adump'])
 st_async_request = st.fixed_dictionaries({
