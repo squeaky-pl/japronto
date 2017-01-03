@@ -30,7 +30,10 @@ def global_fixture():
         'lcov', '--remove', 'coverage.info',
         '/usr*', '-o', 'coverage.info', '-q'])
 
-    shutil.rmtree('test_coverage')
+    try:
+        shutil.rmtree('test_coverage')
+    except FileNotFoundError:
+        pass
 
     subprocess.check_call([
         'genhtml', '-o', 'test_coverage', 'coverage.info', '-q'
