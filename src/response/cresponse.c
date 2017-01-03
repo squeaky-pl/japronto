@@ -34,9 +34,11 @@ Response_new(PyTypeObject* type, Response* self)
   self = (Response*)type->tp_alloc(type, 0);
   if(!self)
     goto finally;
+  self->opaque = true;
 #else
   ((PyObject*)self)->ob_refcnt = 1;
   ((PyObject*)self)->ob_type = type;
+  self->opaque = false;
 #endif
 
   self->status_code = NULL;
@@ -73,7 +75,8 @@ Response_dealloc(Response* self)
   Py_XDECREF(self->status_code);
 
 #ifdef RESPONSE_OPAQUE
-  Py_TYPE(self)->tp_free((PyObject*)self);
+  if(self->opaque)
+    Py_TYPE(self)->tp_free((PyObject*)self);
 #endif
 }
 

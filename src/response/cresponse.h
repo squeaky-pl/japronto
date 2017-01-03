@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Python.h>
+#include <stdbool.h>
 #include "common.h"
 
 
@@ -9,6 +10,7 @@
 typedef struct {
   PyObject_HEAD
 
+  bool opaque;
   int minor_version;
   KEEP_ALIVE keep_alive;
 
