@@ -290,7 +290,7 @@ def test_pipeline(requests):
     for request in requests:
         response = connection.getresponse()
         assert response.status == 200
-        json_body = json.loads(response.body.decode('utf-8'))
+        json_body = response.json
         assert json_body['method'] == request['method']
         assert json_body['match_dict'] == \
             {'p1': request['param1'], 'p2': request['param2']}
@@ -305,13 +305,23 @@ def test_pipeline(requests):
     connection.close()
 
 
-def test_async_pipeline():
+def format_sleep_qs(val):
+    return 'sleep=' + str(val / 50)
+st_sleep = st.builds(format_sleep_qs, st.integers(min_value=0, max_value=10))
+st_prefix = st.sampled_from(['/dump', '/adump'])
+st_async_request = st.fixed_dictionaries({
+    'query_string': st_sleep,
+    'prefix': st_prefix
+})
+st_async_requests = st.lists(st_async_request, min_size=2, max_size=5)
+@given(requests=st_async_requests)
+@settings(verbosity=Verbosity.verbose)
+def test_async_pipeline(requests):
     connection = client.Connection('localhost:8080')
 
-    requests = [{'query_string': 'sleep=.02'}, {'query_string': 'sleep=.01'}]
-
     for request in requests:
-        connection.putrequest('GET', '/adump/1/2', request['query_string'])
+        connection.putrequest(
+            'GET', request['prefix'] + '/1/2', request['query_string'])
         connection.endheaders()
 
     for request in requests:
