@@ -44,7 +44,6 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->app = NULL;
   self->matcher = NULL;
   self->error_handler = NULL;
-  self->request = NULL;
   self->transport = NULL;
   self->write = NULL;
   self->create_task = NULL;
@@ -60,7 +59,6 @@ Protocol_dealloc(Protocol* self)
   Py_XDECREF(self->create_task);
   Py_XDECREF(self->write);
   Py_XDECREF(self->transport);
-  Py_XDECREF(self->request);
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
@@ -132,9 +130,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   self->error_handler = PyObject_GetAttrString(self->app, "error_handler");
   if(!self->error_handler)
     goto error;
-
-  self->request = Py_None;
-  Py_INCREF(self->request);
 
   loop = PyObject_GetAttrString(self->app, "_loop");
   if(!loop)
@@ -321,15 +316,12 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 {
   Protocol* result = self;
 
-  Py_DECREF(self->request);
   Request_dealloc(&self->static_request);
   Request_new(request_capi->RequestType, &self->static_request);
   Request_init(&self->static_request);
-  self->request = (PyObject*)&self->static_request;
-  Py_INCREF(self->request);
 
   request_capi->Request_from_raw(
-    (Request*)self->request, method, method_len, path, path_len, minor_version,
+    &self->static_request, method, method_len, path, path_len, minor_version,
     headers, num_headers);
 
   goto finally;
@@ -356,8 +348,11 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
       if(etraceback)
         PyException_SetTraceback(evalue, etraceback);
 
+      // error_result = PyObject_CallFunctionObjArgs(
+      //   self->error_handler, self->request, evalue, NULL);
       error_result = PyObject_CallFunctionObjArgs(
-        self->error_handler, self->request, evalue, NULL);
+        self->error_handler, NULL, evalue, NULL);
+      // FIX me
       if(!error_result)
         goto error;
 
@@ -466,6 +461,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #endif
   PyObject* route = NULL; // stolen
   PyObject* handler = NULL; // stolen
+  PyObject* request = NULL;
   bool coro_func;
   PyObject* handler_result = NULL;
   PyObject* generator = NULL;
@@ -480,7 +476,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   route = matcher_capi->Matcher_match_request(
     (Matcher*)self->matcher,
-    self->request, &handler, &coro_func, &entries, &entries_length);
+    (PyObject*)&self->static_request,
+    &handler, &coro_func, &entries, &entries_length);
   if(!route)
     goto error;
 
@@ -490,29 +487,27 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   }
 
   request_capi->Request_set_match_dict_entries(
-    (Request*)self->request, entries, entries_length);
+    &self->static_request, entries, entries_length);
 
   request_capi->Request_set_body(
-    (Request*)self->request, body, body_len);
+    &self->static_request, body, body_len);
 
   /* this is only needed when the request would be scheduled in pipeline
      once we know that from router we can put a condition here
   */
+  request = (PyObject*)&self->static_request;
   if(coro_func || !PIPELINE_EMPTY(&self->pipeline)) {
-    PyObject* tmp = self->request;
-    if(!(self->request = request_capi->Request_clone((Request*)self->request)))
+    if(!(request = request_capi->Request_clone(&self->static_request)))
       goto error;
-    // FIXME: leak
-    Py_DECREF(tmp);
   }
 
-  ((Request*)self->request)->transport = self->transport;
+  ((Request*)request)->transport = self->transport;
   Py_INCREF(self->transport);
 
   /* we can get exception from the Python handler, we will pass it
      to python error handler
   */
-  handler_result = PyObject_CallFunctionObjArgs(handler, self->request, NULL);
+  handler_result = PyObject_CallFunctionObjArgs(handler, request, NULL);
 
   if(handler_result && coro_func) {
     if(!Protocol_handle_coro(self, handler_result))
@@ -546,6 +541,9 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   result = NULL;
 
   finally:
+  //if(request != &self->static_request)
+  //  Py_XDECREF(request);
+  // todo fixme
   Py_XDECREF(generator);
   Py_XDECREF(handler_result);
 #ifdef PARSER_STANDALONE

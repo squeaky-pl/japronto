@@ -26,7 +26,6 @@ typedef struct {
   PyObject* app;
   PyObject* matcher;
   PyObject* error_handler;
-  PyObject* request;
   PyObject* transport;
   PyObject* write;
   PyObject* create_task;
