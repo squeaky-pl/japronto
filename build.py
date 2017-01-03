@@ -82,7 +82,8 @@ class BuildSystem:
         ext_flags = {
             "extra_compile_args": ext.extra_compile_args,
             "extra_link_args": ext.extra_link_args,
-            "define_macros": dict(ext.define_macros)}
+            "define_macros": dict(ext.define_macros),
+            "sources": ext.sources}
 
         return flags != ext_flags
 
@@ -273,7 +274,8 @@ def main():
             build_info = {
                 'extra_compile_args': ext_module.extra_compile_args,
                 'extra_link_args': ext_module.extra_link_args,
-                'define_macros': dict(ext_module.define_macros)
+                'define_macros': dict(ext_module.define_macros),
+                'sources': ext_module.sources
             }
             pytoml.dump(f, build_info)
 
