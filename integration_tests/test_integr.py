@@ -24,17 +24,32 @@ def server():
         sys.executable, 'integration_tests/collector.py', str(server.pid)])
     c_proc = psutil.Process(collector.pid)
 
+    assert server.poll() is None
+    assert collector.poll() is None
+
     # wait until the server socket is open
-    while 1:
-        if proc.connections():
-            break
+    try:
+        while 1:
+            if proc.connections():
+                break
         time.sleep(.001)
+    except psutil.AccessDenied:
+        time.sleep(.2)
+
+    assert server.poll() is None
+    assert collector.poll() is None
 
     # wait until the collector socket is open
-    while 1:
-        if c_proc.connections():
-            break
-        time.sleep(.001)
+    try:
+        while 1:
+            if c_proc.connections():
+                break
+            time.sleep(.001)
+    except psutil.AccessDenied:
+        time.sleep(.2)
+
+    assert server.poll() is None
+    assert collector.poll() is None
 
     yield server
 
