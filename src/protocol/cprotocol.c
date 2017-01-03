@@ -155,6 +155,14 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 static PyObject*
 Protocol_connection_made(Protocol* self, PyObject* transport)
 {
+#ifdef PROTOCOL_TRACK_REFCNT
+  printf("made: %ld, %ld, %ld, ",
+    (size_t)Py_REFCNT(Py_None), (size_t)Py_REFCNT(Py_True), (size_t)Py_REFCNT(Py_False));
+  self->none_cnt = Py_REFCNT(Py_None);
+  self->true_cnt = Py_REFCNT(Py_True);
+  self->false_cnt = Py_REFCNT(Py_False);
+#endif
+
   PyObject* get_extra_info = NULL;
   PyObject* socket = NULL;
   PyObject* setsockopt = NULL;
@@ -190,12 +198,6 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 
   if(PySet_Add(connections, (PyObject*)self) == -1)
     goto error;
-
-#ifdef PROTOCOL_TRACK_REFCNT
-  self->none_cnt = Py_REFCNT(Py_None);
-  self->true_cnt = Py_REFCNT(Py_True);
-  self->false_cnt = Py_REFCNT(Py_False);
-#endif
 
   goto finally;
 
@@ -259,9 +261,11 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
     goto error;
 
 #ifdef PROTOCOL_TRACK_REFCNT
+printf("lost: %ld, %ld, %ld\n",
+  (size_t)Py_REFCNT(Py_None), (size_t)Py_REFCNT(Py_True), (size_t)Py_REFCNT(Py_False));
   assert(Py_REFCNT(Py_None) == self->none_cnt);
   assert(Py_REFCNT(Py_True) == self->true_cnt);
-  assert(Py_REFCNT(Py_False) == self->false_cnt);
+  assert(Py_REFCNT(Py_False) >= self->false_cnt);
 #endif
 
   goto finally;
