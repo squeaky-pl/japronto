@@ -70,15 +70,19 @@ def max_freq():
 
 
 def dump():
-    sensors = subprocess.check_output('sensors').decode('utf-8')
-    cores = []
-    for line in sensors.splitlines():
-        if line.startswith('Core '):
-            core, rest = line.split(':')
-            temp = rest.strip().split()[0]
-            cores.append((core, temp))
-    for core, temp in cores:
-        print(core + ':', temp)
+    try:
+        sensors = subprocess.check_output('sensors').decode('utf-8')
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print('Couldnt read CPU temp')
+    else:
+        cores = []
+        for line in sensors.splitlines():
+            if line.startswith('Core '):
+                core, rest = line.split(':')
+                temp = rest.strip().split()[0]
+                cores.append((core, temp))
+        for core, temp in cores:
+            print(core + ':', temp)
 
     i = 0
     while 1:
