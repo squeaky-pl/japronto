@@ -75,7 +75,7 @@ Protocol_dealloc(Protocol* self)
 }
 
 
-static void* Protocol_pipeline_ready(PyObject* task, void* closure);
+static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure);
 
 
 static int
@@ -332,7 +332,8 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 #endif
 
 
-static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response* response)
+static inline Protocol*
+Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* response)
 {
     Protocol* result = self;
     PyObject* response_py_buf = NULL;
@@ -348,18 +349,15 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
       if(etraceback)
         PyException_SetTraceback(evalue, etraceback);
 
-      // error_result = PyObject_CallFunctionObjArgs(
-      //   self->error_handler, self->request, evalue, NULL);
       error_result = PyObject_CallFunctionObjArgs(
-        self->error_handler, NULL, evalue, NULL);
-      // FIX me
+        self->error_handler, request, evalue, NULL);
       if(!error_result)
         goto error;
 
       PyErr_Restore(etype, evalue, etraceback);
       PyErr_Clear();
 
-      if(!Protocol_write_response_or_err(self, (Response*)error_result))
+      if(!Protocol_write_response_or_err(self, request, (Response*)error_result))
         goto error;
 
       goto finally;
@@ -395,11 +393,13 @@ static inline Protocol* Protocol_write_response_or_err(Protocol* self, Response*
 }
 
 
-static void* Protocol_pipeline_ready(PyObject* task, void* closure)
+static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure)
 {
   Protocol* self = (Protocol*)closure;
   PyObject* get_result = NULL;
   PyObject* response = NULL;
+  PyObject* request = entry.request;
+  PyObject* task = entry.task;
 
   if(!(get_result = PyObject_GetAttrString(task, "result")))
     goto error;
@@ -409,7 +409,7 @@ static void* Protocol_pipeline_ready(PyObject* task, void* closure)
   */
   response = PyObject_CallFunctionObjArgs(get_result, NULL);
 
-  if(!Protocol_write_response_or_err(self, (Response*)response))
+  if(!Protocol_write_response_or_err(self, request, (Response*)response))
     goto error;
 
   goto finally;
@@ -424,7 +424,8 @@ static void* Protocol_pipeline_ready(PyObject* task, void* closure)
 }
 
 
-static inline Protocol* Protocol_handle_coro(Protocol* self, PyObject* coro)
+static inline Protocol*
+Protocol_handle_coro(Protocol* self, PyObject* request, PyObject* coro)
 {
   Protocol* result = self;
   PyObject* task = NULL;
@@ -432,7 +433,7 @@ static inline Protocol* Protocol_handle_coro(Protocol* self, PyObject* coro)
   if(!(task = PyObject_CallFunctionObjArgs(self->create_task, coro, NULL)))
     goto error;
 
-  if(!Pipeline_queue(&self->pipeline, task))
+  if(!Pipeline_queue(&self->pipeline, (PipelineEntry){request, task}))
     goto error;
 
   goto finally;
@@ -510,7 +511,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   handler_result = PyObject_CallFunctionObjArgs(handler, request, NULL);
 
   if(handler_result && coro_func) {
-    if(!Protocol_handle_coro(self, handler_result))
+    if(!Protocol_handle_coro(self, request, handler_result))
       goto error;
 
     goto finally;
@@ -524,7 +525,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     if(Generator_init((GENERATOR*)generator, handler_result) == -1)
       goto error;
 
-    if(!Protocol_handle_coro(self, generator))
+    if(!Protocol_handle_coro(self, request, generator))
       goto error;
 
     goto finally;
@@ -532,7 +533,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   write:
 
-  if(!Protocol_write_response_or_err(self, (Response*)handler_result))
+  if(!Protocol_write_response_or_err(
+      self, (PyObject*)&self->static_request, (Response*)handler_result))
     goto error;
 
   goto finally;
@@ -541,8 +543,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   result = NULL;
 
   finally:
-  //if(request != &self->static_request)
-  //  Py_XDECREF(request);
+  if(request != (PyObject*)&self->static_request)
+    Py_XDECREF(request);
   // todo fixme
   Py_XDECREF(generator);
   Py_XDECREF(handler_result);

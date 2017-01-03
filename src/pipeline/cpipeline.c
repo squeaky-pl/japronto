@@ -55,7 +55,7 @@ static int
 Pipeline_init(Pipeline* self, PyObject *args, PyObject* kw)
 #else
 int
-Pipeline_init(Pipeline* self, void* (*ready)(PyObject*, void*), void* ready_closure)
+Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, void*), void* ready_closure)
 #endif
 {
   int result = 0;
@@ -91,13 +91,14 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
 {
   PyObject* result = Py_True;
 
-  PyObject **queue_pos;
-  for(queue_pos = self->queue + self->queue_start;
-      queue_pos < self->queue + self->queue_end; queue_pos++) {
+  PipelineEntry *queue_entry;
+  for(queue_entry = self->queue + self->queue_start;
+      queue_entry < self->queue + self->queue_end; queue_entry++) {
     PyObject* done = NULL;
     PyObject* done_result = NULL;
+    task = PipelineEntry_get_task(*queue_entry);
 
-    if(!(done = PyObject_GetAttrString(*queue_pos, "done")))
+    if(!(done = PyObject_GetAttrString(task, "done")))
       goto loop_error;
 
     if(!(done_result = PyObject_CallFunctionObjArgs(done, NULL)))
@@ -110,15 +111,15 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
 
 #ifdef PIPELINE_OPAQUE
     PyObject* tmp;
-    if(!(tmp = PyObject_CallFunctionObjArgs(self->ready, *queue_pos, NULL)))
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->ready, *queue_entry, NULL)))
       goto loop_error;
     Py_DECREF(tmp);
 #else
-    if(!self->ready(*queue_pos, self->ready_closure))
+    if(!self->ready(*queue_entry, self->ready_closure))
       goto loop_error;
 #endif
 
-    Py_DECREF(*queue_pos);
+    PipelineEntry_DECREF(*queue_entry);
 
     goto loop_finally;
 
@@ -134,7 +135,7 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
       break;
   }
 
-  self->queue_start = queue_pos - self->queue;
+  self->queue_start = queue_entry - self->queue;
 
   goto finally;
 
@@ -151,18 +152,20 @@ static PyObject*
 #else
 PyObject*
 #endif
-Pipeline_queue(Pipeline* self, PyObject* task)
+Pipeline_queue(Pipeline* self, PipelineEntry entry)
 {
   PyObject* result = Py_None;
   PyObject* add_done_callback = NULL;
+  PyObject* task = PipelineEntry_get_task(entry);
 
   if(PIPELINE_EMPTY(self))
     self->queue_start = self->queue_end = 0;
 
   assert(self->queue_end < sizeof(self->queue) / sizeof(self->queue[0]));
 
-  *(self->queue + self->queue_end) = task;
-  Py_INCREF(task);
+  PipelineEntry* queue_entry = self->queue + self->queue_end;
+  *queue_entry = entry;
+  PipelineEntry_INCREF(*queue_entry);
 
   self->queue_end++;
 

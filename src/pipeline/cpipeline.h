@@ -2,17 +2,43 @@
 
 #include <Python.h>
 
+typedef struct {
+  PyObject* request;
+  PyObject* task;
+} PipelineEntry;
+
+
+static inline void
+PipelineEntry_DECREF(PipelineEntry entry)
+{
+    Py_DECREF(entry.request);
+    Py_DECREF(entry.task);
+}
+
+static inline void
+PipelineEntry_INCREF(PipelineEntry entry)
+{
+    Py_INCREF(entry.request);
+    Py_INCREF(entry.task);
+}
+
+static inline PyObject*
+PipelineEntry_get_task(PipelineEntry entry)
+{
+  return entry.task;
+}
+
 
 typedef struct {
   PyObject_HEAD
 #ifdef PIPELINE_OPAQUE
   PyObject* ready;
 #else
-  void* (*ready)(PyObject*, void*);
+  void* (*ready)(PipelineEntry, void*);
   void* ready_closure;
 #endif
   PyObject* task_done;
-  PyObject* queue[10];
+  PipelineEntry queue[10];
   size_t queue_start;
   size_t queue_end;
 } Pipeline;
@@ -28,10 +54,10 @@ void
 Pipeline_dealloc(Pipeline* self);
 
 int
-Pipeline_init(Pipeline* self, void* (*ready)(PyObject*, void*), void* closure);
+Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, void*), void* closure);
 
 PyObject*
-Pipeline_queue(Pipeline* self, PyObject* task);
+Pipeline_queue(Pipeline* self, PipelineEntry entry);
 
 void*
 cpipeline_init(void);
