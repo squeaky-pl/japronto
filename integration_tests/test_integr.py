@@ -157,8 +157,7 @@ value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)
 is_illegal_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
 values = st.text(value_alphabet, min_size=1) \
     .filter(lambda x: not is_illegal_value(x)).map(lambda x: x.strip())
-st_headers = st.dictionaries(names, values, max_size=49).filter(
-    lambda x: len(x) == len(set(n.lower() for n in x)))
+st_headers = st.lists(st.tuples(names, values), max_size=49)
 @given(headers=st_headers)
 @settings(
     verbosity=Verbosity.verbose,
@@ -168,7 +167,7 @@ def test_headers(prefix, connect, headers):
     connection = connect()
     connection.putrequest(
         'GET', prefix + '/1/2', skip_host=True, skip_accept_encoding=True)
-    for name, value in headers.items():
+    for name, value in headers:
         connection.putheader(name, value)
     connection.endheaders()
 
@@ -176,7 +175,7 @@ def test_headers(prefix, connect, headers):
     json_body = json.loads(response.read().decode('utf-8'))
 
     assert response.status == 200
-    headers = {k.title(): v for k, v in headers.items()}
+    headers = {k.title(): v for k, v in headers}
     assert json_body['headers'] == headers
 
     connection.close()
@@ -251,10 +250,10 @@ def test_all(prefix, connect, size_k, method, param1, param2, query_string, head
         url += '?' + urllib.parse.quote(query_string)
     connection.putrequest(
         method, url, skip_host=True, skip_accept_encoding=True)
-    for name, value in headers.items():
+    for name, value in headers:
         connection.putheader(name, value)
     if body is not None:
-        headers['Content-Length'] = str(len(body))
+        headers.append(('Content-Length', str(len(body))))
         connection.putheader('Content-Length', len(body))
     connection.endheaders(body)
     response = connection.getresponse()
@@ -264,7 +263,7 @@ def test_all(prefix, connect, size_k, method, param1, param2, query_string, head
     assert json_body['method'] == method
     assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
     assert json_body['query_string'] == query_string
-    headers = {k.title(): v for k, v in headers.items()}
+    headers = {k.title(): v for k, v in headers}
     assert json_body['headers'] == headers
     if body is not None:
         assert base64.b64decode(json_body['body']) == body
@@ -294,7 +293,7 @@ def test_pipeline(requests):
         connection.putrequest(
             request['method'], '/dump/{param1}/{param2}'.format_map(request),
             request['query_string'])
-        for name, value in request['headers'].items():
+        for name, value in request['headers']:
             connection.putheader(name, value)
         if request['body'] is not None:
             body_len = str(len(request['body']))
@@ -310,7 +309,7 @@ def test_pipeline(requests):
         assert json_body['match_dict'] == \
             {'p1': request['param1'], 'p2': request['param2']}
         assert json_body['query_string'] == request['query_string']
-        assert json_body['headers'] == {k.title(): v for k, v in request['headers'].items()}
+        assert json_body['headers'] == {k.title(): v for k, v in request['headers']}
         if request['body'] is not None:
             assert base64.b64decode(json_body['body']) == request['body']
         else:
