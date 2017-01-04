@@ -10,14 +10,22 @@ typedef struct {
   PyObject* call_later;
   PyObject* check_idle;
   PyObject* check_idle_handle;
+  PyObject* check_interval;
+  unsigned long idle_timeout;
 } Reaper;
+
+#ifdef REAPER_DEBUG_PRINT
+#define debug_print(format, ...) printf("reaper: " format "\n", __VA_ARGS__)
+#else
+#define debug_print(format, ...)
+#endif
 
 static Protocol_CAPI* protocol_capi;
 
-const long CHECK_INTERVAL = 10;
-const unsigned long IDLE_TIMEOUT = 60;
+const long DEFAULT_CHECK_INTERVAL = 10;
+const unsigned long DEFAULT_IDLE_TIMEOUT = 60;
 
-static PyObject* check_interval;
+static PyObject* default_check_interval;
 
 static PyObject*
 Reaper_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
@@ -32,6 +40,7 @@ Reaper_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
   self->call_later = NULL;
   self->check_idle = NULL;
   self->check_idle_handle = NULL;
+  self->check_interval = NULL;
 
   finally:
   return (PyObject*)self;
@@ -41,6 +50,7 @@ Reaper_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
 static void
 Reaper_dealloc(Reaper* self)
 {
+  Py_XDECREF(self->check_interval);
   Py_XDECREF(self->check_idle_handle);
   Py_XDECREF(self->check_idle);
   Py_XDECREF(self->call_later);
@@ -55,7 +65,7 @@ Reaper_schedule_check_idle(Reaper* self)
 {
   Py_XDECREF(self->check_idle_handle);
   self->check_idle_handle = PyObject_CallFunctionObjArgs(
-    self->call_later, check_interval, self->check_idle, NULL);
+    self->call_later, self->check_interval, self->check_idle, NULL);
 
   return self->check_idle_handle;
 }
@@ -98,9 +108,32 @@ Reaper_init(Reaper* self, PyObject* args, PyObject* kwds)
   PyObject* loop = NULL;
   int result = 0;
 
-  PyObject* app;
-  if(!PyArg_ParseTuple(args, "O", &app))
-    goto error;
+  PyObject* app = NULL;
+  PyObject* idle_timeout = NULL;
+
+  static char* kwlist[] = {"app", "check_interval", "idle_timeout", NULL};
+
+  if (!PyArg_ParseTupleAndKeywords(
+      args, kwds, "|OOO", kwlist, &app, &self->check_interval, &idle_timeout))
+      goto error;
+
+  assert(app);
+
+  if(!self->check_interval)
+    self->check_interval = default_check_interval;
+  Py_INCREF(self->check_interval);
+
+  assert(PyLong_AsLong(self->check_interval) >= 0);
+
+  if(!idle_timeout)
+    self->idle_timeout = DEFAULT_IDLE_TIMEOUT;
+  else
+    self->idle_timeout = PyLong_AsLong(idle_timeout);
+
+  assert(self->idle_timeout >= 0);
+
+  debug_print("check_interval %ld", PyLong_AsLong(self->check_interval));
+  debug_print("idle_timeout %ld", self->idle_timeout);
 
   if(!(loop = PyObject_GetAttrString(app, "_loop")))
     goto error;
@@ -141,11 +174,16 @@ Reaper__check_idle(Reaper* self, PyObject* args)
   if(!(iterator = PyObject_GetIter(self->connections)))
     goto error;
 
+  unsigned long check_interval = PyLong_AsLong(self->check_interval);
   while((conn = (Protocol*)PyIter_Next(iterator))) {
-    if(conn->read_ops == conn->last_read_ops) {
-      conn->idle_time += CHECK_INTERVAL;
+    debug_print(
+      "conn %p, idle_time %ld, read_ops %ld, last_read_ops %ld",
+      conn, conn->idle_time, conn->read_ops, conn->last_read_ops);
 
-      if(conn->idle_time >= IDLE_TIMEOUT) {
+    if(conn->read_ops == conn->last_read_ops) {
+      conn->idle_time += check_interval;
+
+      if(conn->idle_time >= self->idle_timeout) {
         if(!protocol_capi->Protocol_close(conn))
           goto error;
       }
@@ -238,7 +276,7 @@ PyMODINIT_FUNC
 PyInit_creaper(void)
 {
   PyObject* m = NULL;
-  check_interval = NULL;
+  default_check_interval = NULL;
 
   if (PyType_Ready(&ReaperType) < 0)
     goto error;
@@ -250,7 +288,7 @@ PyInit_creaper(void)
   Py_INCREF(&ReaperType);
   PyModule_AddObject(m, "Reaper", (PyObject*)&ReaperType);
 
-  if(!(check_interval = PyLong_FromLong(CHECK_INTERVAL)))
+  if(!(default_check_interval = PyLong_FromLong(DEFAULT_CHECK_INTERVAL)))
     goto error;
 
   protocol_capi = import_capi("protocol.cprotocol");
@@ -260,7 +298,7 @@ PyInit_creaper(void)
   goto finally;
 
   error:
-  Py_XDECREF(check_interval);
+  Py_XDECREF(default_check_interval);
   m = NULL;
 
   finally:

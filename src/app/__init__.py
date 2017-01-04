@@ -10,10 +10,11 @@ from protocol.cprotocol import Protocol as CProtocol
 from protocol.creaper import Reaper
 
 class Application:
-    def __init__(self, loop=None):
+    def __init__(self, loop=None, reaper_settings=None):
         self._router = None
         self._loop = None
         self._connections = set()
+        self._reaper_settings = reaper_settings or {}
 
     def get_loop(self):
         if not self._loop:
@@ -30,7 +31,7 @@ class Application:
     def __freeze(self):
         self.get_loop()
         self.get_router()
-        self._reaper = Reaper(self)
+        self._reaper = Reaper(self, **self._reaper_settings)
 
         self._matcher = self._router.get_matcher()
 
