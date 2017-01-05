@@ -14,12 +14,6 @@ static const char keep_alive_close[] = "     close";
 #endif
 
 
-
-static const char header[] = "HTTP/1.1 200 OK\r\n"
-  "Connection:                 keep-alive\r\n"
-  "Content-Length: ";
-
-
 #ifdef RESPONSE_OPAQUE
 static PyObject *
 Response_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -47,10 +41,6 @@ Response_new(PyTypeObject* type, Response* self)
   self->encoding = NULL;
   self->headers = NULL;
 
-  self->buffer = self->inline_buffer;
-  self->buffer_len = RESPONSE_INITIAL_BUFFER_LEN;
-  memcpy(self->buffer, header, strlen(header));
-
 #ifdef RESPONSE_OPAQUE
   finally:
 #endif
@@ -65,9 +55,6 @@ void
 #endif
 Response_dealloc(Response* self)
 {
-  if(self->buffer != self->inline_buffer)
-    free(self->buffer);
-
   Py_XDECREF(self->headers);
   Py_XDECREF(self->encoding);
   Py_XDECREF(self->body);
@@ -169,29 +156,29 @@ static const char text_plain[] = "text/plain";
 
 
 #define CRLF \
-  *(self->buffer + buffer_offset) = '\r'; \
+  *(buffer + buffer_offset) = '\r'; \
   buffer_offset++; \
-  *(self->buffer + buffer_offset) = '\n'; \
+  *(buffer + buffer_offset) = '\n'; \
   buffer_offset++;
 
 
 static inline size_t
-Response_render_slow_path(Response* self, size_t buffer_offset)
+Response_render_slow_path(Response* self, char* buffer, size_t buffer_offset)
 {
-  memcpy(self->buffer + buffer_offset, "Connection: ", strlen("Connection: "));
+  memcpy(buffer + buffer_offset, "Connection: ", strlen("Connection: "));
   buffer_offset += strlen("Connection: ");
 
   if(self->keep_alive == KEEP_ALIVE_FALSE) {
-    memcpy(self->buffer + buffer_offset, "close", strlen("close"));
+    memcpy(buffer + buffer_offset, "close", strlen("close"));
     buffer_offset += strlen("close");
   } else {
-    memcpy(self->buffer + buffer_offset, "keep-alive", strlen("keep-alive"));
+    memcpy(buffer + buffer_offset, "keep-alive", strlen("keep-alive"));
     buffer_offset += strlen("keep-alive");
   }
 
   CRLF
 
-  memcpy(self->buffer + buffer_offset, "Content-Length: ", strlen("Content-Length: "));
+  memcpy(buffer + buffer_offset, "Content-Length: ", strlen("Content-Length: "));
   buffer_offset += strlen("Content-Length: ");
 
   return buffer_offset;
@@ -199,35 +186,91 @@ Response_render_slow_path(Response* self, size_t buffer_offset)
 
 
 #define bfrcpy(data, len) \
-  if(buffer_offset + len > self->buffer_len) \
+  if(buffer_offset + len > buffer_len) \
   { \
-    self->buffer_len = MAX(self->buffer_len * 2, self->buffer_len + len); \
+    buffer_len = MAX(buffer_len * 2, buffer_len + len); \
     \
-    if(self->buffer == self->inline_buffer) \
+    if(buffer == global_buffer) \
     { \
-      self->buffer = malloc(self->buffer_len); \
-      if(!self->buffer) \
+      buffer = malloc(buffer_len); \
+      if(!buffer) \
         assert(0); \
-      memcpy(self->buffer, self->inline_buffer, buffer_offset); \
+      memcpy(buffer, global_buffer, buffer_offset); \
     } else { \
-      self->buffer = realloc(self->buffer, self->buffer_len); \
-      if(!self->buffer) \
+      buffer = realloc(buffer, buffer_len); \
+      if(!buffer) \
         assert(0); \
     } \
   } \
   \
-  memcpy(self->buffer + buffer_offset, data, len); \
+  memcpy(buffer + buffer_offset, data, len); \
   buffer_offset += len;
 
 
-char*
-Response_render(Response* self, size_t* len)
+#define HEADER \
+  "HTTP/1.1 200 OK\r\n" \
+  "Connection:                 keep-alive\r\n" \
+  "Content-Length: "
+
+static char global_buffer[RESPONSE_INITIAL_BUFFER_LEN] = HEADER;
+
+typedef struct {
+  PyObject* body;
+  PyObject* response;
+  size_t hits;
+} CacheEntry;
+
+static size_t cache_len = 0;
+
+static CacheEntry cache[10];
+
+#define Bytes_AS_STRING(op) ((PyBytesObject *)op)->ob_sval
+
+
+static inline PyObject*
+Response_maybe_from_cache(Response* self)
 {
+  CacheEntry* cache_entry;
+  for(cache_entry = cache; cache_entry < cache + cache_len; cache_entry++) {
+    if(Py_SIZE(cache_entry->body) != Py_SIZE(self->body))
+      continue;
+
+    if(memcmp(Bytes_AS_STRING(cache_entry->body), Bytes_AS_STRING(self->body), Py_SIZE(self->body)) != 0)
+      continue;
+
+    Py_INCREF(cache_entry->response);
+    return cache_entry->response;
+  }
+
+  return NULL;
+}
+
+static inline void Response_maybe_cache(PyObject* body, PyObject* response)
+{
+  cache[cache_len].body = body;
+  cache[cache_len].response = response;
+  cache[cache_len].hits = 0;
+  Py_INCREF(body);
+  Py_INCREF(response);
+  cache_len++;
+}
+
+
+PyObject*
+Response_render(Response* self)
+{
+  PyObject* from_cache = Response_maybe_from_cache(self);
+  if(from_cache)
+    return from_cache;
+
   size_t buffer_offset;
   Py_ssize_t body_len = 0;
   const char* body = NULL;
 
-  *(self->buffer + minor_offset) = '0' + (char)self->minor_version;
+  char* buffer = global_buffer;
+  size_t buffer_len = RESPONSE_INITIAL_BUFFER_LEN;
+
+  *(buffer + minor_offset) = '0' + (char)self->minor_version;
 
   if(self->status_code) {
     unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
@@ -247,32 +290,32 @@ Response_render(Response* self, size_t* len)
     }
 
     /* TODO these are always 3 digit, maybe modulus would be faster */
-    snprintf(self->buffer + code_offset, 4, "%ld", status_code);
-    *(self->buffer + code_offset + 3) = ' ';
+    snprintf(buffer + code_offset, 4, "%ld", status_code);
+    *(buffer + code_offset + 3) = ' ';
 
     const char* reason = reason_range->reasons[status_rest];
     size_t reason_len = strlen(reason);
 
 
-    memcpy(self->buffer + reason_offset, reason, reason_len);
+    memcpy(buffer + reason_offset, reason, reason_len);
     buffer_offset = reason_offset + reason_len;
 
     CRLF
 
     if(reason_len > 16) {
-      buffer_offset = Response_render_slow_path(self, buffer_offset);
+      buffer_offset = Response_render_slow_path(self, buffer, buffer_offset);
       goto write_rest;
     }
 
-    memcpy(self->buffer + buffer_offset, "Connection:", strlen("Connection:"));
+    memcpy(buffer + buffer_offset, "Connection:", strlen("Connection:"));
   } else {
-    memcpy(self->buffer + code_offset, "200", 3);
+    memcpy(buffer + code_offset, "200", 3);
   }
 
   if(self->keep_alive == KEEP_ALIVE_FALSE)
-    memcpy(self->buffer + keep_alive_offset, keep_alive_close, strlen(keep_alive_close));
+    memcpy(buffer + keep_alive_offset, keep_alive_close, strlen(keep_alive_close));
 
-  buffer_offset = strlen(header);
+  buffer_offset = strlen(HEADER);
 
   write_rest:
   if(self->body) {
@@ -280,16 +323,16 @@ Response_render(Response* self, size_t* len)
       goto error;
 
     int result = sprintf(
-      self->buffer + buffer_offset, "%ld", (unsigned long)body_len);
+      buffer + buffer_offset, "%ld", (unsigned long)body_len);
     buffer_offset += result;
   } else {
-    *(self->buffer + buffer_offset) = '0';
+    *(buffer + buffer_offset) = '0';
     buffer_offset++;
   }
 
   CRLF
 
-  memcpy(self->buffer + buffer_offset, Content_Type, strlen(Content_Type));
+  memcpy(buffer + buffer_offset, Content_Type, strlen(Content_Type));
   buffer_offset += strlen(Content_Type);
 
   Py_ssize_t mime_type_len = strlen(text_plain);
@@ -300,9 +343,9 @@ Response_render(Response* self, size_t* len)
       goto error;
 
   }
-  memcpy(self->buffer + buffer_offset, mime_type, (size_t)mime_type_len);
+  memcpy(buffer + buffer_offset, mime_type, (size_t)mime_type_len);
   buffer_offset += mime_type_len;
-  memcpy(self->buffer + buffer_offset, charset, strlen(charset));
+  memcpy(buffer + buffer_offset, charset, strlen(charset));
   buffer_offset += strlen(charset);
 
   Py_ssize_t encoding_len = strlen(utf8);
@@ -312,7 +355,7 @@ Response_render(Response* self, size_t* len)
     if(!encoding)
       goto error;
   }
-  memcpy(self->buffer + buffer_offset, encoding, (size_t)encoding_len);
+  memcpy(buffer + buffer_offset, encoding, (size_t)encoding_len);
   buffer_offset += (size_t)encoding_len;
 
   CRLF
@@ -339,18 +382,18 @@ Response_render(Response* self, size_t* len)
     if(!(cname = PyUnicode_AsUTF8AndSize(name, &name_len)))
       goto error;
 
-    memcpy(self->buffer + buffer_offset, cname, (size_t)name_len);
+    memcpy(buffer + buffer_offset, cname, (size_t)name_len);
     buffer_offset += (size_t)name_len;
 
-    *(self->buffer + buffer_offset) = ':';
+    *(buffer + buffer_offset) = ':';
     buffer_offset++;
-    *(self->buffer + buffer_offset) = ' ';
+    *(buffer + buffer_offset) = ' ';
     buffer_offset++;
 
     if(!(cvalue = PyUnicode_AsUTF8AndSize(value, &value_len)))
       goto error;
 
-    memcpy(self->buffer + buffer_offset, cvalue, (size_t)value_len);
+    memcpy(buffer + buffer_offset, cvalue, (size_t)value_len);
     buffer_offset += (size_t)value_len;
 
     CRLF
@@ -365,8 +408,13 @@ Response_render(Response* self, size_t* len)
 
 #undef CRLF
 
-  *len = buffer_offset;
-  return self->buffer;
+  PyObject* result = PyBytes_FromStringAndSize(buffer, buffer_offset);
+  if(!result)
+    goto error;
+
+  Response_maybe_cache(self->body, result);
+
+  return result;
 
   error:
     return NULL;

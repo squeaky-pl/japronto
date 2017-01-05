@@ -366,12 +366,7 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       goto finally;
     }
 
-    char* response_buf;
-    size_t response_len;
-    if(!(response_buf = response_capi->Response_render(response, &response_len)))
-      goto error;
-
-    if(!(response_py_buf = PyBytes_FromStringAndSize(response_buf, response_len)))
+    if(!(response_py_buf = response_capi->Response_render(response)))
       goto error;
 
     PyObject* tmp;

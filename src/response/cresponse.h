@@ -5,7 +5,7 @@
 #include "common.h"
 
 
-#define RESPONSE_INITIAL_BUFFER_LEN 1024
+#define RESPONSE_INITIAL_BUFFER_LEN 8192
 
 typedef struct {
   PyObject_HEAD
@@ -19,16 +19,12 @@ typedef struct {
   PyObject* body;
   PyObject* encoding;
   PyObject* headers;
-
-  char* buffer;
-  size_t buffer_len;
-  char inline_buffer[RESPONSE_INITIAL_BUFFER_LEN];
 } Response;
 
 
 typedef struct {
   PyTypeObject* ResponseType;
-  char* (*Response_render)(Response*, size_t*);
+  PyObject* (*Response_render)(Response*);
   int (*Response_init)(Response* self, PyObject *args, PyObject *kw);
 } Response_CAPI;
 
