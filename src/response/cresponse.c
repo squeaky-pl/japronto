@@ -7,10 +7,6 @@
 
 #ifdef RESPONSE_OPAQUE
 static PyObject* json_dumps;
-static const size_t reason_offset = 13;
-static const size_t minor_offset = 7;
-static const size_t keep_alive_offset = 45;
-static const char keep_alive_close[] = "     close";
 #endif
 
 
@@ -68,7 +64,6 @@ Response_dealloc(Response* self)
 }
 
 #ifdef RESPONSE_OPAQUE
-static const size_t code_offset = 9;
 
 #define empty(v) (!v || v == Py_None)
 
@@ -155,64 +150,24 @@ static const char utf8[] = "utf-8";
 static const char text_plain[] = "text/plain";
 
 
-#define CRLF \
-  *(buffer + buffer_offset) = '\r'; \
-  buffer_offset++; \
-  *(buffer + buffer_offset) = '\n'; \
-  buffer_offset++;
-
-
-static inline size_t
-Response_render_slow_path(Response* self, char* buffer, size_t buffer_offset)
-{
-  memcpy(buffer + buffer_offset, "Connection: ", strlen("Connection: "));
-  buffer_offset += strlen("Connection: ");
-
-  if(self->keep_alive == KEEP_ALIVE_FALSE) {
-    memcpy(buffer + buffer_offset, "close", strlen("close"));
-    buffer_offset += strlen("close");
-  } else {
-    memcpy(buffer + buffer_offset, "keep-alive", strlen("keep-alive"));
-    buffer_offset += strlen("keep-alive");
-  }
-
-  CRLF
-
-  memcpy(buffer + buffer_offset, "Content-Length: ", strlen("Content-Length: "));
-  buffer_offset += strlen("Content-Length: ");
-
-  return buffer_offset;
-}
-
-
-#define bfrcpy(data, len) \
-  if(buffer_offset + len > buffer_len) \
-  { \
-    buffer_len = MAX(buffer_len * 2, buffer_len + len); \
-    \
-    if(buffer == global_buffer) \
-    { \
-      buffer = malloc(buffer_len); \
-      if(!buffer) \
-        assert(0); \
-      memcpy(buffer, global_buffer, buffer_offset); \
-    } else { \
-      buffer = realloc(buffer, buffer_len); \
-      if(!buffer) \
-        assert(0); \
-    } \
-  } \
-  \
-  memcpy(buffer + buffer_offset, data, len); \
-  buffer_offset += len;
-
-
 #define HEADER \
   "HTTP/1.1 200 OK\r\n" \
-  "Connection:                 keep-alive\r\n" \
+  "Connection: keep-alive\r\n" \
   "Content-Length: "
 
-static char global_buffer[RESPONSE_INITIAL_BUFFER_LEN] = HEADER;
+static const char connection_keep_cl[] =
+  "\r\nConnection: keep-alive\r\nContent-Length: ";
+static const char connection_close_cl[] =
+  "\r\nConnection: close\r\nContent-Length:";
+
+static const size_t minor_offset = 7;
+static const size_t status_offset = 9;
+static const size_t reason_offset = 13;
+
+static char global_buffer_alt[RESPONSE_INITIAL_BUFFER_LEN] = HEADER;
+static char global_buffer_plain[RESPONSE_INITIAL_BUFFER_LEN] = HEADER;
+// plain is HTTP/1.1 200 OK response with keep-alive
+static bool plain;
 
 typedef struct {
   PyObject* body;
@@ -223,7 +178,9 @@ typedef struct {
 static size_t cache_len = 0;
 static bool cacheable;
 
+
 static CacheEntry cache[10];
+static Py_ssize_t cache_cutoff = 1024;
 
 #define Bytes_AS_STRING(op) ((PyBytesObject *)op)->ob_sval
 
@@ -231,8 +188,9 @@ static CacheEntry cache[10];
 static inline PyObject*
 Response_maybe_from_cache(Response* self)
 {
-  cacheable = self->body && !self->headers && !self->mime_type
-    && !self->encoding && !self->status_code;
+  cacheable = self->body && Py_SIZE(self->body) < cache_cutoff
+    && !self->headers && !self->mime_type
+    && !self->encoding && plain;
 
   if(!cacheable)
     return NULL;
@@ -265,10 +223,46 @@ static inline void Response_maybe_cache(PyObject* body, PyObject* response)
   cache_len++;
 }
 
+#define CRLF \
+  *(buffer + buffer_offset) = '\r'; \
+  buffer_offset++; \
+  *(buffer + buffer_offset) = '\n'; \
+  buffer_offset++;
+
+#define bfrcpy(data, len) \
+  if(buffer_offset + len > buffer_len) \
+  { \
+    buffer_len = MAX(buffer_len * 2, buffer_len + len); \
+    \
+    if(buffer == global_buffer_plain) \
+    { \
+      buffer = malloc(buffer_len); \
+      if(!buffer) \
+        assert(0); \
+      memcpy(buffer, global_buffer_plain, buffer_offset); \
+    } else if(buffer == global_buffer_alt) \
+    { \
+      buffer = malloc(buffer_len); \
+      if(!buffer) \
+        assert(0); \
+      memcpy(buffer, global_buffer_alt, buffer_offset); \
+    } else { \
+      buffer = realloc(buffer, buffer_len); \
+      if(!buffer) \
+        assert(0); \
+    } \
+  } \
+  \
+  memcpy(buffer + buffer_offset, data, len); \
+  buffer_offset += len;
+
 
 PyObject*
 Response_render(Response* self)
 {
+  plain = !self->status_code && self->minor_version == 1 &&
+    self->keep_alive == KEEP_ALIVE_TRUE;
+
   PyObject* from_cache = Response_maybe_from_cache(self);
   if(from_cache)
     return from_cache;
@@ -276,56 +270,55 @@ Response_render(Response* self)
   size_t buffer_offset;
   Py_ssize_t body_len = 0;
   const char* body = NULL;
-
-  char* buffer = global_buffer;
+  char* buffer;
   size_t buffer_len = RESPONSE_INITIAL_BUFFER_LEN;
+
+  if(plain)
+  {
+    buffer = global_buffer_plain;
+    buffer_offset = strlen(HEADER);
+    goto write_rest;
+  }
+
+  buffer = global_buffer_alt;
 
   *(buffer + minor_offset) = '0' + (char)self->minor_version;
 
-  if(self->status_code) {
-    unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
+  unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
 
-    if(status_code < 100 || status_code > 599) {
-      PyErr_SetString(PyExc_ValueError, "Invalid status code");
-      goto error;
-    }
-
-    unsigned int status_category = status_code / 100 - 1;
-    unsigned int status_rest = status_code % 100;
-
-    const ReasonRange* reason_range = reason_ranges + status_category;
-    if(status_rest > reason_range->maximum) {
-      PyErr_SetString(PyExc_ValueError, "Invalid status code");
-      goto error;
-    }
-
-    /* TODO these are always 3 digit, maybe modulus would be faster */
-    snprintf(buffer + code_offset, 4, "%ld", status_code);
-    *(buffer + code_offset + 3) = ' ';
-
-    const char* reason = reason_range->reasons[status_rest];
-    size_t reason_len = strlen(reason);
-
-
-    memcpy(buffer + reason_offset, reason, reason_len);
-    buffer_offset = reason_offset + reason_len;
-
-    CRLF
-
-    if(reason_len > 16) {
-      buffer_offset = Response_render_slow_path(self, buffer, buffer_offset);
-      goto write_rest;
-    }
-
-    memcpy(buffer + buffer_offset, "Connection:", strlen("Connection:"));
-  } else {
-    memcpy(buffer + code_offset, "200", 3);
+  if(status_code < 100 || status_code > 599) {
+    PyErr_SetString(PyExc_ValueError, "Invalid status code");
+    goto error;
   }
 
-  if(self->keep_alive == KEEP_ALIVE_FALSE)
-    memcpy(buffer + keep_alive_offset, keep_alive_close, strlen(keep_alive_close));
+  unsigned int status_category = status_code / 100 - 1;
+  unsigned int status_rest = status_code % 100;
 
-  buffer_offset = strlen(HEADER);
+  const ReasonRange* reason_range = reason_ranges + status_category;
+  if(status_rest > reason_range->maximum) {
+    PyErr_SetString(PyExc_ValueError, "Invalid status code");
+    goto error;
+  }
+
+  /* TODO these are always 3 digit, maybe modulus would be faster */
+  snprintf(buffer + status_offset, 4, "%ld", status_code);
+  *(buffer + status_offset + 3) = ' ';
+
+  const char* reason = reason_range->reasons[status_rest];
+  size_t reason_len = strlen(reason);
+
+  memcpy(buffer + reason_offset, reason, reason_len);
+  buffer_offset = reason_offset + reason_len;
+
+  if(self->keep_alive == KEEP_ALIVE_TRUE) {
+    memcpy(
+      buffer + buffer_offset, connection_keep_cl, strlen(connection_keep_cl));
+    buffer_offset += strlen(connection_keep_cl);
+  } else {
+    memcpy(
+      buffer + buffer_offset, connection_close_cl, strlen(connection_close_cl));
+    buffer_offset += strlen(connection_close_cl);
+  }
 
   write_rest:
   if(self->body) {
@@ -421,6 +414,9 @@ Response_render(Response* self)
   PyObject* result = PyBytes_FromStringAndSize(buffer, buffer_offset);
   if(!result)
     goto error;
+
+  if(buffer != global_buffer_plain && buffer != global_buffer_alt)
+    free(buffer);
 
   Response_maybe_cache(self->body, result);
 
