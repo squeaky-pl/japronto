@@ -220,8 +220,8 @@ Response_render_slow_path(Response* self, size_t buffer_offset)
   buffer_offset += len;
 
 
-char*
-Response_render(Response* self, size_t* len)
+PyObject*
+Response_render(Response* self)
 {
   size_t buffer_offset;
   Py_ssize_t body_len = 0;
@@ -365,8 +365,11 @@ Response_render(Response* self, size_t* len)
 
 #undef CRLF
 
-  *len = buffer_offset;
-  return self->buffer;
+  PyObject* response_bytes;
+  if(!(response_bytes = PyBytes_FromStringAndSize(self->buffer, buffer_offset)))
+    goto error;
+
+  return response_bytes;
 
   error:
     return NULL;
