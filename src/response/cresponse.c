@@ -221,6 +221,7 @@ typedef struct {
 } CacheEntry;
 
 static size_t cache_len = 0;
+static bool cacheable;
 
 static CacheEntry cache[10];
 
@@ -230,6 +231,12 @@ static CacheEntry cache[10];
 static inline PyObject*
 Response_maybe_from_cache(Response* self)
 {
+  cacheable = self->body && !self->headers && !self->mime_type
+    && !self->encoding && !self->status_code;
+
+  if(!cacheable)
+    return NULL;
+
   CacheEntry* cache_entry;
   for(cache_entry = cache; cache_entry < cache + cache_len; cache_entry++) {
     if(Py_SIZE(cache_entry->body) != Py_SIZE(self->body))
@@ -247,6 +254,9 @@ Response_maybe_from_cache(Response* self)
 
 static inline void Response_maybe_cache(PyObject* body, PyObject* response)
 {
+  if(!cacheable || cache_len == sizeof(cache) / sizeof(CacheEntry))
+    return;
+
   cache[cache_len].body = body;
   cache[cache_len].response = response;
   cache[cache_len].hits = 0;
