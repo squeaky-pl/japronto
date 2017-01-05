@@ -297,7 +297,7 @@ def test_pipeline(requests):
             connection.putheader(name, value)
         if request['body'] is not None:
             body_len = str(len(request['body']))
-            request['headers']['Content-Length'] = body_len
+            request['headers'].append(('Content-Length', body_len))
             connection.putheader('Content-Length', body_len)
         connection.endheaders(request['body'])
 
