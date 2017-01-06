@@ -190,6 +190,9 @@ def main():
         '--disable-reaper', dest='enable_reaper', const=False,
         action='store_const', default=True)
     argparser.add_argument(
+        '--disable-response-cache', dest='enable_response_cache', const=False,
+        action='store_const', default=True)
+    argparser.add_argument(
         '--coverage', dest='coverage', const=True,
         action='store_const', default=False)
     argparser.add_argument('--path', dest='path')

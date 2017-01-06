@@ -219,11 +219,11 @@ Response_render_slow_path(Response* self, size_t buffer_offset)
   memcpy(self->buffer + buffer_offset, data, len); \
   buffer_offset += len;
 
+#ifdef RESPONSE_CACHE
 
 typedef struct {
   PyObject* body;
   PyObject* response_bytes;
-  size_t hits;
 } CacheEntry;
 
 #define CACHE_LEN 10
@@ -272,21 +272,25 @@ Response_cache(PyObject* body, PyObject* response_bytes)
   CacheEntry* entry = cache.entries + cache.end;
   entry->body = body;
   entry->response_bytes = response_bytes;
-  entry->hits = 0;
 
   Py_INCREF(body);
   Py_INCREF(response_bytes);
   cache.end++;
 }
 
+#endif
+
 
 PyObject*
 Response_render(Response* self, bool simple)
 {
   PyObject* response_bytes;
+
+#ifdef RESPONSE_CACHE
   bool cacheable = Response_cacheable(self, simple);
   if(cacheable && (response_bytes = Response_from_cache(self->body)))
     return response_bytes;
+#endif
 
   size_t buffer_offset;
   Py_ssize_t body_len = 0;
@@ -433,8 +437,10 @@ Response_render(Response* self, bool simple)
   if(!(response_bytes = PyBytes_FromStringAndSize(self->buffer, buffer_offset)))
     goto error;
 
+#ifdef RESPONSE_CACHE
   if(cacheable)
     Response_cache(self->body, response_bytes);
+#endif
 
   return response_bytes;
 
