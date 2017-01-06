@@ -101,7 +101,7 @@ def prefix(request):
 
 
 method_alphabet = string.digits + string.ascii_letters + string.punctuation
-st_method = method=st.text(method_alphabet, min_size=1)
+st_method = st.text(method_alphabet, min_size=1)
 @given(method=st_method)
 @settings(verbosity=Verbosity.verbose)
 def test_method(prefix, connect, method):
@@ -112,6 +112,21 @@ def test_method(prefix, connect, method):
 
     assert response.status == 200
     assert json_body['method'] == method
+
+    connection.close()
+
+
+st_route_prefix = st.sampled_from(['/dump/', '/dump1/', '/dump2/'])
+@given(route_prefix=st_route_prefix)
+@settings(verbosity=Verbosity.verbose)
+def test_route(connect, route_prefix):
+    connection = connect()
+    connection.request('GET', route_prefix + '1/2')
+    response = connection.getresponse()
+    json_body = json.loads(response.read().decode('utf-8'))
+
+    assert response.status == 200
+    assert json_body['route'].startswith(route_prefix)
 
     connection.close()
 

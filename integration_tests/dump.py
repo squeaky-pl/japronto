@@ -18,7 +18,8 @@ def dump(request):
         "query_string": request.query_string,
         "headers": request.headers,
         "match_dict": request.match_dict,
-        "body": body
+        "body": body,
+        "route": request.route.pattern
     }
 
     return request.Response(json=result)
@@ -35,6 +36,8 @@ app = Application()
 
 r = app.get_router()
 r.add_route('/dump/{p1}/{p2}', dump)
+r.add_route('/dump1/{p1}/{p2}', dump)
+r.add_route('/dump2/{p1}/{p2}', dump)
 r.add_route('/adump/{p1}/{p2}', adump)
 
 
