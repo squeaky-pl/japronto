@@ -11,5 +11,5 @@ typedef struct _Matcher Matcher;
 typedef struct {
   PyObject* (*Matcher_match_request)
     (Matcher* matcher, PyObject* request, PyObject** handler,
-     bool* coro_func, MatchDictEntry** match_dict_entries, size_t* match_dict_length);
+     bool* coro_func, bool* simple, MatchDictEntry** match_dict_entries, size_t* match_dict_length);
 } Matcher_CAPI;

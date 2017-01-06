@@ -30,6 +30,7 @@ typedef struct {
   size_t buffer_len;
   char inline_buffer[REQUEST_INITIAL_BUFFER_LEN];
   KEEP_ALIVE keep_alive;
+  bool simple;
   PyObject* transport;
   PyObject* py_method;
   PyObject* py_path;

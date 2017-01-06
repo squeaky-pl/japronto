@@ -467,6 +467,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   PyObject* handler = NULL; // stolen
   PyObject* request = NULL;
   bool coro_func;
+  bool simple;
   PyObject* handler_result = NULL;
   MatchDictEntry* entries;
   size_t entries_length;
@@ -480,7 +481,7 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   route = matcher_capi->Matcher_match_request(
     (Matcher*)self->matcher,
     (PyObject*)&self->static_request,
-    &handler, &coro_func, &entries, &entries_length);
+    &handler, &coro_func, &simple, &entries, &entries_length);
   if(!route)
     goto error;
 
@@ -488,6 +489,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     PyErr_SetString(PyExc_KeyError, "Route not found");
     goto write;
   }
+
+  self->static_request.simple = simple;
 
   request_capi->Request_set_match_dict_entries(
     &self->static_request, entries, entries_length);

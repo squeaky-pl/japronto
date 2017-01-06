@@ -146,7 +146,7 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
 // borrows route and handler
 PyObject*
 Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
-                      bool* coro_func, MatchDictEntry** match_dict_entries,
+                      bool* coro_func, bool* simple, MatchDictEntry** match_dict_entries,
                       size_t* match_dict_length)
 {
   PyObject* route = Py_None;
@@ -250,6 +250,8 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
       *handler = entry->handler;
     if(coro_func)
       *coro_func = entry->coro_func;
+    if(simple)
+      *simple = entry->simple;
     if(match_dict_entries)
       *match_dict_entries = _match_dict_entries;
     if(match_dict_length)
@@ -283,7 +285,7 @@ _Matcher_match_request(Matcher* self, PyObject* request)
   PyObject* route_dict = NULL;
 
   if(!(route = Matcher_match_request(
-       self, request, NULL, NULL, &entries, &length)))
+       self, request, NULL, NULL, NULL, &entries, &length)))
     goto error;
 
   if(route == Py_None)
