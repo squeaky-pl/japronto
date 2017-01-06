@@ -145,3 +145,13 @@ def test_keep_alive(request):
 
         response = conn.getresponse()
         assert response.status == 200
+
+
+@pytest.mark.arg('route')
+def test_route(connection):
+    for _ in range(7):
+        connection.putrequest('GET', '/noleak/1/2')
+        connection.endheaders()
+
+        response = connection.getresponse()
+        assert response.status == 200

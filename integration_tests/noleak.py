@@ -29,6 +29,9 @@ elif prop == 'body':
 elif prop == 'keep_alive':
     def noleak(request):
         return request.Response(text=str(request.keep_alive))
+elif prop == 'route':
+    def noleak(request):
+        return request.Response(text=str(request.route))
 
 app = Application()
 
