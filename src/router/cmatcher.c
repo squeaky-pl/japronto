@@ -18,6 +18,7 @@ typedef struct {
   PyObject* route;
   PyObject* handler;
   bool coro_func;
+  bool simple;
   size_t pattern_len;
   size_t methods_len;
   size_t placeholder_cnt;

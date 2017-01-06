@@ -1,4 +1,5 @@
 import asyncio
+import router.analyzer
 
 
 class Route:
@@ -67,13 +68,14 @@ typedef struct {
   PyObject* route;
   PyObject* handler;
   bool coro_func;
+  bool simple;
   size_t pattern_len;
   size_t methods_len;
   size_t placeholder_cnt;
   char buffer[];
 } MatcherEntry;
 """
-MatcherEntry = Struct('PP?NNN')
+MatcherEntry = Struct('PP??NNN')
 
 """
 typedef enum {
@@ -123,6 +125,7 @@ def compile(route):
     return MatcherEntry.pack(
         id(route), id(route.handler),
         asyncio.iscoroutinefunction(route.handler),
+        router.analyzer.is_simple(route.handler),
         len(pattern_buf), methods_len, route.placeholder_cnt) \
         + pattern_buf + methods_buf
 
