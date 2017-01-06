@@ -360,13 +360,15 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       PyErr_Restore(etype, evalue, etraceback);
       PyErr_Clear();
 
+      ((Request*)request)->simple = false;
       if(!Protocol_write_response_or_err(self, request, (Response*)error_result))
         goto error;
 
       goto finally;
     }
 
-    if(!(response_bytes = response_capi->Response_render(response)))
+    if(!(response_bytes =
+         response_capi->Response_render(response, ((Request*)request)->simple)))
       goto error;
 
     PyObject* tmp;

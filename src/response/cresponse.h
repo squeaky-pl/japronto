@@ -28,7 +28,7 @@ typedef struct {
 
 typedef struct {
   PyTypeObject* ResponseType;
-  PyObject* (*Response_render)(Response*);
+  PyObject* (*Response_render)(Response*, bool);
   int (*Response_init)(Response* self, PyObject *args, PyObject *kw);
 } Response_CAPI;
 

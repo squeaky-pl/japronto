@@ -220,9 +220,74 @@ Response_render_slow_path(Response* self, size_t buffer_offset)
   buffer_offset += len;
 
 
-PyObject*
-Response_render(Response* self)
+typedef struct {
+  PyObject* body;
+  PyObject* response_bytes;
+  size_t hits;
+} CacheEntry;
+
+#define CACHE_LEN 10
+#define CACHE_CUTOFF 4096
+
+typedef struct {
+  size_t end;
+  CacheEntry entries[CACHE_LEN];
+} Cache;
+
+static Cache cache = {0};
+
+#define Bytes_AS_STRING(op) ((PyBytesObject *)op)->ob_sval
+
+#define Response_cacheable(r, simple) \
+  simple && r->body && Py_SIZE(r->body) < CACHE_CUTOFF \
+  && !r->status_code && !r->headers && !r->mime_type \
+  && !r->encoding && r->minor_version == 1 && r->keep_alive == KEEP_ALIVE_TRUE
+
+static inline PyObject*
+Response_from_cache(PyObject* body)
 {
+  CacheEntry* cache_entry;
+  for(cache_entry = cache.entries; cache_entry < cache.entries + cache.end;
+      cache_entry++) {
+    if(Py_SIZE(cache_entry->body) != Py_SIZE(body))
+      continue;
+
+    if(memcmp(Bytes_AS_STRING(cache_entry->body), Bytes_AS_STRING(body), Py_SIZE(body)) != 0)
+      continue;
+
+    Py_INCREF(cache_entry->response_bytes);
+    return cache_entry->response_bytes;
+  }
+
+  return NULL;
+}
+
+
+static inline void
+Response_cache(PyObject* body, PyObject* response_bytes)
+{
+  if(cache.end == CACHE_LEN)
+    return;
+
+  CacheEntry* entry = cache.entries + cache.end;
+  entry->body = body;
+  entry->response_bytes = response_bytes;
+  entry->hits = 0;
+
+  Py_INCREF(body);
+  Py_INCREF(response_bytes);
+  cache.end++;
+}
+
+
+PyObject*
+Response_render(Response* self, bool simple)
+{
+  PyObject* response_bytes;
+  bool cacheable = Response_cacheable(self, simple);
+  if(cacheable && (response_bytes = Response_from_cache(self->body)))
+    return response_bytes;
+
   size_t buffer_offset;
   Py_ssize_t body_len = 0;
   const char* body = NULL;
@@ -365,9 +430,11 @@ Response_render(Response* self)
 
 #undef CRLF
 
-  PyObject* response_bytes;
   if(!(response_bytes = PyBytes_FromStringAndSize(self->buffer, buffer_offset)))
     goto error;
+
+  if(cacheable)
+    Response_cache(self->body, response_bytes);
 
   return response_bytes;
 
