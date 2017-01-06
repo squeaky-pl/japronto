@@ -3,7 +3,7 @@
 #include <Python.h>
 #include <stdbool.h>
 
-#include "match_dict.h"
+#include "cmatcher.h"
 #include "cresponse.h"
 #include "common.h"
 
@@ -31,6 +31,8 @@ typedef struct {
   char inline_buffer[REQUEST_INITIAL_BUFFER_LEN];
   KEEP_ALIVE keep_alive;
   bool simple;
+  MatcherEntry* matcher_entry;
+
   PyObject* transport;
   PyObject* py_method;
   PyObject* py_path;

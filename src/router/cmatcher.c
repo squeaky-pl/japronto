@@ -14,18 +14,6 @@ struct _Matcher {
 };
 
 
-typedef struct {
-  PyObject* route;
-  PyObject* handler;
-  bool coro_func;
-  bool simple;
-  size_t pattern_len;
-  size_t methods_len;
-  size_t placeholder_cnt;
-  char buffer[];
-} MatcherEntry;
-
-
 typedef enum {
   SEGMENT_EXACT,
   SEGMENT_PLACEHOLDER
@@ -143,13 +131,13 @@ Matcher_init(Matcher* self, PyObject *args, PyObject *kw)
   return result;
 }
 
-// borrows route and handler
-PyObject*
-Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
-                      bool* coro_func, bool* simple, MatchDictEntry** match_dict_entries,
+// borrows route and handler in matcher entry
+MatcherEntry*
+Matcher_match_request(Matcher* self, PyObject* request,
+                      MatchDictEntry** match_dict_entries,
                       size_t* match_dict_length)
 {
-  PyObject* route = Py_None;
+  MatcherEntry* result = NULL;
   PyObject* path = NULL;
   PyObject* method = NULL;
 
@@ -245,13 +233,8 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
       continue;
 
     loop_finally:
-    route = entry->route;
-    if(handler)
-      *handler = entry->handler;
-    if(coro_func)
-      *coro_func = entry->coro_func;
-    if(simple)
-      *simple = entry->simple;
+    result = entry;
+
     if(match_dict_entries)
       *match_dict_entries = _match_dict_entries;
     if(match_dict_length)
@@ -262,7 +245,7 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
   goto finally;
 
   error:
-  route = NULL;
+  result = NULL;
 
   finally:
 
@@ -271,25 +254,25 @@ Matcher_match_request(Matcher* self, PyObject* request, PyObject** handler,
     Py_XDECREF(path);
   }
 
-  return route;
+  return result;
 }
 
 
 static PyObject*
 _Matcher_match_request(Matcher* self, PyObject* request)
 {
-  PyObject* route;
+  MatcherEntry* matcher_entry;
   MatchDictEntry* entries;
+  PyObject* route = NULL;
   size_t length;
   PyObject* match_dict = NULL;
   PyObject* route_dict = NULL;
 
-  if(!(route = Matcher_match_request(
-       self, request, NULL, NULL, NULL, &entries, &length)))
-    goto error;
-
-  if(route == Py_None)
+  if(!(matcher_entry = Matcher_match_request(
+       self, request, &entries, &length)))
     Py_RETURN_NONE;
+
+  route = matcher_entry->route;
 
   if(!(match_dict = MatchDict_entries_to_dict(entries, length)))
     goto error;

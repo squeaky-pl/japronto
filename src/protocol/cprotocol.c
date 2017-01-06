@@ -465,13 +465,10 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 #else
   Protocol* result = self;
 #endif
-  PyObject* route = NULL; // stolen
-  PyObject* handler = NULL; // stolen
   PyObject* request = NULL;
-  bool coro_func;
-  bool simple;
   PyObject* handler_result = NULL;
   MatchDictEntry* entries;
+  MatcherEntry* matcher_entry;
   size_t entries_length;
 #ifdef PARSER_STANDALONE
 /*  PyObject* request;
@@ -480,19 +477,14 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 */ // FIXME implement body setting
 #endif
 
-  route = matcher_capi->Matcher_match_request(
-    (Matcher*)self->matcher,
-    (PyObject*)&self->static_request,
-    &handler, &coro_func, &simple, &entries, &entries_length);
-  if(!route)
-    goto error;
+  matcher_entry = matcher_capi->Matcher_match_request(
+    (Matcher*)self->matcher, (PyObject*)&self->static_request,
+    &entries, &entries_length);
 
-  if(route == Py_None) {
+  if(!matcher_entry) {
     PyErr_SetString(PyExc_KeyError, "Route not found");
     goto write;
   }
-
-  self->static_request.simple = simple;
 
   request_capi->Request_set_match_dict_entries(
     &self->static_request, entries, entries_length);
@@ -500,11 +492,13 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   request_capi->Request_set_body(
     &self->static_request, body, body_len);
 
+  self->static_request.simple = matcher_entry->simple;
+
   /* this is only needed when the request would be scheduled in pipeline
      once we know that from router we can put a condition here
   */
   request = (PyObject*)&self->static_request;
-  if(coro_func || !PIPELINE_EMPTY(&self->pipeline)) {
+  if(matcher_entry->coro_func || !PIPELINE_EMPTY(&self->pipeline)) {
     if(!(request = request_capi->Request_clone(&self->static_request)))
       goto error;
   }
@@ -512,12 +506,15 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   ((Request*)request)->transport = self->transport;
   Py_INCREF(self->transport);
 
+  ((Request*)request)->matcher_entry = matcher_entry;
+
   /* we can get exception from the Python handler, we will pass it
      to python error handler
   */
-  handler_result = PyObject_CallFunctionObjArgs(handler, request, NULL);
+  handler_result = PyObject_CallFunctionObjArgs(
+    matcher_entry->handler, request, NULL);
 
-  if(handler_result && coro_func) {
+  if(handler_result && matcher_entry->coro_func) {
     if(!Protocol_handle_coro(self, request, handler_result))
       goto error;
 

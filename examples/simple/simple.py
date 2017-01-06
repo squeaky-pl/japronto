@@ -55,6 +55,7 @@ encoding: {0.encoding}
 form: {0.form}
 keep_alive: {0.keep_alive}
 no_delay: {1}
+route: {0.route}
 """.strip().format(request, no_delay)
 
     return request.Response(text=text, headers={'X-Version': '123'})

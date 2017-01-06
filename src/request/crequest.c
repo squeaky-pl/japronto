@@ -37,6 +37,7 @@ Request_new(PyTypeObject* type, Request* self)
   ((PyObject*)self)->ob_refcnt = 1;
   ((PyObject*)self)->ob_type = type;
 #endif
+  self->matcher_entry = NULL;
 
   self->transport = NULL;
   self->py_method = NULL;
@@ -657,6 +658,17 @@ Request_get_keep_alive(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_route(Request* self, void* closure)
+{
+  if(!self->matcher_entry)
+    Py_RETURN_NONE;
+
+  Py_INCREF(self->matcher_entry->route);
+  return self->matcher_entry->route;
+}
+
+
+static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -692,6 +704,7 @@ static PyGetSetDef Request_getset[] = {
   {"body", (getter)Request_get_body, NULL, "", NULL},
   {"transport", (getter)Request_get_transport, NULL, "", NULL},
   {"keep_alive", (getter)Request_get_keep_alive, NULL, "", NULL},
+  {"route", (getter)Request_get_route, NULL, "", NULL},
   PROXY(text),
   PROXY(json),
   PROXY(query),
