@@ -38,7 +38,10 @@ r = app.get_router()
 r.add_route('/dump/{p1}/{p2}', dump)
 r.add_route('/dump1/{p1}/{p2}', dump)
 r.add_route('/dump2/{p1}/{p2}', dump)
-r.add_route('/adump/{p1}/{p2}', adump)
+r.add_route('/async/dump/{p1}/{p2}', adump)
+r.add_route('/async/dump1/{p1}/{p2}', adump)
+r.add_route('/async/dump2/{p1}/{p2}', adump)
+
 
 
 if __name__ == '__main__':

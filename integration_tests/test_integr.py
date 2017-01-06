@@ -95,7 +95,7 @@ def connect(request):
         close()
 
 
-@pytest.fixture(params=['/dump', '/adump'], ids=['sync', 'async'])
+@pytest.fixture(params=['', '/async'], ids=['sync', 'async'])
 def prefix(request):
     return request.param
 
@@ -106,7 +106,7 @@ st_method = st.text(method_alphabet, min_size=1)
 @settings(verbosity=Verbosity.verbose)
 def test_method(prefix, connect, method):
     connection = connect()
-    connection.request(method, prefix + '/1/2')
+    connection.request(method, prefix + '/dump/1/2')
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
@@ -119,14 +119,14 @@ def test_method(prefix, connect, method):
 st_route_prefix = st.sampled_from(['/dump/', '/dump1/', '/dump2/'])
 @given(route_prefix=st_route_prefix)
 @settings(verbosity=Verbosity.verbose)
-def test_route(connect, route_prefix):
+def test_route(prefix, connect, route_prefix):
     connection = connect()
-    connection.request('GET', route_prefix + '1/2')
+    connection.request('GET', prefix + route_prefix + '1/2')
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
     assert response.status == 200
-    assert json_body['route'].startswith(route_prefix)
+    assert json_body['route'].startswith(prefix + route_prefix)
 
     connection.close()
 
@@ -138,7 +138,7 @@ st_param = st.text(param_alphabet, min_size=1)
 @settings(verbosity=Verbosity.verbose)
 def test_match_dict(prefix, connect, param1, param2):
     connection = connect()
-    connection.request('GET', urllib.parse.quote(prefix + '/{}/{}'.format(param1, param2)))
+    connection.request('GET', urllib.parse.quote(prefix + '/dump/{}/{}'.format(param1, param2)))
     response = connection.getresponse()
     json_body = json.loads(response.read().decode('utf-8'))
 
@@ -153,7 +153,7 @@ st_query_string = st.one_of(st.text(), st.none())
 @settings(verbosity=Verbosity.verbose)
 def test_query_string(prefix, connect, query_string):
     connection = connect()
-    url = prefix + '/1/2'
+    url = prefix + '/dump/1/2'
     if query_string is not None:
         url += '?' + urllib.parse.quote(query_string)
     connection.request('GET', url)
@@ -181,7 +181,7 @@ st_headers = st.lists(st.tuples(names, values), max_size=49)
 def test_headers(prefix, connect, headers):
     connection = connect()
     connection.putrequest(
-        'GET', prefix + '/1/2', skip_host=True, skip_accept_encoding=True)
+        'GET', prefix + '/dump/1/2', skip_host=True, skip_accept_encoding=True)
     for name, value in headers:
         connection.putheader(name, value)
     connection.endheaders()
@@ -206,7 +206,7 @@ def test_body(prefix, connect, size_k, body):
         body = body * ((size_k * 1024) // len(body) + 1)
 
     connection = connect()
-    connection.putrequest('GET', prefix + '/1/2')
+    connection.putrequest('GET', prefix + '/dump/1/2')
     if body is not None:
         connection.putheader('Content-Length', len(body))
     connection.endheaders(body)
@@ -233,7 +233,7 @@ def test_chunked(prefix, connect, size_k, body):
         body = body * ((size_k * 1024) // length + 1)
 
     connection = connect()
-    connection.request_chunked('POST', prefix + '/1/2', body=body)
+    connection.request_chunked('POST', prefix + '/dump/1/2', body=body)
     response = connection.getresponse()
     assert response.status == 200
     json_body = json.loads(response.read().decode('utf-8'))
@@ -245,6 +245,7 @@ def test_chunked(prefix, connect, size_k, body):
 
 @given(
     method=st_method,
+    route_prefix=st_route_prefix,
     param1=st_param, param2=st_param,
     query_string=st_query_string,
     headers=st_headers,
@@ -256,11 +257,11 @@ def test_chunked(prefix, connect, size_k, body):
 )
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
-def test_all(prefix, connect, size_k, method, param1, param2, query_string, headers, body):
+def test_all(prefix, connect, size_k, method, route_prefix, param1, param2, query_string, headers, body):
     connection = connect()
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
-    url = urllib.parse.quote(prefix + '/{}/{}'.format(param1, param2))
+    url = urllib.parse.quote(prefix + route_prefix + '{}/{}'.format(param1, param2))
     if query_string is not None:
         url += '?' + urllib.parse.quote(query_string)
     connection.putrequest(
@@ -276,6 +277,7 @@ def test_all(prefix, connect, size_k, method, param1, param2, query_string, head
     assert response.status == 200
     json_body = json.loads(response.read().decode('utf-8'))
     assert json_body['method'] == method
+    assert json_body['route'].startswith(prefix + route_prefix)
     assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
     assert json_body['query_string'] == query_string
     headers = {k.title(): v for k, v in headers}
@@ -290,6 +292,7 @@ def test_all(prefix, connect, size_k, method, param1, param2, query_string, head
 
 st_request = st.fixed_dictionaries({
     'method': st_method,
+    'route_prefix': st_route_prefix,
     'param1': st_param,
     'param2': st_param,
     'query_string': st_query_string,
@@ -306,7 +309,7 @@ def test_pipeline(requests):
 
     for request in requests:
         connection.putrequest(
-            request['method'], '/dump/{param1}/{param2}'.format_map(request),
+            request['method'], request['route_prefix'] + '{param1}/{param2}'.format_map(request),
             request['query_string'])
         for name, value in request['headers']:
             connection.putheader(name, value)
@@ -321,6 +324,7 @@ def test_pipeline(requests):
         assert response.status == 200
         json_body = response.json
         assert json_body['method'] == request['method']
+        assert json_body['route'].startswith(request['route_prefix'])
         assert json_body['match_dict'] == \
             {'p1': request['param1'], 'p2': request['param2']}
         assert json_body['query_string'] == request['query_string']
