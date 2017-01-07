@@ -32,6 +32,7 @@ typedef struct {
   KEEP_ALIVE keep_alive;
   bool simple;
   MatcherEntry* matcher_entry;
+  PyObject* exception;
 
   PyObject* transport;
   PyObject* py_method;

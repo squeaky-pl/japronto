@@ -38,6 +38,7 @@ Request_new(PyTypeObject* type, Request* self)
   ((PyObject*)self)->ob_type = type;
 #endif
   self->matcher_entry = NULL;
+  self->exception = NULL;
 
   self->transport = NULL;
   self->py_method = NULL;
@@ -76,6 +77,8 @@ Request_dealloc(Request* self)
   Py_XDECREF(self->py_path);
   Py_XDECREF(self->py_method);
   Py_XDECREF(self->transport);
+
+  Py_XDECREF(self->exception);
 #ifdef REQUEST_OPAQUE
   Py_TYPE(self)->tp_free((PyObject*)self);
 #endif
