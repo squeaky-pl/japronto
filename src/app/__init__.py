@@ -59,12 +59,19 @@ class Application:
 
     def error_handler(self, request, exception):
         for typ, handler in self._error_handlers:
-            if typ is None or isinstance(exception, typ):
-                try:
-                    return handler(request, exception)
-                except:
-                    print('Exception in error_handler')
-                    break
+            if typ is not None and not isinstance(exception, typ):
+                continue
+
+            try:
+                return handler(request, exception)
+            except:
+                print('-- Exception in error_handler occured:')
+                traceback.print_exc()
+
+            print('-- while handling:')
+            traceback.print_exception(None, exception, exception.__traceback__)
+            return request.Response(
+                status_code=500, text='Internal Server Error')
 
         return self.default_error_handler(request, exception)
 

@@ -196,6 +196,29 @@ def test_headers(prefix, connect, headers):
     connection.close()
 
 
+st_errors = st.sampled_from(['not-found', 'forced-1', 'forced-2'])
+@given(error=st_errors)
+@settings(
+    verbosity=Verbosity.verbose,
+    suppress_health_check=[HealthCheck.too_slow]
+)
+def test_error(prefix, connect, error):
+    connection = connect()
+    connection.putrequest(
+        'GET', prefix + '/not-found' if error == 'not-found' else '/dump/1/2')
+    if error != 'not-found':
+        connection.putheader('Force-Raise', error)
+    connection.endheaders()
+
+    response = connection.getresponse()
+    assert response.status == 500
+    json_body = json.loads(response.read().decode('utf-8'))
+    assert json_body['exception']['type'] == \
+        'RouteNotFoundException' if error == 'not-found' else 'ForcedException'
+    assert json_body['exception']['args'] == \
+        '' if error == 'not-found' else error
+
+
 st_body = st.one_of(st.binary(), st.none())
 @given(body=st_body)
 @settings(verbosity=Verbosity.verbose)

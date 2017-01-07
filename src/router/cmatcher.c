@@ -242,6 +242,9 @@ Matcher_match_request(Matcher* self, PyObject* request,
     goto finally;
   }
 
+  if(match_dict_length)
+    *match_dict_length = 0;
+
   goto finally;
 
   error:
