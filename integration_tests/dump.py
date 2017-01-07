@@ -6,8 +6,14 @@ import asyncio
 
 from app import Application
 
+class ForcedException(Exception):
+    pass
+
 
 def dump(request, exception=None):
+    if not exception and 'Force-Raise' in request.headers:
+        raise ForcedException(request.headers['Force-Raise'])
+
     body = request.body
     if body is not None:
         body = base64.b64encode(body).decode('ascii')

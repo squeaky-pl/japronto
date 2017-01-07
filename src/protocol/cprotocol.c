@@ -12,6 +12,7 @@
 static PyObject* Parser;
 #endif
 static PyObject* PyRequest;
+static PyObject* RouteNotFoundException;
 
 static PyObject* socket_str;
 static PyObject* one;
@@ -504,8 +505,10 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   ((Request*)request)->matcher_entry = matcher_entry;
 
   if(!matcher_entry) {
-    PyErr_SetString(PyExc_KeyError, "Route not found");
-    Protocol_catch_exception(request);
+    if(!(((Request*)request)->exception = PyObject_CallFunctionObjArgs(
+       RouteNotFoundException, NULL)))
+      goto error;
+
     goto queue_or_write;
   }
 
@@ -669,6 +672,7 @@ PyInit_cprotocol(void)
   PyObject* api_capsule = NULL;
   PyObject* crequest = NULL;
   PyObject* socket = NULL;
+  PyObject* route = NULL;
   socket_str = NULL;
   one = NULL;
   IPPROTO_TCP = NULL;
@@ -706,6 +710,13 @@ PyInit_cprotocol(void)
 
   PyRequest = PyObject_GetAttrString(crequest, "Request");
   if(!PyRequest)
+    goto error;
+
+  if(!(route = PyImport_ImportModule("router.route")))
+    goto error;
+
+  if(!(RouteNotFoundException = PyObject_GetAttrString(
+       route, "RouteNotFoundException")))
     goto error;
 
   request_capi = import_capi("request.crequest");
@@ -757,6 +768,7 @@ PyInit_cprotocol(void)
   Py_XDECREF(api_capsule);
   Py_XDECREF(socket);
   Py_XDECREF(crequest);
+  Py_XDECREF(route);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(cparser);
 #endif

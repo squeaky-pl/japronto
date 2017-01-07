@@ -2,6 +2,10 @@ import asyncio
 import router.analyzer
 
 
+class RouteNotFoundException(Exception):
+    pass
+
+
 class Route:
     def __init__(self, pattern, handler, methods):
         self.pattern = pattern
