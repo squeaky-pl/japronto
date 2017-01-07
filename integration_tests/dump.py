@@ -7,7 +7,7 @@ import asyncio
 from app import Application
 
 
-def dump(request):
+def dump(request, exception=None):
     body = request.body
     if body is not None:
         body = base64.b64encode(body).decode('ascii')
@@ -19,10 +19,16 @@ def dump(request):
         "headers": request.headers,
         "match_dict": request.match_dict,
         "body": body,
-        "route": request.route.pattern
+        "route": request.route and request.route.pattern
     }
 
-    return request.Response(json=result)
+    if exception:
+         result['exception'] = {
+             "type": type(exception).__name__,
+             "args": ", ".join(str(a) for a in exception.args)
+         }
+
+    return request.Response(status_code=500 if exception else 200, json=result)
 
 
 async def adump(request):
@@ -41,7 +47,7 @@ r.add_route('/dump2/{p1}/{p2}', dump)
 r.add_route('/async/dump/{p1}/{p2}', adump)
 r.add_route('/async/dump1/{p1}/{p2}', adump)
 r.add_route('/async/dump2/{p1}/{p2}', adump)
-
+app.add_error_handler(None, dump)
 
 
 if __name__ == '__main__':

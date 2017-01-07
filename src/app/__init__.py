@@ -15,6 +15,7 @@ class Application:
         self._loop = None
         self._connections = set()
         self._reaper_settings = reaper_settings or {}
+        self._error_handlers = []
 
     def get_loop(self):
         if not self._loop:
@@ -47,11 +48,25 @@ class Application:
 
         return ''.join(response).encode('utf-8') + error
 
-    def error_handler(self, request, exception):
+    def add_error_handler(self, typ, handler):
+        self._error_handlers.append((typ, handler))
+
+    def default_error_handler(self, request, exception):
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)
         print(tb)
         return request.Response(status_code=500, text=tb)
+
+    def error_handler(self, request, exception):
+        for typ, handler in self._error_handlers:
+            if typ is None or isinstance(exception, typ):
+                try:
+                    return handler(request, exception)
+                except:
+                    print('Exception in error_handler')
+                    break
+
+        return self.default_error_handler(request, exception)
 
     def serve(self, protocol_factory=None, reuse_port=False):
         self.__freeze()
