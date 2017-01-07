@@ -484,24 +484,16 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
     (Matcher*)self->matcher, (PyObject*)&self->static_request,
     &entries, &entries_length);
 
-  if(!matcher_entry) {
-    PyErr_SetString(PyExc_KeyError, "Route not found");
-    goto write;
-  }
-
   request_capi->Request_set_match_dict_entries(
     &self->static_request, entries, entries_length);
 
   request_capi->Request_set_body(
     &self->static_request, body, body_len);
 
-  self->static_request.simple = matcher_entry->simple;
+  self->static_request.simple = matcher_entry && matcher_entry->simple;
 
-  /* this is only needed when the request would be scheduled in pipeline
-     once we know that from router we can put a condition here
-  */
   request = (PyObject*)&self->static_request;
-  if(matcher_entry->coro_func || !PIPELINE_EMPTY(&self->pipeline)) {
+  if((matcher_entry && matcher_entry->coro_func) || !PIPELINE_EMPTY(&self->pipeline)) {
     if(!(request = request_capi->Request_clone(&self->static_request)))
       goto error;
   }
@@ -511,16 +503,26 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   ((Request*)request)->matcher_entry = matcher_entry;
 
-  if(!(handler_result = PyObject_CallFunctionObjArgs(
-       matcher_entry->handler, request, NULL)))
+  if(!matcher_entry) {
+    PyErr_SetString(PyExc_KeyError, "Route not found");
     Protocol_catch_exception(request);
+    goto queue_or_write;
+  }
 
-  if(handler_result && matcher_entry->coro_func) {
+  if(!(handler_result = PyObject_CallFunctionObjArgs(
+       matcher_entry->handler, request, NULL))) {
+    Protocol_catch_exception(request);
+    goto queue_or_write;
+  }
+
+  if(matcher_entry->coro_func) {
     if(!Protocol_handle_coro(self, request, handler_result))
       goto error;
 
     goto finally;
   }
+
+  queue_or_write:
 
   if(!PIPELINE_EMPTY(&self->pipeline))
   {
@@ -529,8 +531,6 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
     goto finally;
   }
-
-  write:
 
   if(!Protocol_write_response_or_err(
       self, (PyObject*)&self->static_request, (Response*)handler_result))
