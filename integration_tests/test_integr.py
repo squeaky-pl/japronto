@@ -266,8 +266,10 @@ def test_chunked(prefix, connect, size_k, body):
     connection.close()
 
 
+st_errors = st.sampled_from([None, None, None, 'not-found'])
 @given(
     method=st_method,
+    error=st_errors,
     route_prefix=st_route_prefix,
     param1=st_param, param2=st_param,
     query_string=st_query_string,
@@ -280,11 +282,14 @@ def test_chunked(prefix, connect, size_k, body):
 )
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
-def test_all(prefix, connect, size_k, method, route_prefix, param1, param2, query_string, headers, body):
+def test_all(prefix, connect, size_k, method, error, route_prefix,
+             param1, param2, query_string, headers, body):
     connection = connect()
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
-    url = urllib.parse.quote(prefix + route_prefix + '{}/{}'.format(param1, param2))
+    url = urllib.parse.quote(
+        prefix + ('/not-found' if error == 'not-found' else '')
+        + route_prefix + '{}/{}'.format(param1, param2))
     if query_string is not None:
         url += '?' + urllib.parse.quote(query_string)
     connection.putrequest(
@@ -297,11 +302,15 @@ def test_all(prefix, connect, size_k, method, route_prefix, param1, param2, quer
     connection.endheaders(body)
     response = connection.getresponse()
 
-    assert response.status == 200
+    assert response.status == 500 if error else 200
     json_body = json.loads(response.read().decode('utf-8'))
     assert json_body['method'] == method
-    assert json_body['route'].startswith(prefix + route_prefix)
-    assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
+    if error != 'not-found':
+        assert json_body['route'].startswith(prefix + route_prefix)
+    else:
+        assert json_body['route'] is None
+    assert json_body['match_dict'] == \
+        {} if error == 'not-found' else {'p1': param1, 'p2': param2}
     assert json_body['query_string'] == query_string
     headers = {k.title(): v for k, v in headers}
     assert json_body['headers'] == headers
