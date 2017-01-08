@@ -318,6 +318,13 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
         assert base64.b64decode(json_body['body']) == body
     else:
         assert json_body['body'] is None
+    if error:
+        assert json_body['exception']['type'] == \
+            'RouteNotFoundException' if error == 'not-found' else 'ForcedException'
+        assert json_body['exception']['args'] == \
+            '' if error == 'not-found' else error
+    else:
+        assert 'exception' not in json_body
 
     connection.close()
 
