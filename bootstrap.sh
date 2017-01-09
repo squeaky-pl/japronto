@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd ~
+
 sudo apt-get update
 sudo apt-get install -y python3 git libbz2-dev libz-dev libsqlite3-dev libssl-dev gcc make libffi-dev lcov
 git clone https://github.com/yyuu/pyenv .pyenv
