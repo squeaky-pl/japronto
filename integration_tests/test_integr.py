@@ -172,7 +172,7 @@ value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)
 is_illegal_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
 values = st.text(value_alphabet, min_size=1) \
     .filter(lambda x: not is_illegal_value(x)).map(lambda x: x.strip())
-st_headers = st.lists(st.tuples(names, values), max_size=49)
+st_headers = st.lists(st.tuples(names, values), max_size=48)
 @given(headers=st_headers)
 @settings(
     verbosity=Verbosity.verbose,
@@ -266,7 +266,7 @@ def test_chunked(prefix, connect, size_k, body):
     connection.close()
 
 
-st_errors = st.sampled_from([None, None, None, 'not-found'])
+st_errors = st.sampled_from([None, None, None, 'not-found', 'forced-1'])
 @given(
     method=st_method,
     error=st_errors,
@@ -299,6 +299,9 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
     if body is not None:
         headers.append(('Content-Length', str(len(body))))
         connection.putheader('Content-Length', len(body))
+    if error == 'forced-1':
+        headers.append(('Force-Raise', 'forced-1'))
+        connection.putheader('Force-Raise', 'forced-1')
     connection.endheaders(body)
     response = connection.getresponse()
 
