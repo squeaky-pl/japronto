@@ -334,6 +334,7 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
 
 st_request = st.fixed_dictionaries({
     'method': st_method,
+    'error': st_errors,
     'route_prefix': st_route_prefix,
     'param1': st_param,
     'param2': st_param,
@@ -351,7 +352,9 @@ def test_pipeline(requests):
 
     for request in requests:
         connection.putrequest(
-            request['method'], request['route_prefix'] + '{param1}/{param2}'.format_map(request),
+            request['method'], request['route_prefix'] +
+             ('/not-found' if request['error'] == 'not-found' else '') +
+            '{param1}/{param2}'.format_map(request),
             request['query_string'])
         for name, value in request['headers']:
             connection.putheader(name, value)
@@ -359,15 +362,22 @@ def test_pipeline(requests):
             body_len = str(len(request['body']))
             request['headers'].append(('Content-Length', body_len))
             connection.putheader('Content-Length', body_len)
+        if request['error'] == 'forced-1':
+            request['headers'].append(('Force-Raise', 'forced-1'))
+            connection.putheader('Force-Raise', 'forced-1')
         connection.endheaders(request['body'])
 
     for request in requests:
         response = connection.getresponse()
-        assert response.status == 200
+        assert response.status == 500 if request['error'] else 200
         json_body = response.json
         assert json_body['method'] == request['method']
-        assert json_body['route'].startswith(request['route_prefix'])
+        if request['error'] != 'not-found':
+            assert json_body['route'].startswith(request['route_prefix'])
+        else:
+            assert json_body['route'] is None
         assert json_body['match_dict'] == \
+            {} if request['error'] == 'not-found' else \
             {'p1': request['param1'], 'p2': request['param2']}
         assert json_body['query_string'] == request['query_string']
         assert json_body['headers'] == {k.title(): v for k, v in request['headers']}
@@ -375,6 +385,13 @@ def test_pipeline(requests):
             assert base64.b64decode(json_body['body']) == request['body']
         else:
             assert json_body['body'] is None
+        if request['error']:
+            assert json_body['exception']['type'] == \
+                'RouteNotFoundException' if request['error'] == 'not-found' else 'ForcedException'
+            assert json_body['exception']['args'] == \
+                '' if request['error'] == 'not-found' else request['error']
+        else:
+            assert 'exception' not in json_body
 
 
     connection.close()
