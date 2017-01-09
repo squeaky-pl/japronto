@@ -406,7 +406,8 @@ st_async_request = st.fixed_dictionaries({
     'prefix': st_prefix,
     'error': st_errors
 })
-st_async_requests = st.lists(st_async_request, min_size=2, max_size=5)
+st_async_requests = st.lists(st_async_request, min_size=2, max_size=5) \
+    .filter(lambda rs: any(r['prefix'].startswith('/async') for r in rs))
 @given(requests=st_async_requests)
 @settings(verbosity=Verbosity.verbose)
 def test_async_pipeline(requests):
