@@ -22,14 +22,14 @@ static inline void
 PipelineEntry_DECREF(PipelineEntry entry)
 {
     Py_DECREF(entry.request);
-    Py_DECREF(entry.task);
+    Py_XDECREF(entry.task);
 }
 
 static inline void
 PipelineEntry_INCREF(PipelineEntry entry)
 {
     Py_INCREF(entry.request);
-    Py_INCREF(entry.task);
+    Py_XINCREF(entry.task);
 }
 
 static inline PyObject*

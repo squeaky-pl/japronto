@@ -403,7 +403,8 @@ st_sleep = st.builds(format_sleep_qs, st.integers(min_value=0, max_value=10))
 st_prefix = st.sampled_from(['/dump', '/async/dump'])
 st_async_request = st.fixed_dictionaries({
     'query_string': st_sleep,
-    'prefix': st_prefix
+    'prefix': st_prefix,
+    'error': st_errors
 })
 st_async_requests = st.lists(st_async_request, min_size=2, max_size=5)
 @given(requests=st_async_requests)
@@ -413,12 +414,17 @@ def test_async_pipeline(requests):
 
     for request in requests:
         connection.putrequest(
-            'GET', request['prefix'] + '/1/2', request['query_string'])
+            'GET', request['prefix'] +
+            ('/not-found' if request['error'] == 'not-found' else '') +
+            '/1/2', request['query_string'])
+        if request['error'] == 'forced-1':
+            connection.putheader('Force-Raise', 'forced-1')
+
         connection.endheaders()
 
     for request in requests:
         response = connection.getresponse()
-        assert response.status == 200
+        assert response.status == 500 if request['error'] else 200
         json_body = response.json
         assert json_body['query_string'] == request['query_string']
 
