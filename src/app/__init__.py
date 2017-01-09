@@ -5,6 +5,7 @@ import traceback
 import router
 import uvloop
 import router.cmatcher
+import router.route
 
 from protocol.cprotocol import Protocol as CProtocol
 from protocol.creaper import Reaper
@@ -52,6 +53,9 @@ class Application:
         self._error_handlers.append((typ, handler))
 
     def default_error_handler(self, request, exception):
+        if isinstance(exception, router.route.RouteNotFoundException):
+            return request.Response(status_code=404, text='Not Found')
+
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)
         print(tb)
