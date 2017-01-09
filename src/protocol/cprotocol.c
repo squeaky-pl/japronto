@@ -23,15 +23,6 @@ static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
 static Response_CAPI* response_capi;
 
-#define PROTOCOL_CALL_FAST 1
-
-#ifdef PROTOCOL_CALL_FAST
-#define Call_CMETHO(func, arg) \
-  (*PyCFunction_GET_FUNCTION(func)) (PyCFunction_GET_SELF(func), arg)
-#else
-#define Call_CMETHO(func, arg) \
-  PyObject_CallFunctionObjArgs(func, arg, NULL)
-#endif
 
 static PyObject *
 Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -248,7 +239,7 @@ Protocol_close(Protocol* self)
 
 
 static PyObject*
-Protocol_connection_lost(Protocol* self, PyObject* exc)
+Protocol_connection_lost(Protocol* self, PyObject* args)
 {
   PyObject* connections = NULL;
   PyObject* result = Py_None;
@@ -370,7 +361,7 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       goto error;
 
     PyObject* tmp;
-    if(!(tmp = Call_CMETHO(self->write, response_bytes)))
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
       goto error;
     Py_DECREF(tmp);
 
@@ -608,7 +599,7 @@ Protocol_on_error(Protocol* self, PyObject* error)
 
 static PyMethodDef Protocol_methods[] = {
   {"connection_made", (PyCFunction)Protocol_connection_made, METH_O, ""},
-  {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_O, ""},
+  {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_O, ""},
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
