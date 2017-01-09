@@ -116,9 +116,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, self) == -1)
     goto error;
 
-  if(Request_init(&self->static_request) == -1)
-    goto error;
-
   if(!PyArg_ParseTuple(args, "O", &self->app))
     goto error;
   Py_INCREF(self->app);
@@ -322,7 +319,6 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 
   Request_dealloc(&self->static_request);
   Request_new(request_capi->RequestType, &self->static_request);
-  Request_init(&self->static_request);
 
   request_capi->Request_from_raw(
     &self->static_request, method, method_len, path, path_len, minor_version,
