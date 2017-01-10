@@ -618,6 +618,32 @@ static PyMethodDef Protocol_methods[] = {
 };
 
 
+static PyObject*
+Protocol_get_pipeline_empty(Protocol* self)
+{
+  if(PIPELINE_EMPTY(&self->pipeline))
+    Py_RETURN_TRUE;
+
+  Py_RETURN_FALSE;
+}
+
+
+static PyObject*
+Protocol_get_transport(Protocol* self)
+{
+  Py_INCREF(self->transport);
+
+  return self->transport;
+}
+
+
+static PyGetSetDef Protocol_getset[] = {
+  {"pipeline_empty", (getter)Protocol_get_pipeline_empty, NULL, "", NULL},
+  {"transport", (getter)Protocol_get_transport, NULL, "", NULL},
+  {NULL}
+};
+
+
 static PyTypeObject ProtocolType = {
   PyVarObject_HEAD_INIT(NULL, 0)
   "cprotocol.Protocol",      /* tp_name */
@@ -648,7 +674,7 @@ static PyTypeObject ProtocolType = {
   0,                         /* tp_iternext */
   Protocol_methods,          /* tp_methods */
   0,                         /* tp_members */
-  0,                         /* tp_getset */
+  Protocol_getset,           /* tp_getset */
   0,                         /* tp_base */
   0,                         /* tp_dict */
   0,                         /* tp_descr_get */
