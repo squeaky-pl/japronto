@@ -1,6 +1,7 @@
 import signal
 import asyncio
 import traceback
+import socket
 
 import router
 import uvloop
@@ -79,6 +80,24 @@ class Application:
 
         return self.default_error_handler(request, exception)
 
+
+    async def drain(self):
+        print('Draining connections...')
+        idle_connections = [c for c in self._connections if c.pipeline_empty]
+        busy_connections = [c for c in self._connections if not c.pipeline_empty]
+        for c in idle_connections:
+            c.transport.close()
+        for c in busy_connections:
+            sock = c.transport.get_extra_info('socket')
+            sock.shutdown(socket.SHUT_RD)
+
+        if idle_connections:
+            print('{} idle connections closed immediately'
+                .format(len(idle_connections)))
+        if busy_connections:
+            print('{} connections busy, read-end closed'
+                .format(len(idle_connections)))
+
     def serve(self, protocol_factory=None, reuse_port=False):
         self.__freeze()
 
@@ -98,5 +117,6 @@ class Application:
         try:
             loop.run_forever()
         finally:
+            loop.run_until_complete(self.drain())
             self._reaper.stop()
             loop.close()
