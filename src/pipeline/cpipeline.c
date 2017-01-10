@@ -55,7 +55,7 @@ static int
 Pipeline_init(Pipeline* self, PyObject *args, PyObject* kw)
 #else
 int
-Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, void*), void* ready_closure)
+Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, PyObject*), PyObject* protocol)
 #endif
 {
   int result = 0;
@@ -67,7 +67,7 @@ Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, void*), void* ready_
   Py_INCREF(self->ready);
 #else
   self->ready = ready;
-  self->ready_closure = ready_closure;
+  self->protocol = protocol;
 #endif
 
   if(!(self->task_done = PyObject_GetAttrString((PyObject*)self, "_task_done")))
@@ -119,7 +119,7 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
       goto loop_error;
     Py_DECREF(tmp);
 #else
-    if(!self->ready(*queue_entry, self->ready_closure))
+    if(!self->ready(*queue_entry, self->protocol))
       goto loop_error;
 #endif
 
@@ -141,6 +141,12 @@ Pipeline__task_done(Pipeline* self, PyObject* task)
 
   self->queue_start = queue_entry - self->queue;
 
+#ifndef PIPELINE_OPAQUE
+  if(PIPELINE_EMPTY(self))
+    // we became empty so release protocol
+    Py_DECREF(self->protocol);
+#endif
+
   goto finally;
 
   error:
@@ -161,8 +167,13 @@ Pipeline_queue(Pipeline* self, PipelineEntry entry)
   PyObject* result = Py_None;
   PyObject* add_done_callback = NULL;
 
-  if(PIPELINE_EMPTY(self))
+  if(PIPELINE_EMPTY(self)) {
     self->queue_start = self->queue_end = 0;
+#ifndef PIPELINE_OPAQUE
+    // we will become non empty so hold a reference to protocol
+    Py_INCREF(self->protocol);
+#endif
+  }
 
   assert(self->queue_end < sizeof(self->queue) / sizeof(self->queue[0]));
 
@@ -195,6 +206,46 @@ Pipeline_queue(Pipeline* self, PipelineEntry entry)
 #endif
   return result;
 }
+
+
+#ifndef PIPELINE_OPAQUE
+void*
+Pipeline_cancel(Pipeline* self)
+{
+  void* result = self;
+
+  PipelineEntry *queue_entry;
+  for(queue_entry = self->queue + self->queue_start;
+      queue_entry < self->queue + self->queue_end; queue_entry++) {
+    if(!PipelineEntry_is_task(*queue_entry))
+      continue;
+
+    PyObject* task = PipelineEntry_get_task(*queue_entry);
+    PyObject* cancel = NULL;
+
+    if(!(cancel = PyObject_GetAttrString(task, "cancel")))
+      goto loop_error;
+
+    PyObject* tmp;
+    if(!(tmp = PyObject_CallFunctionObjArgs(cancel, NULL)))
+      goto loop_error;
+    Py_DECREF(tmp);
+
+    goto loop_finally;
+
+    loop_error:
+    result = NULL;
+
+    loop_finally:
+    Py_XDECREF(cancel);
+
+    if(!result)
+      break;
+  }
+
+  return result;
+}
+#endif
 
 
 #ifdef PIPELINE_OPAQUE

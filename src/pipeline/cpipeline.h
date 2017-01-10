@@ -71,8 +71,8 @@ typedef struct {
 #ifdef PIPELINE_OPAQUE
   PyObject* ready;
 #else
-  void* (*ready)(PipelineEntry, void*);
-  void* ready_closure;
+  void* (*ready)(PipelineEntry, PyObject*);
+  PyObject* protocol;
 #endif
   PyObject* task_done;
   PipelineEntry queue[10];
@@ -91,10 +91,13 @@ void
 Pipeline_dealloc(Pipeline* self);
 
 int
-Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, void*), void* closure);
+Pipeline_init(Pipeline* self, void* (*ready)(PipelineEntry, PyObject*), PyObject* protocol);
 
 PyObject*
 Pipeline_queue(Pipeline* self, PipelineEntry entry);
+
+void*
+Pipeline_cancel(Pipeline* self);
 
 void*
 cpipeline_init(void);

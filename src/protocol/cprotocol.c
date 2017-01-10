@@ -75,7 +75,7 @@ Protocol_dealloc(Protocol* self)
 }
 
 
-static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure);
+static void* Protocol_pipeline_ready(PipelineEntry entry, PyObject* protocol);
 
 
 static int
@@ -113,7 +113,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
     goto error;
 #endif
 
-  if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, self) == -1)
+  if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, (PyObject*)self) == -1)
     goto error;
 
   if(!PyArg_ParseTuple(args, "O", &self->app))
@@ -196,6 +196,8 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(PySet_Add(connections, (PyObject*)self) == -1)
     goto error;
 
+  self->closed = false;
+
   goto finally;
 
   error:
@@ -238,6 +240,8 @@ Protocol_close(Protocol* self)
 static PyObject*
 Protocol_connection_lost(Protocol* self, PyObject* args)
 {
+  self->closed = true;
+
   PyObject* connections = NULL;
   PyObject* result = Py_None;
 #ifdef PARSER_STANDALONE
@@ -255,6 +259,9 @@ Protocol_connection_lost(Protocol* self, PyObject* args)
     goto error;
 
   if(PySet_Discard(connections, (PyObject*)self) == -1)
+    goto error;
+
+  if(!Pipeline_cancel(&self->pipeline))
     goto error;
 
 #ifdef PROTOCOL_TRACK_REFCNT
@@ -395,9 +402,9 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
 }
 
 
-static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure)
+static void* Protocol_pipeline_ready(PipelineEntry entry, PyObject* protocol)
 {
-  Protocol* self = (Protocol*)closure;
+  Protocol* self = (Protocol*)protocol;
   PyObject* get_result = NULL;
   PyObject* response = NULL;
   PyObject* request = entry.request;
@@ -413,8 +420,13 @@ static void* Protocol_pipeline_ready(PipelineEntry entry, void* closure)
     response = task;
   }
 
-  if(!Protocol_write_response_or_err(self, request, (Response*)response))
-    goto error;
+  if(!self->closed) {
+    if(!Protocol_write_response_or_err(self, request, (Response*)response))
+      goto error;
+  } else {
+    // TODO: Send that to protocol_error
+    printf("Connection closed, response dropped\n");
+  }
 
   goto finally;
 

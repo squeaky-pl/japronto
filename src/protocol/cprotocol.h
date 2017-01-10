@@ -6,6 +6,7 @@
 
 #include "cpipeline.h"
 #include "crequest.h"
+#include <stdbool.h>
 
 typedef struct {
   PyObject_HEAD
@@ -34,6 +35,7 @@ typedef struct {
   Py_ssize_t true_cnt;
   Py_ssize_t false_cnt;
 #endif
+  bool closed;
 } Protocol;
 
 
