@@ -120,7 +120,7 @@ class Application:
 
         busy_connections = [c for c in self._connections if not c.pipeline_empty]
         if busy_connections:
-            print('Forcefully killing remaining {} connections'.format(len(busy_connections)))
+            print('Forcefully killing {} connections'.format(len(busy_connections)))
         for c in busy_connections:
             c.pipeline_cancel()
 

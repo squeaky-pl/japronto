@@ -108,3 +108,39 @@ def test_closed_requests(num, connect, server_terminate):
     lines = server_terminate()
 
     assert lines[-1] == 'Draining connections...'
+
+
+@pytest.mark.parametrize('num', range(1, 3))
+def test_pipelined(num, connect, server_terminate):
+    connections = []
+
+    for _ in range(num):
+        con = connect()
+        connections.append(con)
+        con.putrequest('GET', '/sleep/1')
+        con.endheaders()
+
+    lines = server_terminate()
+
+    assert '{} connections busy, read-end closed'.format(num) in lines
+    assert not any(l.startswith('Forcefully killing') for l in lines)
+
+    assert all(c.getresponse().status == 200 for c in connections)
+
+
+@pytest.mark.parametrize('num', range(1, 3))
+def test_pipelined_timeout(num, connect, server_terminate):
+    connections = []
+
+    for _ in range(num):
+        con = connect()
+        connections.append(con)
+        con.putrequest('GET', '/sleep/10')
+        con.endheaders()
+
+    lines = server_terminate()
+
+    assert '{} connections busy, read-end closed'.format(num) in lines
+    assert 'Forcefully killing {} connections'.format(num) in lines
+
+    assert all(c.getresponse().status == 503 for c in connections)
