@@ -56,7 +56,10 @@ class Application:
     def default_error_handler(self, request, exception):
         if isinstance(exception, router.route.RouteNotFoundException):
             return request.Response(status_code=404, text='Not Found')
+        if isinstance(exception, asyncio.CancelledError):
+            return request.Response(status_code=503, text='Service unavailable')
 
+        # FIXME traceback should be only available in debug mode
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)
         print(tb)
