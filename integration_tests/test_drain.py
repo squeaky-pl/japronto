@@ -144,3 +144,19 @@ def test_pipelined_timeout(num, connect, server_terminate):
     assert 'Forcefully killing {} connections'.format(num) in lines
 
     assert all(c.getresponse().status == 503 for c in connections)
+
+
+def test_refuse(connect, server):
+    con = connect()
+    con.putrequest('GET', '/sleep/10')
+    con.endheaders()
+
+    server.terminate()
+
+    # give time for the signal to propagate
+    time.sleep(1)
+
+    with pytest.raises(ConnectionRefusedError):
+        con = connect()
+
+    assert server.wait() == 0

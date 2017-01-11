@@ -143,6 +143,8 @@ class Application:
         try:
             loop.run_forever()
         finally:
+            server.close()
+            loop.run_until_complete(server.wait_closed())
             loop.run_until_complete(self.drain())
             self._reaper.stop()
             loop.close()
