@@ -83,20 +83,43 @@ class Application:
 
     async def drain(self):
         print('Draining connections...')
+        # TODO idle connections will close connection with half-read requests
         idle_connections = [c for c in self._connections if c.pipeline_empty]
         busy_connections = [c for c in self._connections if not c.pipeline_empty]
         for c in idle_connections:
             c.transport.close()
-        for c in busy_connections:
-            sock = c.transport.get_extra_info('socket')
-            sock.shutdown(socket.SHUT_RD)
+#       for c in busy_connections:
+#            need to implement something that makes protocol.on_data
+#            start rejecting incoming data
+#            this closes transposrt unfortunately
+#            sock = c.transport.get_extra_info('socket')
+#            sock.shutdown(socket.SHUT_RD)
 
         if idle_connections:
             print('{} idle connections closed immediately'
                 .format(len(idle_connections)))
         if busy_connections:
             print('{} connections busy, read-end closed'
-                .format(len(idle_connections)))
+                .format(len(busy_connections)))
+        else:
+            return
+
+        for x in range(5, 0, -1):
+            await asyncio.sleep(1)
+            idle_connections = [c for c in self._connections if c.pipeline_empty]
+            for c in idle_connections:
+                c.transport.close()
+            busy_connections = [c for c in self._connections if not c.pipeline_empty]
+            if not busy_connections:
+                break
+            else:
+                print("{} seconds remaining, {} connections still busy".format(x, len(busy_connections)))
+
+        busy_connections = [c for c in self._connections if not c.pipeline_empty]
+        if busy_connections:
+            print('Forcefully killing remaining {} connections'.format(len(busy_connections)))
+        for c in busy_connections:
+            c.pipeline_cancel()
 
     def serve(self, protocol_factory=None, reuse_port=False):
         self.__freeze()

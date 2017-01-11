@@ -605,10 +605,21 @@ Protocol_on_error(Protocol* self, PyObject* error)
 #endif
 
 
+static PyObject*
+Protocol_pipeline_cancel(Protocol* self)
+{
+  if(!Pipeline_cancel(&self->pipeline))
+    return NULL;
+
+  Py_RETURN_NONE;
+}
+
+
 static PyMethodDef Protocol_methods[] = {
   {"connection_made", (PyCFunction)Protocol_connection_made, METH_O, ""},
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_O, ""},
+  {"pipeline_cancel", (PyCFunction)Protocol_pipeline_cancel, METH_NOARGS, ""},
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
