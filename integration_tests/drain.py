@@ -14,7 +14,7 @@ async def sleep(request):
 
 app = Application()
 
-r = app.get_router()
+r = app.router
 r.add_route('/', slash)
 r.add_route('/sleep/{sleep}', sleep)
 

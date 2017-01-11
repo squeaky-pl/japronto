@@ -46,7 +46,7 @@ async def adump(request):
 
 app = Application()
 
-r = app.get_router()
+r = app.router
 r.add_route('/dump/{p1}/{p2}', dump)
 r.add_route('/dump1/{p1}/{p2}', dump)
 r.add_route('/dump2/{p1}/{p2}', dump)

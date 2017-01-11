@@ -12,7 +12,7 @@ def hello(request):
 
 app = Application()
 
-r = app.get_router()
+r = app.router
 r.add_route('/', hello)
 
 app.serve()

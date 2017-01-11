@@ -35,7 +35,7 @@ elif prop == 'route':
 
 app = Application()
 
-r = app.get_router()
+r = app.router
 r.add_route('/noleak/{p1}/{p2}', noleak)
 
 

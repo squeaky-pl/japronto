@@ -19,23 +19,25 @@ class Application:
         self._reaper_settings = reaper_settings or {}
         self._error_handlers = []
 
-    def get_loop(self):
+    @property
+    def loop(self):
         if not self._loop:
             self._loop = uvloop.new_event_loop()
 
         return self._loop
 
-    def get_router(self):
+    @property
+    def router(self):
         if not self._router:
             self._router = router.Router(router.cmatcher.Matcher)
 
         return self._router
 
-    def __freeze(self):
-        self.get_loop()
-        self.get_router()
-        self._reaper = Reaper(self, **self._reaper_settings)
+    def __finalize(self):
+        self.loop
+        self.router
 
+        self._reaper = Reaper(self, **self._reaper_settings)
         self._matcher = self._router.get_matcher()
 
     def protocol_error_handler(self, error):
@@ -125,12 +127,12 @@ class Application:
             c.pipeline_cancel()
 
     def serve(self, protocol_factory=None, reuse_port=False):
-        self.__freeze()
+        self.__finalize()
 
-        loop = self.get_loop()
-        protocol_factory = protocol_factory or CProtocol
-
+        loop = self.loop
         asyncio.set_event_loop(loop)
+
+        protocol_factory = protocol_factory or CProtocol
 
         server_coro = loop.create_server(
             lambda: protocol_factory(self),

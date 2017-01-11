@@ -73,7 +73,7 @@ def delete_todo(request):
 if __name__ == '__main__':
     maybe_create_schema()
     app = Application()
-    router = app.get_router()
+    router = app.router
     router.add_route('/todos', list_todos, method='GET')
     router.add_route('/todos/{id}', show_todo, method='GET')
     router.add_route('/todos/{id}', delete_todo, method='DELETE')
