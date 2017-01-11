@@ -62,9 +62,49 @@ def test_no_connections(server_terminate):
 
     assert lines[-1] == 'Draining connections...'
 
-def test_open_connections(connect, server_terminate):
-    connect()
-    print('maybe_connect')
+
+@pytest.mark.parametrize('num', range(1, 5))
+def test_unclosed_connections(num, connect, server_terminate):
+    for _ in range(num):
+        connect()
+
     lines = server_terminate()
 
-    assert lines[-1] == '1 idle connections closed immediately'
+    assert lines[-1] == '{} idle connections closed immediately'.format(num)
+
+
+@pytest.mark.parametrize('num', range(1, 5))
+def test_closed_connections(num, connect, server_terminate):
+    for _ in range(num):
+        con = connect()
+        con.close()
+
+    lines = server_terminate()
+
+    assert lines[-1] == 'Draining connections...'
+
+
+@pytest.mark.parametrize('num', range(1, 5))
+def test_unclosed_requests(num, connect, server_terminate):
+    for _ in range(num):
+        con = connect()
+        con.putrequest('GET', '/')
+        con.endheaders()
+
+    lines = server_terminate()
+
+    assert lines[-1] == '{} idle connections closed immediately'.format(num)
+
+
+@pytest.mark.parametrize('num', range(1, 5))
+def test_closed_requests(num, connect, server_terminate):
+    for _ in range(num):
+        con = connect()
+        con.putrequest('GET', '/')
+        con.endheaders()
+        resp = con.getresponse()
+        con.close()
+
+    lines = server_terminate()
+
+    assert lines[-1] == 'Draining connections...'
