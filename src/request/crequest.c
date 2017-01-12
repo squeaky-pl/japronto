@@ -714,6 +714,7 @@ static PyGetSetDef Request_getset[] = {
   PROXY(mime_type),
   PROXY(encoding),
   PROXY(form),
+  PROXY(remote_addr),
   {NULL}
 };
 

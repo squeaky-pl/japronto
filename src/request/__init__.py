@@ -44,6 +44,10 @@ def query(request):
     return dict(urllib.parse.parse_qsl(qs))
 
 
+def remote_addr(request):
+    return request.transport.get_extra_info('peername')[0]
+
+
 def mime_type(request):
     content_type = request.headers.get('Content-Type')
     if not content_type:
