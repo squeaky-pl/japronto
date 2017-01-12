@@ -30,6 +30,7 @@ typedef struct {
   PyObject* transport;
   PyObject* write;
   PyObject* create_task;
+  PyObject* request_logger;
 #ifdef PROTOCOL_TRACK_REFCNT
   Py_ssize_t none_cnt;
   Py_ssize_t true_cnt;

@@ -47,6 +47,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->transport = NULL;
   self->write = NULL;
   self->create_task = NULL;
+  self->request_logger = NULL;
 
   finally:
   return (PyObject*)self;
@@ -56,6 +57,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
+  Py_XDECREF(self->request_logger);
   Py_XDECREF(self->create_task);
   Py_XDECREF(self->write);
   Py_XDECREF(self->transport);
@@ -83,6 +85,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 {
   int result = 0;
   PyObject* loop = NULL;
+  PyObject* log_request = NULL;
 #ifdef PARSER_STANDALONE
   PyObject* parser = NULL;
 
@@ -136,11 +139,20 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(!self->create_task)
     goto error;
 
+  if(!(log_request = PyObject_GetAttrString(self->app, "_log_request")))
+    goto error;
+
+  if(log_request == Py_True) {
+    if(!(self->request_logger = PyObject_GetAttrString(self->app, "default_request_logger")))
+      goto error;
+  }
+
   goto finally;
 
   error:
   result = -1;
   finally:
+  Py_XDECREF(log_request);
   Py_XDECREF(loop);
 #ifdef PARSER_STANDALONE
   Py_XDECREF(parser);
@@ -367,6 +379,12 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
     if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
       goto error;
     Py_DECREF(tmp);
+
+    if(self->request_logger) {
+      if(!(tmp = PyObject_CallFunctionObjArgs(self->request_logger, request, NULL)))
+        goto error;
+      Py_DECREF(tmp);
+    }
 
     if(response->keep_alive == KEEP_ALIVE_FALSE) {
       if(!Protocol_close(self))

@@ -12,12 +12,13 @@ from protocol.cprotocol import Protocol as CProtocol
 from protocol.creaper import Reaper
 
 class Application:
-    def __init__(self, loop=None, reaper_settings=None):
+    def __init__(self, loop=None, reaper_settings=None, log_request=False):
         self._router = None
         self._loop = None
         self._connections = set()
         self._reaper_settings = reaper_settings or {}
         self._error_handlers = []
+        self._log_request = log_request
 
     @property
     def loop(self):
@@ -51,6 +52,9 @@ class Application:
             'Content-Length: {}\r\n\r\n'.format(len(error))]
 
         return ''.join(response).encode('utf-8') + error
+
+    def default_request_logger(self, request):
+        print(request.method, request.path)
 
     def add_error_handler(self, typ, handler):
         self._error_handlers.append((typ, handler))
