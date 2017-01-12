@@ -10,6 +10,8 @@
 #include "capsule.h"
 
 static PyObject* PyResponse;
+static PyObject* partial;
+
 
 #ifdef REQUEST_OPAQUE
 static PyObject* HTTP10;
@@ -763,8 +765,21 @@ Request_getattro(Request* self, PyObject* name)
   if(!(entry = PyDict_GetItem(extensions, name)))
     goto error;
 
-  if(!(result = PyObject_CallFunctionObjArgs(entry, self, NULL)))
+  PyObject* handler;
+  PyObject* property;
+  if(!(handler = PyTuple_GetItem(entry, 0)))
     goto error;
+
+  if(!(property = PyTuple_GetItem(entry, 1)))
+    goto error;
+
+  if(property == Py_True) {
+    if(!(result = PyObject_CallFunctionObjArgs(handler, self, NULL)))
+      goto error;
+  } else {
+    if(!(result = PyObject_CallFunctionObjArgs(partial, handler, self, NULL)))
+      goto error;
+  }
 
   error:
   Py_XDECREF(extensions);
@@ -848,6 +863,7 @@ crequest_init(void)
   void* m = (void*)1;
 #endif
   PyObject* cresponse = NULL;
+  PyObject* functools = NULL;
   PyResponse = NULL;
 
 #ifdef REQUEST_OPAQUE
@@ -869,6 +885,12 @@ crequest_init(void)
 
   cresponse = PyImport_ImportModule("response.cresponse");
   if(!cresponse)
+    goto error;
+
+  if(!(functools = PyImport_ImportModule("functools")))
+    goto error;
+
+  if(!(partial = PyObject_GetAttrString(functools, "partial")))
     goto error;
 
   PyResponse = PyObject_GetAttrString(cresponse, "Response");
@@ -911,6 +933,7 @@ crequest_init(void)
   m = NULL;
 
   finally:
+  Py_XDECREF(functools);
   Py_XDECREF(cresponse);
 #ifdef REQUEST_OPAQUE
   Py_XDECREF(api_capsule);

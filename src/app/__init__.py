@@ -135,7 +135,7 @@ class Application:
         if not name:
             name = handler.__name__
 
-        self._request_extensions[name] = handler
+        self._request_extensions[name] = (handler, property)
 
 
     def serve(self, protocol_factory=None, reuse_port=False):
