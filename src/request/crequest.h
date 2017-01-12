@@ -35,6 +35,7 @@ typedef struct {
   PyObject* exception;
 
   PyObject* transport;
+  PyObject* app;
   PyObject* py_method;
   PyObject* py_path;
   PyObject* py_qs;

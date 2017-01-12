@@ -39,6 +39,7 @@ Request_new(PyTypeObject* type, Request* self)
 #endif
   self->matcher_entry = NULL;
   self->exception = NULL;
+  self->app = NULL;
 
   self->transport = NULL;
   self->py_method = NULL;
@@ -71,6 +72,7 @@ Request_dealloc(Request* self)
     free(self->buffer);
 
   Response_dealloc(&self->response);
+  Py_XDECREF(self->app);
   Py_XDECREF(self->extra);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
@@ -685,6 +687,14 @@ Request_get_extra(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_app(Request* self, void* app)
+{
+  Py_INCREF(self->app);
+  return self->app;
+}
+
+
+static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -722,6 +732,7 @@ static PyGetSetDef Request_getset[] = {
   {"keep_alive", (getter)Request_get_keep_alive, NULL, "", NULL},
   {"route", (getter)Request_get_route, NULL, "", NULL},
   {"extra", (getter)Request_get_extra, NULL, "", NULL},
+  {"app", (getter)Request_get_app, NULL, "", NULL},
   PROXY(text),
   PROXY(json),
   PROXY(query),
@@ -733,6 +744,33 @@ static PyGetSetDef Request_getset[] = {
 };
 
 #undef PROXY
+
+static PyObject*
+Request_getattro(Request* self, PyObject* name)
+{
+  PyObject* result;
+
+  if((result = PyObject_GenericGetAttr((PyObject*)self, name)))
+    return result;
+
+  PyErr_Clear();
+
+  PyObject* extensions = NULL;
+  if(!(extensions = PyObject_GetAttrString(self->app, "_request_extensions")))
+    goto error;
+
+  PyObject* entry;
+  if(!(entry = PyDict_GetItem(extensions, name)))
+    goto error;
+
+  if(!(result = PyObject_CallFunctionObjArgs(entry, self, NULL)))
+    goto error;
+
+  error:
+  Py_XDECREF(extensions);
+
+  return result;
+}
 
 
 static PyMethodDef Request_methods[] = {
@@ -758,7 +796,7 @@ static PyTypeObject RequestType = {
   0,                         /* tp_hash  */
   0,                         /* tp_call */
   0,                         /* tp_str */
-  0,                         /* tp_getattro */
+  (getattrofunc)Request_getattro, /* tp_getattro */
   0,                         /* tp_setattro */
   0,                         /* tp_as_buffer */
   Py_TPFLAGS_DEFAULT,        /* tp_flags */

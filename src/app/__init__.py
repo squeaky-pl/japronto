@@ -19,6 +19,7 @@ class Application:
         self._reaper_settings = reaper_settings or {}
         self._error_handlers = []
         self._log_request = log_request
+        self._request_extensions = {}
 
     @property
     def loop(self):
@@ -129,6 +130,13 @@ class Application:
             print('Forcefully killing {} connections'.format(len(busy_connections)))
         for c in busy_connections:
             c.pipeline_cancel()
+
+    def extend_request(self, handler, *, name=None, property=False):
+        if not name:
+            name = handler.__name__
+
+        self._request_extensions[name] = handler
+
 
     def serve(self, protocol_factory=None, reuse_port=False):
         self.__finalize()

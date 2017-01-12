@@ -528,6 +528,9 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
   ((Request*)request)->transport = self->transport;
   Py_INCREF(self->transport);
 
+  ((Request*)request)->app = self->app;
+  Py_INCREF(self->app);
+
   ((Request*)request)->matcher_entry = matcher_entry;
 
   if(!matcher_entry) {
