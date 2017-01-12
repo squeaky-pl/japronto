@@ -47,6 +47,7 @@ Request_new(PyTypeObject* type, Request* self)
   self->py_headers = NULL;
   self->py_match_dict = NULL;
   self->py_body = NULL;
+  self->extra = NULL;
 
   Response_new(response_capi->ResponseType, &self->response);
 
@@ -70,6 +71,7 @@ Request_dealloc(Request* self)
     free(self->buffer);
 
   Response_dealloc(&self->response);
+  Py_XDECREF(self->extra);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
   Py_XDECREF(self->py_headers);
@@ -672,6 +674,17 @@ Request_get_route(Request* self, void* closure)
 
 
 static PyObject*
+Request_get_extra(Request* self, void* closure)
+{
+  if(!self->extra)
+    self->extra = PyDict_New();
+
+  Py_XINCREF(self->extra);
+  return self->extra;
+}
+
+
+static PyObject*
 Request_get_proxy(Request* self, char* attr)
 {
   PyObject* callable = NULL;
@@ -708,6 +721,7 @@ static PyGetSetDef Request_getset[] = {
   {"transport", (getter)Request_get_transport, NULL, "", NULL},
   {"keep_alive", (getter)Request_get_keep_alive, NULL, "", NULL},
   {"route", (getter)Request_get_route, NULL, "", NULL},
+  {"extra", (getter)Request_get_extra, NULL, "", NULL},
   PROXY(text),
   PROXY(json),
   PROXY(query),
