@@ -51,6 +51,7 @@ Request_new(PyTypeObject* type, Request* self)
   self->py_match_dict = NULL;
   self->py_body = NULL;
   self->extra = NULL;
+  self->done_callbacks = NULL;
 
   Response_new(response_capi->ResponseType, &self->response);
 
@@ -75,6 +76,7 @@ Request_dealloc(Request* self)
 
   Response_dealloc(&self->response);
   Py_XDECREF(self->app);
+  Py_XDECREF(self->done_callbacks);
   Py_XDECREF(self->extra);
   Py_XDECREF(self->py_body);
   Py_XDECREF(self->py_match_dict);
@@ -788,8 +790,27 @@ Request_getattro(Request* self, PyObject* name)
 }
 
 
+static PyObject*
+Request_add_done_callback(Request* self, PyObject* callback)
+{
+  if(!self->done_callbacks) {
+    if(!(self->done_callbacks = PyList_New(0)))
+      goto error;
+  }
+
+  if(PyList_Append(self->done_callbacks, callback) == -1)
+    goto error;
+
+  Py_RETURN_NONE;
+
+  error:
+  return NULL;
+}
+
+
 static PyMethodDef Request_methods[] = {
   {"Response", (PyCFunction)Request_Response, METH_VARARGS | METH_KEYWORDS, ""},
+  {"add_done_callback", (PyCFunction)Request_add_done_callback, METH_O, ""},
   {NULL}
 };
 

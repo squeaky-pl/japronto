@@ -43,6 +43,7 @@ typedef struct {
   PyObject* py_match_dict;
   PyObject* py_body;
   PyObject* extra;
+  PyObject* done_callbacks;
   Response response;
 } Request;
 
