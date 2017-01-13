@@ -1,5 +1,6 @@
 import urllib.parse
 from json import loads as json_loads
+import encodings.idna
 
 
 class HttpRequest(object):
@@ -73,3 +74,39 @@ def form(request):
         return dict(urllib.parse.parse_qsl(request.text))
     else:
         return None
+
+
+def memoize(func):
+    def wrapper(request):
+        ns = request.extra.setdefault('_hl', {})
+        try:
+            return ns[func.__name__]
+        except KeyError:
+            pass
+
+        result = func(request)
+        ns[func.__name__] = result
+
+        return result
+
+    return wrapper
+
+
+@memoize
+def hostname_and_port(request):
+    host = request.headers.get('Host')
+    if not host:
+        return None, None
+
+    hostname, *rest = host.split(':', 1)
+    port = rest[0] if rest else None
+
+    return encodings.idna.ToUnicode(hostname), int(port)
+
+
+def port(request):
+    return hostname_and_port(request)[1]
+
+
+def hostname(request):
+    return hostname_and_port(request)[0]
