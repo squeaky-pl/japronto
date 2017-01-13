@@ -757,8 +757,6 @@ Request_getattro(Request* self, PyObject* name)
   if((result = PyObject_GenericGetAttr((PyObject*)self, name)))
     return result;
 
-  PyErr_Clear();
-
   PyObject* extensions = NULL;
   if(!(extensions = PyObject_GetAttrString(self->app, "_request_extensions")))
     goto error;
@@ -766,6 +764,8 @@ Request_getattro(Request* self, PyObject* name)
   PyObject* entry;
   if(!(entry = PyDict_GetItem(extensions, name)))
     goto error;
+  else
+    PyErr_Clear();
 
   PyObject* handler;
   PyObject* property;
