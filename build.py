@@ -195,6 +195,11 @@ def main():
     argparser.add_argument(
         '--coverage', dest='coverage', const=True,
         action='store_const', default=False)
+    argparser.add_argument('-O1', dest='optimization', const='1', action='store_const')
+    argparser.add_argument('-O2', dest='optimization', const='2', action='store_const')
+    argparser.add_argument('-O3', dest='optimization', const='3', action='store_const')
+    argparser.add_argument('-Os', dest='optimization', const='s', action='store_const')
+    argparser.add_argument('-native', dest='native', const=True, action='store_const', default=False)
     argparser.add_argument('--path', dest='path')
     argparser.add_argument('--extra-compile', dest='extra_compile', default='')
     args = argparser.parse_args(sys.argv[1:])
@@ -227,6 +232,10 @@ def main():
 
     append_compile_args('-frecord-gcc-switches', '-UNDEBUG')
 
+    if args.native:
+        append_compile_args('-march=native')
+    if args.optimization:
+        append_compile_args('-O' + args.optimization)
     if args.debug:
         append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE')
     if args.profile_generate:
