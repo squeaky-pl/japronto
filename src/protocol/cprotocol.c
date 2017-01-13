@@ -376,6 +376,16 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       goto error;
 
     PyObject* tmp;
+
+    PyObject* done_callbacks = ((Request*)request)->done_callbacks;
+    for(Py_ssize_t i = 0; done_callbacks && i < PyList_GET_SIZE(done_callbacks); i++) {
+      PyObject* callback = PyList_GET_ITEM(done_callbacks, i);
+
+      if(!(tmp = PyObject_CallFunctionObjArgs(callback, request, NULL)))
+        goto error;
+      Py_DECREF(tmp);
+    }
+
     if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
       goto error;
     Py_DECREF(tmp);
