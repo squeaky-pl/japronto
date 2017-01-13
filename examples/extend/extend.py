@@ -15,6 +15,15 @@ def extended_hello(request):
     return request.Response(text=text)
 
 
+def with_callback(request):
+    def cb(r):
+        print('Done!')
+
+    request.add_done_callback(cb)
+
+    return request.Response(text='cb')
+
+
 def reversed_agent(request):
     return request.headers['User-Agent'][::-1]
 
@@ -29,6 +38,7 @@ app.extend_request(host_startswith)
 
 r = app.router
 r.add_route('/', extended_hello)
+r.add_route('/callback', with_callback)
 
 
 app.serve()
