@@ -21,51 +21,55 @@ def maybe_create_schema():
     db.close()
 
 
+def cursor(request):
+    def done_cb(request):
+        request.extra['conn'].close()
+
+    if not 'conn' in request.extra:
+        request.extra['conn'] = db_connect()
+        request.add_done_callback(done_cb)
+
+    return request.extra['conn'].cursor()
+
+
+
 def add_todo(request):
-    db = db_connect()
-    cur = db.cursor()
+    cur = request.cursor
     todo = request.json["todo"]
     cur.execute("""INSERT INTO todos (todo) VALUES (?)""", (todo,))
     last_id = cur.lastrowid
-    db.commit()
-    db.close()
+    cur.connection.commit()
 
     return request.Response(json={"id": last_id, "todo": todo})
 
 
 def list_todos(request):
-    db = db_connect()
-    cur = db.cursor()
+    cur = request.cursor
     cur.execute("""SELECT id, todo FROM todos""")
     todos = [{"id": id, "todo": todo} for id, todo in cur]
-    db.close()
 
     return request.Response(json={"results": todos})
 
 
 def show_todo(request):
-    db = db_connect()
-    cur = db.cursor()
+    cur = request.cursor
     id = int(request.match_dict['id'])
     cur.execute("""SELECT id, todo FROM todos WHERE id = ?""", (id,))
     todo = cur.fetchone()
     if not todo:
-        return request.Response(404, json={})
+        return request.Response(status_code=404, json={})
     todo = {"id": todo[0], "todo": todo[1]}
-    db.close()
 
     return request.Response(json=todo)
 
 
 def delete_todo(request):
-    db = db_connect()
-    cur = db.cursor()
+    cur = request.cursor
     id = int(request.match_dict['id'])
     cur.execute("""DELETE FROM todos WHERE id = ?""", (id,))
     if not cur.rowcount:
-        return request.Response(404, json={})
-    db.commit()
-    db.close()
+        return request.Response(status_code=404, json={})
+    cur.connection.commit()
 
     return request.Response(json={})
 
@@ -73,6 +77,7 @@ def delete_todo(request):
 if __name__ == '__main__':
     maybe_create_schema()
     app = Application()
+    app.extend_request(cursor, property=True)
     router = app.router
     router.add_route('/todos', list_todos, method='GET')
     router.add_route('/todos/{id}', show_todo, method='GET')
