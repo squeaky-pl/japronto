@@ -244,8 +244,8 @@ def main():
     if args.optimization:
         append_compile_args('-O' + args.optimization)
     if args.debug:
-        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE', '-fsanitize=address', '-fno-common', '-fno-omit-frame-pointer')
-        prepend_libraries('asan')
+        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE', '-fsanitize=address', '-fsanitize=undefined', '-fno-common', '-fno-omit-frame-pointer')
+        prepend_libraries('asan', 'ubsan')
     if args.profile_generate:
         append_compile_args('--profile-generate')
         append_link_args('-lgcov')
