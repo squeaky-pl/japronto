@@ -244,7 +244,7 @@ def main():
     if args.optimization:
         append_compile_args('-O' + args.optimization)
     if args.debug:
-        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE', '-fsanitize=address')
+        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE', '-fsanitize=address', '-fno-common', '-fno-omit-frame-pointer')
         prepend_libraries('asan')
     if args.profile_generate:
         append_compile_args('--profile-generate')

@@ -22,7 +22,10 @@ static inline void
 PipelineEntry_DECREF(PipelineEntry entry)
 {
     Py_DECREF(entry.request);
-    Py_XDECREF(entry.task);
+    // if not real task this was response,
+    // that was inside request that was already freed above
+    if(entry.is_task)
+      Py_XDECREF(entry.task);
 }
 
 static inline void
