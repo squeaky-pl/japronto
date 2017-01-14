@@ -20,7 +20,9 @@ from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
 @pytest.fixture(autouse=True, scope='module')
 def server():
     os.putenv('LD_PRELOAD', ctypes.util.find_library('asan'))
+    os.putenv('LSAN_OPTIONS', 'suppressions=suppr.txt')
     server = subprocess.Popen([sys.executable, 'integration_tests/dump.py'])
+    os.unsetenv('LSAN_OPTIONS')
     os.unsetenv('LD_PRELOAD')
 
     proc = psutil.Process(server.pid)
