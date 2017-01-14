@@ -1,6 +1,7 @@
 import pytest
 import subprocess
 import sys
+import os
 import urllib3.connection
 import client
 import socket
@@ -10,6 +11,7 @@ import json
 import urllib.parse
 import string
 import re
+import ctypes.util
 import base64
 from functools import partial
 from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
@@ -17,7 +19,10 @@ from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
 
 @pytest.fixture(autouse=True, scope='module')
 def server():
+    os.putenv('LD_PRELOAD', ctypes.util.find_library('asan'))
     server = subprocess.Popen([sys.executable, 'integration_tests/dump.py'])
+    os.unsetenv('LD_PRELOAD')
+
     proc = psutil.Process(server.pid)
 
     collector = subprocess.Popen([
