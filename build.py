@@ -217,18 +217,25 @@ def main():
     else:
         ext_modules = system.discover_extensions()
 
-    def append_args(arg_name, values):
+    def add_args(arg_name, values, append=True):
         for ext_module in ext_modules:
             arg_value = getattr(ext_module, arg_name) or []
-            arg_value.extend(values)
+            if append:
+                arg_value.extend(values)
+            else:
+                newvalues = list(values)
+                newvalues.extend(arg_value)
+                arg_value = newvalues
             setattr(ext_module, arg_name, arg_value)
 
     def append_compile_args(*values):
-        append_args('extra_compile_args', values)
+        add_args('extra_compile_args', values)
 
     def append_link_args(*values):
-        append_args('extra_link_args', values)
+        add_args('extra_link_args', values)
 
+    def prepend_libraries(*values):
+        add_args('libraries', values, append=False)
 
     append_compile_args('-frecord-gcc-switches', '-UNDEBUG')
 
