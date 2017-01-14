@@ -114,17 +114,31 @@ PlaceholderSegent = Struct('iN')
 Segment = Struct('iN')
 
 
+def roundto8(v):
+    return (v + 7) & ~7
+
+
+def padto8(data):
+    """Pads data to the multiplies of 8 bytes.
+
+       This makes x86_64 faster and prevents
+       undefined behavior on other platforms"""
+    l = len(data)
+    return data + b'\xdb' * (roundto8(l) - l)
+
+
 def compile(route):
     pattern_buf = b''
     for segment in route.segments:
         typ = getattr(SegmentType, segment[0].upper())
         pattern_buf += Segment.pack(typ, len(segment[1])) \
-            + segment[1].encode('utf-8')
+            + padto8(segment[1].encode('utf-8'))
     methods_buf = ' '.join(route.methods).encode('ascii')
     methods_len = len(methods_buf)
     if methods_buf:
         methods_buf += b' '
         methods_len += 1
+    methods_buf = padto8(methods_buf)
 
     return MatcherEntry.pack(
         id(route), id(route.handler),

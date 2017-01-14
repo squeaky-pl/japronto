@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from router.route import parse, MatcherEntry, Segment, SegmentType, Route, \
-    compile
+    compile, roundto8
 
 
 @pytest.mark.parametrize('pattern,result', [
@@ -42,7 +42,7 @@ def decompile(buffer):
     route_id, handler_id, coro_func, simple, pattern_len, methods_len, placeholder_cnt \
         = MatcherEntry.unpack_from(buffer, 0)
     offset = MatcherEntry.size
-    pattern_offset_end = offset + pattern_len
+    pattern_offset_end = offset + roundto8(pattern_len)
 
     segments = []
     while offset < pattern_offset_end:
@@ -50,7 +50,7 @@ def decompile(buffer):
         offset += Segment.size
         typ = SegmentType(typ).name.lower()
         data = buffer[offset:offset + segment_length].decode('utf-8')
-        offset += segment_length
+        offset += roundto8(segment_length)
 
         segments.append((typ, data))
 
