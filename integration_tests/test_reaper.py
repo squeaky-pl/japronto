@@ -7,12 +7,13 @@ import psutil
 import pytest
 
 import client
+import integration_tests.common
 
 
 @pytest.fixture(scope='function', params=[2, 3, 4])
 def get_connections_and_wait(request):
-    server = subprocess.Popen([
-        sys.executable, 'integration_tests/reaper.py', '1', str(request.param)])
+    server = integration_tests.common.start_server([
+        'integration_tests/reaper.py', '1', str(request.param)])
     proc = psutil.Process(server.pid)
 
     assert server.poll() is None

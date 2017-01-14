@@ -7,13 +7,14 @@ import time
 import os
 
 import client
+import integration_tests.common
 
 @pytest.fixture(scope='module')
 def build_with_track():
     os.putenv('PYTHONPATH', '.test/noleak')
 
     subprocess.check_call([
-        sys.executable, 'build.py', '--coverage', '--dest', '.test/noleak',
+        sys.executable, 'build.py', '-d', '--coverage', '--dest', '.test/noleak',
         '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1'])
 
     yield
@@ -27,8 +28,8 @@ def build_with_track():
 def server(build_with_track, request):
     arg = request.node.get_marker('arg').args[0]
 
-    server = subprocess.Popen([
-        sys.executable, 'integration_tests/noleak.py', arg])
+    server = integration_tests.common.start_server([
+        'integration_tests/noleak.py', arg])
     proc = psutil.Process(server.pid)
 
     # wait until the server socket is open

@@ -9,13 +9,13 @@ import threading
 from functools import partial
 
 import client
+import integration_tests.common
 
 
 @pytest.fixture(autouse=True, scope='module')
 def server():
-    server = subprocess.Popen(
-        [sys.executable, '-u', 'integration_tests/dump.py'],
-        stdout=subprocess.PIPE)
+    server = integration_tests.common.start_server(
+        ['-u', 'integration_tests/dump.py'], stdout=subprocess.PIPE)
     proc = psutil.Process(server.pid)
 
     # wait until the server socket is open
