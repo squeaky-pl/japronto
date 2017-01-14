@@ -174,6 +174,8 @@ def main():
     argparser.add_argument(
         '-d', dest='debug', const=True, action='store_const', default=False)
     argparser.add_argument(
+        '--sanitize', dest='sanitize', const=True, action='store_const', default=False)
+    argparser.add_argument(
         '--profile-generate', dest='profile_generate', const=True,
         action='store_const', default=False)
     argparser.add_argument('--dest', dest='dest', default='src')
@@ -244,7 +246,9 @@ def main():
     if args.optimization:
         append_compile_args('-O' + args.optimization)
     if args.debug:
-        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE', '-fsanitize=address', '-fsanitize=undefined', '-fno-common', '-fno-omit-frame-pointer')
+        append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE')
+    if args.sanitize:
+        append_compile_args('-g3', '-fsanitize=address', '-fsanitize=undefined', '-fno-common', '-fno-omit-frame-pointer')
         prepend_libraries('asan', 'ubsan')
     if args.profile_generate:
         append_compile_args('--profile-generate')
