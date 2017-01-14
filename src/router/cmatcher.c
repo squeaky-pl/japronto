@@ -64,19 +64,22 @@ Matcher_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
+#define ROUNDTO8(v) (((v) + 7) & ~7)
+
+
 #define ENTRY_LOOP \
 char* entry_end = self->buffer + self->buffer_len; \
 for(MatcherEntry* entry = (MatcherEntry*)self->buffer; \
     (char*)entry < entry_end; \
     entry = (MatcherEntry*)((char*)entry + sizeof(MatcherEntry) + \
-      entry->pattern_len + entry->methods_len))
+      ROUNDTO8(entry->pattern_len) + ROUNDTO8(entry->methods_len)))
 
 #define SEGMENT_LOOP \
 char* segments_end = entry->buffer + entry->pattern_len; \
 for(Segment* segment = (Segment*)entry->buffer; \
     (char*)segment < segments_end; \
     segment = (Segment*)((char*)segment + sizeof(Segment) + \
-      (segment->type == SEGMENT_EXACT ? \
+      ROUNDTO8(segment->type == SEGMENT_EXACT ? \
         segment->exact.data_length : segment->placeholder.name_length)))
 
 
