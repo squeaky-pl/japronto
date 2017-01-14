@@ -459,8 +459,6 @@ static void* Protocol_pipeline_ready(PipelineEntry entry, PyObject* protocol)
   // important: this breaks a cycle in case of an exception
   Py_CLEAR(((Request*)request)->exception);
 
-  printf("refcnt after ready %ld\n", Py_REFCNT(entry.request));
-
   goto finally;
 
   error:
