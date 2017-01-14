@@ -221,7 +221,7 @@ bfrcpy(Request* self, const RequestCopy what)
 
   switch(what) {
     case REQUEST_HEADERS:
-    len = headers_len + header_entries_len;
+    len = ROUNDTO8(headers_len) + header_entries_len;
     dst = self->buffer;
     break;
 
@@ -269,8 +269,8 @@ bfrcpy(Request* self, const RequestCopy what)
     memcpy(dst, self->method, headers_len);
     self->method += shift;
     self->path += shift;
-    memcpy(dst + headers_len, (char*)self->headers, header_entries_len);
-    self->headers = (struct phr_header*)((char*)dst + headers_len);
+    memcpy(dst + ROUNDTO8(headers_len), (char*)self->headers, header_entries_len);
+    self->headers = (struct phr_header*)((char*)dst + ROUNDTO8(headers_len));
     for(struct phr_header* header = self->headers;
         header < self->headers + self->num_headers;
         header++) {
