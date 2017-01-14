@@ -198,6 +198,9 @@ typedef enum {
 } RequestCopy;
 
 
+#define ROUNDTO8(v) (((v) + 7) & ~7)
+
+
 static inline char*
 bfrcpy(Request* self, const RequestCopy what)
 {
@@ -224,7 +227,7 @@ bfrcpy(Request* self, const RequestCopy what)
 
     case REQUEST_MATCH_DICT:
     len = sizeof(MatchDictEntry) * self->match_dict_length;
-    dst = self->buffer + headers_len + header_entries_len;
+    dst = self->buffer + ROUNDTO8(headers_len + header_entries_len);
     break;
 
     case REQUEST_BODY:
