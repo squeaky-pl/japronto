@@ -162,3 +162,6 @@ class Application:
             loop.run_until_complete(self.drain())
             self._reaper.stop()
             loop.close()
+
+            # break reference and cleanup matcher buffer
+            del self._matcher
