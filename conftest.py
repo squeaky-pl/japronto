@@ -5,7 +5,37 @@ import shutil
 import pytest
 
 
-@pytest.fixture(scope='session', autouse=True)
+builds = []
+
+def add_build(options):
+    global builds
+    if not options in builds:
+        builds.append(options)
+
+def execute_builds():
+    common_options = ['--coverage', '-d', '--sanitize']
+    for build_options in builds:
+        build_options = list(build_options)
+        if '--dest' not in build_options:
+            build_options.extend(['--dest', '.test'])
+        build_options.extend(common_options)
+
+        print('Executing build', *build_options)
+        subprocess.check_call([sys.executable, 'build.py', *build_options])
+
+
+def pytest_itemcollected(item):
+    needs_build = item.get_marker('needs_build')
+    if needs_build:
+        add_build(needs_build.args)
+
+
+def pytest_collection_modifyitems(config, items):
+    execute_builds()
+
+
+
+#@pytest.fixture(scope='session', autouse=True)
 def global_fixture():
     os.putenv('PYTHONPATH', '.test')
     sys.path.insert(0, '.test')

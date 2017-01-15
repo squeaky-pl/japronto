@@ -19,9 +19,14 @@ from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
 
 import integration_tests.common
 
+
+pytestmark = pytest.mark.needs_build
+
+
 @pytest.fixture(autouse=True, scope='module')
 def server():
-    server = integration_tests.common.start_server('integration_tests/dump.py')
+    server = integration_tests.common.start_server(
+        'integration_tests/dump.py', path='.test')
 
     proc = psutil.Process(server.pid)
 
