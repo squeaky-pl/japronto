@@ -5,14 +5,16 @@ import sys
 import time
 
 import client
-
 import integration_tests.common
+
+
+pytestmark = pytest.mark.needs_build
 
 
 @pytest.fixture(scope='function')
 def server():
     server = integration_tests.common.start_server(
-        'integration_tests/drain.py', stdout=subprocess.PIPE)
+        'integration_tests/drain.py', stdout=subprocess.PIPE, path='.test')
     proc = psutil.Process(server.pid)
 
     # wait until the server socket is open

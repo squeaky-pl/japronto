@@ -9,6 +9,11 @@ import os
 import client
 import integration_tests.common
 
+
+pytestmark = pytest.mark.needs_build(
+    '--dest', '.test/noleak', '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1')
+
+
 @pytest.fixture(scope='module')
 def build_with_track():
     os.putenv('PYTHONPATH', '.test/noleak')
@@ -25,11 +30,11 @@ def build_with_track():
 
 
 @pytest.fixture(scope='function')
-def server(build_with_track, request):
+def server(request):
     arg = request.node.get_marker('arg').args[0]
 
     server = integration_tests.common.start_server([
-        'integration_tests/noleak.py', arg])
+        'integration_tests/noleak.py', arg], path='.test/noleak')
     proc = psutil.Process(server.pid)
 
     # wait until the server socket is open

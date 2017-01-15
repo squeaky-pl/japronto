@@ -12,10 +12,14 @@ import client
 import integration_tests.common
 
 
+pytestmark = pytest.mark.needs_build
+
+
 @pytest.fixture(autouse=True, scope='module')
 def server():
     server = integration_tests.common.start_server(
-        ['-u', 'integration_tests/dump.py'], stdout=subprocess.PIPE)
+        ['-u', 'integration_tests/dump.py'],
+        stdout=subprocess.PIPE, path='.test')
     proc = psutil.Process(server.pid)
 
     # wait until the server socket is open
