@@ -2,7 +2,6 @@ import pytest
 import subprocess
 import sys
 import os
-import urllib3.connection
 import client
 import socket
 import psutil
@@ -96,9 +95,9 @@ def marker(request, mark):
 @pytest.fixture(params=['example', 'test'])
 def connect(request):
     if request.param == 'example':
-        yield partial(urllib3.connection.HTTPConnection, 'localhost:8080')
+        yield partial(client.Connection, 'localhost:8080')
     elif request.param == 'test':
-        connection = urllib3.connection.HTTPConnection('localhost:8080')
+        connection = client.Connection('localhost:8080')
         close = connection.close
         connection.close = lambda: None
         yield lambda: connection
@@ -110,7 +109,7 @@ def prefix(request):
     return request.param
 
 
-method_alphabet = string.digits + string.ascii_letters + string.punctuation
+method_alphabet = ''.join(chr(x) for x in range(33, 256) if x != 127)
 st_method = st.text(method_alphabet, min_size=1)
 @given(method=st_method)
 @settings(verbosity=Verbosity.verbose)
@@ -118,7 +117,7 @@ def test_method(prefix, connect, method):
     connection = connect()
     connection.request(method, prefix + '/dump/1/2')
     response = connection.getresponse()
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     assert response.status == 200
     assert json_body['method'] == method
@@ -133,7 +132,7 @@ def test_route(prefix, connect, route_prefix):
     connection = connect()
     connection.request('GET', prefix + route_prefix + '1/2')
     response = connection.getresponse()
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     assert response.status == 200
     assert json_body['route'].startswith(prefix + route_prefix)
@@ -148,9 +147,9 @@ st_param = st.text(param_alphabet, min_size=1)
 @settings(verbosity=Verbosity.verbose)
 def test_match_dict(prefix, connect, param1, param2):
     connection = connect()
-    connection.request('GET', urllib.parse.quote(prefix + '/dump/{}/{}'.format(param1, param2)))
+    connection.request('GET', prefix + '/dump/{}/{}'.format(param1, param2))
     response = connection.getresponse()
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     assert response.status == 200
     assert json_body['match_dict'] == {'p1': param1, 'p2': param2}
@@ -163,12 +162,9 @@ st_query_string = st.one_of(st.text(), st.none())
 @settings(verbosity=Verbosity.verbose)
 def test_query_string(prefix, connect, query_string):
     connection = connect()
-    url = prefix + '/dump/1/2'
-    if query_string is not None:
-        url += '?' + urllib.parse.quote(query_string)
-    connection.request('GET', url)
+    connection.request('GET', prefix + '/dump/1/2', query_string)
     response = connection.getresponse()
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     assert response.status == 200
     assert json_body['query_string'] == query_string
@@ -190,14 +186,9 @@ st_headers = st.lists(st.tuples(names, values), max_size=48)
 )
 def test_headers(prefix, connect, headers):
     connection = connect()
-    connection.putrequest(
-        'GET', prefix + '/dump/1/2', skip_host=True, skip_accept_encoding=True)
-    for name, value in headers:
-        connection.putheader(name, value)
-    connection.endheaders()
-
+    connection.request('GET', prefix + '/dump/1/2', headers=headers)
     response = connection.getresponse()
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     assert response.status == 200
     headers = {k.title(): v for k, v in headers}
@@ -222,7 +213,7 @@ def test_error(prefix, connect, error):
 
     response = connection.getresponse()
     assert response.status == 500
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
     assert json_body['exception']['type'] == \
         'RouteNotFoundException' if error == 'not-found' else 'ForcedException'
     assert json_body['exception']['args'] == \
@@ -239,14 +230,11 @@ def test_body(prefix, connect, size_k, body):
         body = body * ((size_k * 1024) // len(body) + 1)
 
     connection = connect()
-    connection.putrequest('GET', prefix + '/dump/1/2')
-    if body is not None:
-        connection.putheader('Content-Length', len(body))
-    connection.endheaders(body)
+    connection.request('GET', prefix + '/dump/1/2', body=body)
     response = connection.getresponse()
 
     assert response.status == 200
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     if body is not None:
         assert base64.b64decode(json_body['body']) == body
@@ -266,10 +254,10 @@ def test_chunked(prefix, connect, size_k, body):
         body = body * ((size_k * 1024) // length + 1)
 
     connection = connect()
-    connection.request_chunked('POST', prefix + '/dump/1/2', body=body)
+    connection.request('POST', prefix + '/dump/1/2', body=body)
     response = connection.getresponse()
     assert response.status == 200
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
 
     assert base64.b64decode(json_body['body']) == b''.join(body)
 
@@ -297,18 +285,14 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
     connection = connect()
     if size_k and body:
         body = body * ((size_k * 1024) // len(body) + 1)
-    url = urllib.parse.quote(
-        prefix + ('/not-found' if error == 'not-found' else '')
-        + route_prefix + '{}/{}'.format(param1, param2))
-    if query_string is not None:
-        url += '?' + urllib.parse.quote(query_string)
-    connection.putrequest(
-        method, url, skip_host=True, skip_accept_encoding=True)
+    url = prefix + ('/not-found' if error == 'not-found' else '') \
+        + route_prefix + '{}/{}'.format(param1, param2)
+    connection.putrequest(method, url, query_string)
     for name, value in headers:
         connection.putheader(name, value)
     if body is not None:
         headers.append(('Content-Length', str(len(body))))
-        connection.putheader('Content-Length', len(body))
+        connection.putheader('Content-Length', str(len(body)))
     if error == 'forced-1':
         headers.append(('Force-Raise', 'forced-1'))
         connection.putheader('Force-Raise', 'forced-1')
@@ -316,7 +300,7 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
     response = connection.getresponse()
 
     assert response.status == 500 if error else 200
-    json_body = json.loads(response.read().decode('utf-8'))
+    json_body = json.loads(response.body)
     assert json_body['method'] == method
     if error != 'not-found':
         assert json_body['route'].startswith(prefix + route_prefix)

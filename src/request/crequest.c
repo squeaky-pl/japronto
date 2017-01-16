@@ -530,8 +530,8 @@ static PyObject*
 Request_get_method(Request* self, void* closure)
 {
   if(!self->py_method) {
-    self->py_method = PyUnicode_FromStringAndSize(
-      REQUEST_METHOD(self), self->method_len);
+    self->py_method = PyUnicode_DecodeLatin1(
+      REQUEST_METHOD(self), self->method_len, NULL);
   }
 
   Py_XINCREF(self->py_method);

@@ -112,18 +112,44 @@ class Connection:
             .format(method=method, url=url)
         self.putline(request_line)
 
+    def request(self, method, path, query_string=None, headers=None, body=None):
+        self.putrequest(method, path, query_string)
+        headers = headers or []
+        for name, value in headers:
+            self.putheader(name, value)
+        if body is not None:
+            if isinstance(body, list):
+                self.putheader('Transfer-Encoding', 'chunked')
+            else:
+                self.putheader('Content-Length', str(len(body)))
+
+        self.endheaders(body)
+
     def putheader(self, name, value):
         header_line = name + ': ' + value
         self.putline(header_line)
 
     def endheaders(self, body=None):
         self.putline()
-        if body:
+        if body is not None:
             sock = self.maybe_connect()
-            sock.sendall(body)
+            if isinstance(body, list):
+                for chunk in chunked_encoder(body):
+                    sock.sendall(chunk)
+            else:
+                sock.sendall(body)
 
     def getresponse(self):
         return Response(self.sock)
 
     def close(self):
         self.sock.close()
+
+
+def chunked_encoder(data):
+    for chunk in data:
+        if not chunk:
+            continue
+        yield '{:X}\r\n'.format(len(chunk)).encode('ascii')
+        yield chunk + b'\r\n'
+    yield b'0\r\n\r\n'
