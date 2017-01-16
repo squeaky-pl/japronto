@@ -11,22 +11,7 @@ import integration_tests.common
 
 
 pytestmark = pytest.mark.needs_build(
-    '--dest', '.test/noleak', '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1')
-
-
-@pytest.fixture(scope='module')
-def build_with_track():
-    os.putenv('PYTHONPATH', '.test/noleak')
-
-    subprocess.check_call([
-        sys.executable, 'build.py', '-d', '--coverage', '--dest', '.test/noleak',
-        '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1'])
-
-    yield
-
-    os.putenv('PYTHONPATH', '.test')
-
-
+    '--extra-compile=-DPROTOCOL_TRACK_REFCNT=1', dest='.test/noleak')
 
 
 @pytest.fixture(scope='function')

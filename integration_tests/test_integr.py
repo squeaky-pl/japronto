@@ -20,7 +20,7 @@ from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
 import integration_tests.common
 
 
-pytestmark = pytest.mark.needs_build
+pytestmark = pytest.mark.needs_build(coverage=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
