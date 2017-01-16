@@ -21,6 +21,8 @@ def execute_builds():
     for args, kwargs in builds:
         build_options = args[:]
         build_options.extend(['--dest', kwargs.get('dest', '.test')])
+        if 'kit' not in kwargs:
+            build_options.extend(['--kit', 'platform'])
         build_options.extend(common_options)
 
         print('Executing build', *build_options)

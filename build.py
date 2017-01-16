@@ -169,6 +169,13 @@ def symlink_python_files(dest):
             os.symlink(src, dst)
 
 
+kits = {
+    'platform': [
+        'request.crequest', 'protocol.cprotocol',
+        'protocol.creaper', 'router.cmatcher',
+        'response.cresponse']
+}
+
 def main():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
@@ -204,6 +211,7 @@ def main():
     argparser.add_argument('-native', dest='native', const=True, action='store_const', default=False)
     argparser.add_argument('--path', dest='path')
     argparser.add_argument('--extra-compile', dest='extra_compile', default='')
+    argparser.add_argument('--kit', dest='kit')
     args = argparser.parse_args(sys.argv[1:])
 
     if args.profile_clean:
@@ -218,6 +226,9 @@ def main():
         ext_modules = [system.get_extension_by_path(args.path)]
     else:
         ext_modules = system.discover_extensions()
+
+    if args.kit:
+        ext_modules = [e for e in ext_modules if e.name in kits[args.kit]]
 
     def add_args(arg_name, values, append=True):
         for ext_module in ext_modules:
