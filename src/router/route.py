@@ -131,7 +131,7 @@ def compile(route):
     pattern_buf = b''
     for segment in route.segments:
         typ = getattr(SegmentType, segment[0].upper())
-        pattern_buf += Segment.pack(typ, len(segment[1])) \
+        pattern_buf += Segment.pack(typ, len(segment[1].encode('utf-8'))) \
             + padto8(segment[1].encode('utf-8'))
     methods_buf = ' '.join(route.methods).encode('ascii')
     methods_len = len(methods_buf)

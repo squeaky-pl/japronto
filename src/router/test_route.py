@@ -75,7 +75,8 @@ async def coro():
     Route('/', handler, []),
     Route('/', coro, ['GET']),
     Route('/test/{hi}', handler, []),
-    Route('/test/{hi}', coro, ['POST'])
+    Route('/test/{hi}', coro, ['POST']),
+    Route('/tést', coro, ['POST'])
 ], ids=Route.describe)
 def test_compile(route):
     decompiled = decompile(compile(route))
