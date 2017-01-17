@@ -9,8 +9,13 @@ from hypothesis.strategies import sampled_from, fixed_dictionaries, lists, \
 _method_alphabet = ''.join(chr(x) for x in range(33, 256) if x != 127)
 method = st.text(_method_alphabet, min_size=1)
 
-_param_alphabet = st.characters(blacklist_characters='/?') \
-    .filter(lambda x: not any(0xD800 <= ord(c) <= 0xDFFF for c in x))
+
+_path_alphabet = st.characters(
+    blacklist_characters='?', blacklist_categories=['Cs'])
+path = st.text(_path_alphabet).map(lambda x: '/' + x)
+
+_param_alphabet = st.characters(
+    blacklist_characters='/?', blacklist_categories=['Cs'])
 param = st.text(_param_alphabet, min_size=1)
 
 query_string = st.one_of(st.text(), st.none())
@@ -25,4 +30,4 @@ headers = st.lists(st.tuples(_names, _values), max_size=48)
 
 identity_body = st.one_of(st.binary(), st.none())
 chunked_body = st.lists(st.binary(min_size=24))
-body = st.one_of(identity_body, chunked_body)
+body = st.one_of(st.binary(), st.none(), chunked_body)

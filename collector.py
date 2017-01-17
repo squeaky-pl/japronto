@@ -3,13 +3,8 @@ import sys
 import time
 # import matplotlib.pyplot as plt
 import os
-import uvloop
-import asyncio as aio
+import json
 from functools import partial
-
-
-loop = uvloop.new_event_loop()
-aio.set_event_loop(loop)
 
 
 def report(pid, samples):
@@ -41,8 +36,9 @@ def report(pid, samples):
     return path
 
 
-async def sample_process(pid, samples):
+def sample_process(pid):
     process = psutil.Process(pid)
+    samples = []
 
     while 1:
         try:
@@ -54,40 +50,23 @@ async def sample_process(pid, samples):
         samples.append({
             't': time.monotonic(),
             'uss': uss, 'conn': conn, 'type': 'proc'})
-        await aio.sleep(.5)
+        time.sleep(.5)
 
-
-async def receive_samples(tasks, samples, reader, writer):
-    task = aio.Task.current_task()
-    tasks.add(task)
-    while 1:
-        line = await reader.readline()
-        if not line:
-            break
-        samples.append({
-            't': time.monotonic(),
-            'event': line.decode('utf-8'), 'type': 'event'})
-    tasks.remove(task)
+    return samples
 
 
 def main():
     pid = int(sys.argv[1])
-    samples = []
-    server_tasks = set()
 
-    server_coro = aio.start_server(
-        partial(receive_samples, server_tasks, samples), '0.0.0.0', 8081)
+    samples = sample_process(pid)
 
-    server = loop.run_until_complete(server_coro)
-    loop.run_until_complete(sample_process(pid, samples))
-    server.close()
-    for t in server_tasks:
-        t.cancel()
-    loop.run_until_complete(server.wait_closed())
-    loop.close()
+    with open(os.environ['COLLECTOR_FILE'], 'a') as fp:
+        for sample in samples:
+            fp.write(json.dumps(sample) + '\n')
 
-#    path = report(pid, samples)
-#    print('Report saved to:', path)
+
+    #path = report(pid, samples)
+    #print('Report saved to:', path)
 
 
 if __name__ == '__main__':
