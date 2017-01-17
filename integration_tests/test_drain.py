@@ -13,18 +13,8 @@ pytestmark = pytest.mark.needs_build
 
 @pytest.fixture(scope='function')
 def server():
-    server = integration_tests.common.start_server(
+    return integration_tests.common.start_server(
         'integration_tests/drain.py', stdout=subprocess.PIPE, path='.test')
-    proc = psutil.Process(server.pid)
-
-    # wait until the server socket is open
-    while 1:
-        if proc.connections():
-            break
-        time.sleep(.001)
-
-    server.proc = proc
-    return server
 
 
 @pytest.fixture(scope='function')

@@ -7,7 +7,8 @@ import time
 import psutil
 
 
-def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True):
+def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True,
+                 return_process=False):
     if not isinstance(script, list):
         script = [script]
     if path:
@@ -22,16 +23,18 @@ def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True):
     if path:
         os.unsetenv('PYTHONPATH')
 
+    process = psutil.Process(server.pid)
     if wait:
-        proc = psutil.Process(server.pid)
-
         # wait until the server socket is open
         while 1:
             assert server.poll() is None
-            if proc.connections():
+            if process.connections():
                 break
             time.sleep(.001)
 
     assert server.poll() is None
 
-    return server
+    if return_process:
+        return server, process
+    else:
+        return server

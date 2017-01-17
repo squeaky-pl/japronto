@@ -15,26 +15,14 @@ pytestmark = pytest.mark.needs_build
 
 @pytest.fixture(scope='function', params=[2, 3, 4])
 def get_connections_and_wait(request):
-    server = integration_tests.common.start_server([
-        'integration_tests/reaper.py', '1', str(request.param)], path='.test')
-    proc = psutil.Process(server.pid)
+    server, process = integration_tests.common.start_server([
+        'integration_tests/reaper.py', '1', str(request.param)], path='.test',
+        return_process=True)
 
-    assert server.poll() is None
-
-    # wait until the server socket is open
-    try:
-        while 1:
-            if proc.connections():
-                break
-        time.sleep(.001)
-    except psutil.AccessDenied:
-        time.sleep(.2)
-
-    yield lambda: len(proc.connections()), partial(time.sleep, request.param)
+    yield lambda: len(process.connections()), partial(time.sleep, request.param)
 
     server.terminate()
-    server.wait()
-    assert server.returncode == 0
+    assert server.wait() == 0
 
 
 def test_empty(get_connections_and_wait):

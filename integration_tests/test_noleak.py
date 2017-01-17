@@ -20,19 +20,11 @@ def server(request):
 
     server = integration_tests.common.start_server([
         'integration_tests/noleak.py', arg], path='.test/noleak')
-    proc = psutil.Process(server.pid)
-
-    # wait until the server socket is open
-    while 1:
-        if proc.connections():
-            break
-        time.sleep(.001)
 
     yield server
 
     server.terminate()
-    server.wait()
-    assert server.returncode == 0
+    server.wait() == 0
 
 
 @pytest.fixture(scope='function')
