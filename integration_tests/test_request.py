@@ -28,69 +28,10 @@ def server():
     server = integration_tests.common.start_server(
         'integration_tests/dump.py', path='.test')
 
-    proc = psutil.Process(server.pid)
-
-    collector = subprocess.Popen([
-        sys.executable, 'integration_tests/collector.py', str(server.pid)])
-    c_proc = psutil.Process(collector.pid)
-
-    assert server.poll() is None
-    assert collector.poll() is None
-
-    # wait until the server socket is open
-    try:
-        while 1:
-            if proc.connections():
-                break
-        time.sleep(.001)
-    except psutil.AccessDenied:
-        time.sleep(.2)
-
-    assert server.poll() is None
-    assert collector.poll() is None
-
-    # wait until the collector socket is open
-    try:
-        while 1:
-            if c_proc.connections():
-                break
-            time.sleep(.001)
-    except psutil.AccessDenied:
-        time.sleep(.2)
-
-    assert server.poll() is None
-    assert collector.poll() is None
-
     yield server
 
     server.terminate()
-    server.wait()
-    assert server.returncode == 0
-
-    collector.wait()
-    assert collector.returncode == 0
-
-
-@pytest.fixture(scope='module')
-def mark(server):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(('localhost', 8081))
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-
-    def send(data):
-        if data.startswith('test-'):
-            data = data[5:]
-        data += '\n'
-        sock.sendall(data.encode('utf-8'))
-
-    yield send
-
-    sock.close()
-
-
-@pytest.fixture(autouse=True)
-def marker(request, mark):
-    mark(request.node.name)
+    server.wait() == 0
 
 
 @pytest.fixture(params=['example', 'test'])
@@ -208,7 +149,7 @@ def test_error(prefix, connect, error):
         '' if error == 'not-found' else error
 
 
-@given(body=st.body)
+@given(body=st.identity_body)
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
@@ -259,7 +200,7 @@ st_errors = st.sampled_from([None, None, None, 'not-found', 'forced-1'])
     param1=st.param, param2=st.param,
     query_string=st.query_string,
     headers=st.headers,
-    body=st.body
+    body=st.identity_body
 )
 @settings(
     verbosity=Verbosity.verbose,
@@ -321,7 +262,7 @@ st_request = st.fixed_dictionaries({
     'param2': st.param,
     'query_string': st.query_string,
     'headers': st.headers,
-    'body': st.body
+    'body': st.identity_body
 })
 st_requests = st.lists(st_request, min_size=2)
 @given(requests=st_requests)

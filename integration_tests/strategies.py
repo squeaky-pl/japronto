@@ -23,5 +23,6 @@ _values = st.text(_value_alphabet, min_size=1) \
     .filter(lambda x: not _is_illegal_value(x)).map(lambda x: x.strip())
 headers = st.lists(st.tuples(_names, _values), max_size=48)
 
-body = st.one_of(st.binary(), st.none())
+identity_body = st.one_of(st.binary(), st.none())
 chunked_body = st.lists(st.binary(min_size=24))
+body = st.one_of(identity_body, chunked_body)
