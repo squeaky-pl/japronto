@@ -17,6 +17,7 @@ from functools import partial
 from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
 
 import integration_tests.common
+from integration_tests import strategies as st
 
 
 pytestmark = pytest.mark.needs_build(coverage=True)
@@ -109,9 +110,7 @@ def prefix(request):
     return request.param
 
 
-method_alphabet = ''.join(chr(x) for x in range(33, 256) if x != 127)
-st_method = st.text(method_alphabet, min_size=1)
-@given(method=st_method)
+@given(method=st.method)
 @settings(verbosity=Verbosity.verbose)
 def test_method(prefix, connect, method):
     connection = connect()
@@ -140,10 +139,7 @@ def test_route(prefix, connect, route_prefix):
     connection.close()
 
 
-param_alphabet = st.characters(blacklist_characters='/?') \
-    .filter(lambda x: not any(0xD800 <= ord(c) <= 0xDFFF for c in x))
-st_param = st.text(param_alphabet, min_size=1)
-@given(param1=st_param, param2=st_param)
+@given(param1=st.param, param2=st.param)
 @settings(verbosity=Verbosity.verbose)
 def test_match_dict(prefix, connect, param1, param2):
     connection = connect()
@@ -157,8 +153,7 @@ def test_match_dict(prefix, connect, param1, param2):
     connection.close()
 
 
-st_query_string = st.one_of(st.text(), st.none())
-@given(query_string=st_query_string)
+@given(query_string=st.query_string)
 @settings(verbosity=Verbosity.verbose)
 def test_query_string(prefix, connect, query_string):
     connection = connect()
@@ -172,14 +167,7 @@ def test_query_string(prefix, connect, query_string):
     connection.close()
 
 
-name_alphabet = string.digits + string.ascii_letters + '!#$%&\'*+-.^_`|~'
-names = st.text(name_alphabet, min_size=1).map(lambda x: 'X-' + x)
-value_alphabet = ''.join(chr(x) for x in range(ord(' '), 256) if x != 127)
-is_illegal_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
-values = st.text(value_alphabet, min_size=1) \
-    .filter(lambda x: not is_illegal_value(x)).map(lambda x: x.strip())
-st_headers = st.lists(st.tuples(names, values), max_size=48)
-@given(headers=st_headers)
+@given(headers=st.headers)
 @settings(
     verbosity=Verbosity.verbose,
     suppress_health_check=[HealthCheck.too_slow]
@@ -220,8 +208,7 @@ def test_error(prefix, connect, error):
         '' if error == 'not-found' else error
 
 
-st_body = st.one_of(st.binary(), st.none())
-@given(body=st_body)
+@given(body=st.body)
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
@@ -244,7 +231,7 @@ def test_body(prefix, connect, size_k, body):
     connection.close()
 
 
-@given(body=st.lists(st.binary(min_size=24)))
+@given(body=st.chunked_body)
 @settings(verbosity=Verbosity.verbose)
 @pytest.mark.parametrize(
     'size_k', [0, 1, 2, 4, 8], ids=['small', '1k', '2k', '4k', '8k'])
@@ -266,13 +253,13 @@ def test_chunked(prefix, connect, size_k, body):
 
 st_errors = st.sampled_from([None, None, None, 'not-found', 'forced-1'])
 @given(
-    method=st_method,
+    method=st.method,
     error=st_errors,
     route_prefix=st_route_prefix,
-    param1=st_param, param2=st_param,
-    query_string=st_query_string,
-    headers=st_headers,
-    body=st_body
+    param1=st.param, param2=st.param,
+    query_string=st.query_string,
+    headers=st.headers,
+    body=st.body
 )
 @settings(
     verbosity=Verbosity.verbose,
@@ -327,14 +314,14 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
 
 
 st_request = st.fixed_dictionaries({
-    'method': st_method,
+    'method': st.method,
     'error': st_errors,
     'route_prefix': st_route_prefix,
-    'param1': st_param,
-    'param2': st_param,
-    'query_string': st_query_string,
-    'headers': st_headers,
-    'body': st_body
+    'param1': st.param,
+    'param2': st.param,
+    'query_string': st.query_string,
+    'headers': st.headers,
+    'body': st.body
 })
 st_requests = st.lists(st_request, min_size=2)
 @given(requests=st_requests)
