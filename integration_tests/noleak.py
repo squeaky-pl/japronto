@@ -3,7 +3,7 @@ import sys
 import base64
 
 
-from app import Application
+from japronto.app import Application
 
 
 prop = sys.argv[1]

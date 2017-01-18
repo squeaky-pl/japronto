@@ -4,7 +4,7 @@ import base64
 import asyncio
 
 
-from app import Application
+from japronto.app import Application
 
 class ForcedException(Exception):
     pass

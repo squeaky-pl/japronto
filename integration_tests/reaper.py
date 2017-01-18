@@ -1,6 +1,6 @@
 import sys
 
-from app import Application
+from japronto.app import Application
 
 reaper_settings = {
     'check_interval': int(sys.argv[1]),
