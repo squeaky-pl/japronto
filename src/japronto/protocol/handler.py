@@ -3,8 +3,8 @@ from asyncio.queues import Queue
 
 
 #from responses.py import factory, dispose, Response
-from response.cresponse import Response
-from protocol.cprotocol import Protocol as CProtocol
+from japronto.response.cresponse import Response
+from japronto.protocol.cprotocol import Protocol as CProtocol
 
 static_response = b"""HTTP/1.1 200 OK\r
 Connection: keep-alive\r
@@ -19,7 +19,7 @@ def make_class(flavor):
     if flavor == 'c':
         return CProtocol
 
-    from parser import cparser
+    from japronto.parser import cparser
     class HttpProtocol(asyncio.Protocol):
         def __init__(self, loop, handler):
             self.parser = cparser.HttpRequestParser(

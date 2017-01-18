@@ -7,12 +7,12 @@ import socket
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/../../src'))
 
-import protocol.handler
+import japronto.protocol.handler
 
 
-from router.cmatcher import Matcher
-from router import Router
-from app import Application
+from japronto.router.cmatcher import Matcher
+from japronto.router import Router
+from japronto.app import Application
 
 
 def slash(request):
@@ -77,4 +77,4 @@ if __name__ == '__main__':
         '-p', dest='flavor', default='block')
     args = argparser.parse_args(sys.argv[1:])
 
-    app.serve(protocol.handler.make_class(args.flavor))
+    app.serve(japronto.protocol.handler.make_class(args.flavor))

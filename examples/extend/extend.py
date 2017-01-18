@@ -1,9 +1,4 @@
-import os.path
-import sys
-
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/../../src'))
-
-from app import Application
+from japronto.app import Application
 
 
 def extended_hello(request):

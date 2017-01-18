@@ -1,4 +1,4 @@
-from app import Application
+from japronto.app import Application
 
 def dump(request):
     text = """
