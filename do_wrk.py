@@ -1,6 +1,7 @@
 import argparse
 import sys
 import asyncio as aio
+import os
 from asyncio.subprocess import PIPE, STDOUT
 import statistics
 import shlex
@@ -57,10 +58,11 @@ if __name__ == '__main__':
 
     aio.set_event_loop(loop)
 
+    os.putenv('PYTHONPATH', 'src')
     server_fut = aio.create_subprocess_exec(
         'python', 'examples/hello/hello.py', *args.server.split())
     server = loop.run_until_complete(server_fut)
-
+    os.unsetenv('PYTHONPATH')
     process = psutil.Process(server.pid)
 
     cpu_p = 100
