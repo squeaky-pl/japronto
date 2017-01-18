@@ -159,7 +159,7 @@ def symlink_python_files(dest):
         if not files:
             continue
 
-        dest_parent = os.path.join(dest, *os.path.split(parent)[1:])
+        dest_parent = os.path.join(dest, *parent.split(os.sep)[1:])
         os.makedirs(dest_parent, exist_ok=True)
         for file in files:
             dst = os.path.join(dest_parent, file)

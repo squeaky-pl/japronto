@@ -1,6 +1,6 @@
 import asyncio
 
-from app import Application
+from japronto.app import Application
 
 
 def slash(request):
