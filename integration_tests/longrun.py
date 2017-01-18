@@ -15,7 +15,7 @@ import client
 def setup():
     subprocess.check_call([
         sys.executable, 'build.py', '--dest', '.test/longrun',
-        '--kit', 'platform'])
+        '--kit', 'platform', '--disable-response-cache'])
 
     os.putenv('MALLOC_TRIM_THRESHOLD_', '0')
     server = integration_tests.common.start_server(
