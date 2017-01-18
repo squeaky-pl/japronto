@@ -1,5 +1,6 @@
 import asyncio
-import router.analyzer
+
+from . import analyzer
 
 
 class RouteNotFoundException(Exception):
@@ -143,7 +144,7 @@ def compile(route):
     return MatcherEntry.pack(
         id(route), id(route.handler),
         asyncio.iscoroutinefunction(route.handler),
-        router.analyzer.is_simple(route.handler),
+        analyzer.is_simple(route.handler),
         len(pattern_buf), methods_len, route.placeholder_cnt) \
         + pattern_buf + methods_buf
 

@@ -291,7 +291,7 @@ PyInit_creaper(void)
   if(!(default_check_interval = PyLong_FromLong(DEFAULT_CHECK_INTERVAL)))
     goto error;
 
-  protocol_capi = import_capi("protocol.cprotocol");
+  protocol_capi = import_capi("japronto.protocol.cprotocol");
   if(!protocol_capi)
     goto error;
 

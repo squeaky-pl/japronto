@@ -534,7 +534,7 @@ PyInit_cresponse(void)
     Response_render,
     Response_init
   };
-  api_capsule = export_capi(m, "response.cresponse", &capi);
+  api_capsule = export_capi(m, "japronto.response.cresponse", &capi);
   if(!api_capsule)
     goto error;
 

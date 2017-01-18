@@ -909,7 +909,7 @@ crequest_init(void)
     goto error;
 #endif
 
-  cresponse = PyImport_ImportModule("response.cresponse");
+  cresponse = PyImport_ImportModule("japronto.response.cresponse");
   if(!cresponse)
     goto error;
 
@@ -924,7 +924,7 @@ crequest_init(void)
     goto error;
 
 #ifdef REQUEST_OPAQUE
-  request = PyImport_ImportModule("request");
+  request = PyImport_ImportModule("japronto.request");
   if(!request)
     goto error;
 
@@ -939,12 +939,12 @@ crequest_init(void)
     Request_set_match_dict_entries,
     Request_set_body
   };
-  api_capsule = export_capi(m, "request.crequest", &capi);
+  api_capsule = export_capi(m, "japronto.request.crequest", &capi);
   if(!api_capsule)
     goto error;
 
 #endif
-  response_capi = import_capi("response.cresponse");
+  response_capi = import_capi("japronto.response.cresponse");
   if(!response_capi)
     goto error;
 

@@ -765,7 +765,7 @@ PyInit_cprotocol(void)
     goto error;
 
 #ifdef PARSER_STANDALONE
-  cparser = PyImport_ImportModule("parser.cparser");
+  cparser = PyImport_ImportModule("japronto.parser.cparser");
   if(!cparser)
     goto error;
 
@@ -783,7 +783,7 @@ PyInit_cprotocol(void)
   if(!crequest_init())
     goto error;
 
-  crequest = PyImport_ImportModule("request.crequest");
+  crequest = PyImport_ImportModule("japronto.request.crequest");
   if(!crequest)
     goto error;
 
@@ -791,22 +791,22 @@ PyInit_cprotocol(void)
   if(!PyRequest)
     goto error;
 
-  if(!(route = PyImport_ImportModule("router.route")))
+  if(!(route = PyImport_ImportModule("japronto.router.route")))
     goto error;
 
   if(!(RouteNotFoundException = PyObject_GetAttrString(
        route, "RouteNotFoundException")))
     goto error;
 
-  request_capi = import_capi("request.crequest");
+  request_capi = import_capi("japronto.request.crequest");
   if(!request_capi)
     goto error;
 
-  matcher_capi = import_capi("router.cmatcher");
+  matcher_capi = import_capi("japronto.router.cmatcher");
   if(!matcher_capi)
     goto error;
 
-  response_capi = import_capi("response.cresponse");
+  response_capi = import_capi("japronto.response.cresponse");
   if(!response_capi)
     goto error;
 
@@ -831,7 +831,7 @@ PyInit_cprotocol(void)
   static Protocol_CAPI capi = {
     Protocol_close
   };
-  api_capsule = export_capi(m, "protocol.cprotocol", &capi);
+  api_capsule = export_capi(m, "japronto.protocol.cprotocol", &capi);
   if(!api_capsule)
     goto error;
 

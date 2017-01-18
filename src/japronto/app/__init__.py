@@ -3,13 +3,12 @@ import asyncio
 import traceback
 import socket
 
-import router
 import uvloop
-import router.cmatcher
-import router.route
 
-from protocol.cprotocol import Protocol as CProtocol
-from protocol.creaper import Reaper
+from japronto.router import Router, RouteNotFoundException
+from japronto.protocol.cprotocol import Protocol
+from japronto.protocol.creaper import Reaper
+
 
 class Application:
     def __init__(self, loop=None, reaper_settings=None, log_request=False):
@@ -31,7 +30,7 @@ class Application:
     @property
     def router(self):
         if not self._router:
-            self._router = router.Router(router.cmatcher.Matcher)
+            self._router = Router()
 
         return self._router
 
@@ -61,7 +60,7 @@ class Application:
         self._error_handlers.append((typ, handler))
 
     def default_error_handler(self, request, exception):
-        if isinstance(exception, router.route.RouteNotFoundException):
+        if isinstance(exception, RouteNotFoundException):
             return request.Response(status_code=404, text='Not Found')
         if isinstance(exception, asyncio.CancelledError):
             return request.Response(status_code=503, text='Service unavailable')
@@ -144,7 +143,7 @@ class Application:
         loop = self.loop
         asyncio.set_event_loop(loop)
 
-        protocol_factory = protocol_factory or CProtocol
+        protocol_factory = protocol_factory or Protocol
 
         server_coro = loop.create_server(
             lambda: protocol_factory(self),

@@ -7,10 +7,10 @@ def get_extension():
         define_macros.append(('REAPER_ENABLED', 1))
 
     return Extension(
-        'protocol.creaper',
+        'japronto.protocol.creaper',
         sources=['creaper.c', '../capsule.c'],
         include_dirs=[
-            '../parser', '../picohttpparser',
+            '../parser', '../../picohttpparser',
             '../pipeline', '../request',
             '../router', '../response', '..'],
         define_macros=define_macros)

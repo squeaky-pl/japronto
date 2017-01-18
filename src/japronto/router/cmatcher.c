@@ -373,11 +373,11 @@ PyInit_cmatcher(void)
   if(!m)
     goto error;
 
-  request_capi = import_capi("request.crequest");
+  request_capi = import_capi("japronto.request.crequest");
   if(!request_capi)
     goto error;
 
-  if(!(router_route = PyImport_ImportModule("router.route")))
+  if(!(router_route = PyImport_ImportModule("japronto.router.route")))
     goto error;
 
   if(!(compile_all = PyObject_GetAttrString(router_route, "compile_all")))
@@ -387,7 +387,7 @@ PyInit_cmatcher(void)
   PyModule_AddObject(m, "Matcher", (PyObject*)&MatcherType);
 
   static Matcher_CAPI capi = { Matcher_match_request };
-  api_capsule = export_capi(m, "router.cmatcher", &capi);
+  api_capsule = export_capi(m, "japronto.router.cmatcher", &capi);
   if(!api_capsule)
     goto error;
 

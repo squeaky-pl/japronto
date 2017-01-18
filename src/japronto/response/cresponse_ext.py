@@ -7,7 +7,7 @@ def get_extension():
         define_macros.append(('RESPONSE_CACHE', 1))
 
     return Extension(
-        'response.cresponse',
+        'japronto.response.cresponse',
         sources=['cresponse.c', '../capsule.c'],
         include_dirs=['..'],
         define_macros=define_macros)

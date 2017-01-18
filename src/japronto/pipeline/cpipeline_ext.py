@@ -4,7 +4,7 @@ import os.path
 
 def get_extension():
     return Extension(
-        'pipeline.cpipeline',
+        'japronto.pipeline.cpipeline',
         sources=['cpipeline.c'],
         include_dirs=[],
         libraries=[], library_dirs=[],

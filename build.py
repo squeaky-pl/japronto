@@ -171,9 +171,9 @@ def symlink_python_files(dest):
 
 kits = {
     'platform': [
-        'request.crequest', 'protocol.cprotocol',
-        'protocol.creaper', 'router.cmatcher',
-        'response.cresponse']
+        'japronto.request.crequest', 'japronto.protocol.cprotocol',
+        'japronto.protocol.creaper', 'japronto.router.cmatcher',
+        'japronto.response.cresponse']
 }
 
 def main():
