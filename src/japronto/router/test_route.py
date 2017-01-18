@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from router.route import parse, MatcherEntry, Segment, SegmentType, Route, \
+from .route import parse, MatcherEntry, Segment, SegmentType, Route, \
     compile, roundto8
 
 

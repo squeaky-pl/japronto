@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 import pytest
 
-import router.analyzer
+from . import analyzer
 
 
 fixtures = OrderedDict([
@@ -37,4 +37,4 @@ def test_analyzer(code, simple):
     module = compile(code, '?', 'exec')
     fun_code = module.co_consts[0]
 
-    assert router.analyzer.is_simple(fun_code) == simple
+    assert analyzer.is_simple(fun_code) == simple

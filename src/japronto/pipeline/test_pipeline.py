@@ -8,8 +8,8 @@ from functools import partial
 import pytest
 import uvloop
 
-from pipeline import Pipeline
-from pipeline.cpipeline import Pipeline as CPipeline
+from japronto.pipeline import Pipeline
+from japronto.pipeline.cpipeline import Pipeline as CPipeline
 
 
 Example = namedtuple('Example', 'value,delay')

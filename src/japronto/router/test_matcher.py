@@ -2,9 +2,9 @@ from functools import partial
 
 import pytest
 
-from router.route import Route
-import router.matcher
-import router.cmatcher
+from . import Route
+from .matcher import Matcher
+from .cmatcher import Matcher as CMatcher
 
 
 class FakeRequest:
@@ -26,7 +26,7 @@ class TracingRoute(Route):
         return Route.__new__(cls)
 
     def __init__(self, pattern, methods):
-        super().__init__(pattern, 0, methods=methods)
+        super().__init__(pattern, lambda x: None, methods=methods)
 
     def __del__(self):
         type(self).cnt -= 1
@@ -53,8 +53,8 @@ def parametrize_make_matcher():
 
         return cls(routes)
 
-    make_matcher = partial(make, router.matcher.Matcher)
-    make_cmatcher = partial(make, router.cmatcher.Matcher)
+    make_matcher = partial(make, Matcher)
+    make_cmatcher = partial(make, CMatcher)
 
     return pytest.mark.parametrize(
         'make_matcher', [make_matcher, make_cmatcher], ids=['py', 'c'])
