@@ -27,6 +27,16 @@ def makeval(v, default_st, default=None):
     return default
 
 
+def print_request(request):
+    body = request['body']
+    if body:
+        if isinstance(body, list):
+            body = '{} chunks'.format(len(body))
+        else:
+            if len(body) > 32:
+                body = body[:32] + b'...'
+    print(repr(request['method']), repr(request['path']), repr(request['query_string']), body)
+
 
 def generate_request(*, method=None, path=None, query_string=None,
                      headers=None, body=None, size_k=None):
@@ -40,10 +50,23 @@ def generate_request(*, method=None, path=None, query_string=None,
     return request
 
 
+def generate_combinations(reverse=False):
+    props = ['method', 'path', 'query_string', 'headers', 'body']
+    sizes = [None, 8, 32, 64]
+    if reverse:
+        props = reversed(props)
+        sizes = reversed(sizes)
+    for prop in props:
+        if prop == 'body':
+            for size_k in sizes:
+                yield {'body': True, 'size_k': size_k}
+        else:
+            yield {prop: True}
+
+
 def send_requests(conn, number, **kwargs):
     for _ in range(number):
         request = generate_request(**kwargs)
-        print(request)
+        print_request(request)
         conn.request(**request)
         response = conn.getresponse()
-        print(response.body)

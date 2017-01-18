@@ -42,23 +42,13 @@ def setup():
 
 def run():
     time.sleep(2)
-    conn = client.Connection('localhost:8080')
+    for combination in integration_tests.generators.generate_combinations(reverse=True):
+        conn = client.Connection('localhost:8080')
+        time.sleep(2)
+        integration_tests.generators.send_requests(conn, 200, **combination)
+        time.sleep(2)
+        conn.close()
     time.sleep(2)
-    integration_tests.generators.send_requests(conn, 200, body=True, size_k=24)
-    time.sleep(2)
-    conn.close()
-    conn = client.Connection('localhost:8080')
-    time.sleep(2)
-    integration_tests.generators.send_requests(conn, 200, body=True, size_k=8)
-    time.sleep(2)
-    conn.close()
-    conn = client.Connection('localhost:8080')
-    time.sleep(2)
-    integration_tests.generators.send_requests(conn, 200, body=True, size_k=24)
-    time.sleep(2)
-    conn.close()
-    time.sleep(2)
-
 
 def main():
     setup()
