@@ -3,6 +3,7 @@ import sys
 import signal
 import atexit
 import os
+import time
 
 sys.path.insert(0, '.')
 
@@ -16,8 +17,10 @@ def setup():
         sys.executable, 'build.py', '--dest', '.test/longrun',
         '--kit', 'platform'])
 
+    os.putenv('MALLOC_TRIM_THRESHOLD_', '0')
     server = integration_tests.common.start_server(
         'integration_tests/dump.py', path='.test/longrun', sanitize=False)
+    os.unsetenv('MALLOC_TRIM_THRESHOLD_')
 
     os.makedirs('.collector', exist_ok=True)
 
@@ -38,8 +41,24 @@ def setup():
 
 
 def run():
+    time.sleep(2)
     conn = client.Connection('localhost:8080')
-    integration_tests.generators.send_requests(conn, 50, body=True)
+    time.sleep(2)
+    integration_tests.generators.send_requests(conn, 200, body=True, size_k=24)
+    time.sleep(2)
+    conn.close()
+    conn = client.Connection('localhost:8080')
+    time.sleep(2)
+    integration_tests.generators.send_requests(conn, 200, body=True, size_k=8)
+    time.sleep(2)
+    conn.close()
+    conn = client.Connection('localhost:8080')
+    time.sleep(2)
+    integration_tests.generators.send_requests(conn, 200, body=True, size_k=24)
+    time.sleep(2)
+    conn.close()
+    time.sleep(2)
+
 
 def main():
     setup()
