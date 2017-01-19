@@ -57,4 +57,4 @@ app.add_error_handler(None, dump)
 
 
 if __name__ == '__main__':
-    app.serve()
+    app.run()

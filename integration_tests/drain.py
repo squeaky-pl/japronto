@@ -20,4 +20,4 @@ r.add_route('/sleep/{sleep}', sleep)
 
 
 if __name__ == '__main__':
-    app.serve()
+    app.run()

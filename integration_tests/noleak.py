@@ -40,4 +40,4 @@ r.add_route('/noleak/{p1}/{p2}', noleak)
 
 
 if __name__ == '__main__':
-    app.serve()
+    app.run()

@@ -28,4 +28,4 @@ if __name__ == '__main__':
     app.router.add_route('/', dump)
     app.router.add_route('/{a}/{b}', dump)
 
-    app.serve()
+    app.run()

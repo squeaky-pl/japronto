@@ -10,4 +10,4 @@ reaper_settings = {
 app = Application(reaper_settings=reaper_settings)
 
 if __name__ == '__main__':
-    app.serve()
+    app.run()

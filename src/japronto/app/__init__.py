@@ -137,7 +137,7 @@ class Application:
         self._request_extensions[name] = (handler, property)
 
 
-    def serve(self, protocol_factory=None, reuse_port=False):
+    def run(self, address='0.0.0.0', port=8080, *, protocol_factory=None, reuse_port=False):
         self.__finalize()
 
         loop = self.loop
@@ -147,12 +147,15 @@ class Application:
 
         server_coro = loop.create_server(
             lambda: protocol_factory(self),
-            '0.0.0.0', 8080, reuse_port=reuse_port)
+            address, port, reuse_port=reuse_port)
 
         server = loop.run_until_complete(server_coro)
 
         loop.add_signal_handler(signal.SIGTERM, loop.stop)
         loop.add_signal_handler(signal.SIGINT, loop.stop)
+
+        print('Accepting connections on http://{}:{}'.format(address, port))
+
         try:
             loop.run_forever()
         finally:

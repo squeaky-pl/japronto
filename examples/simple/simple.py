@@ -77,4 +77,4 @@ if __name__ == '__main__':
         '-p', dest='flavor', default='block')
     args = argparser.parse_args(sys.argv[1:])
 
-    app.serve(japronto.protocol.handler.make_class(args.flavor))
+    app.run(protocol_factory=japronto.protocol.handler.make_class(args.flavor))

@@ -81,4 +81,4 @@ if __name__ == '__main__':
     router.add_route('/todos/{id}', show_todo, method='GET')
     router.add_route('/todos/{id}', delete_todo, method='DELETE')
     router.add_route('/todos', add_todo, method='POST')
-    app.serve()
+    app.run()

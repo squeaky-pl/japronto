@@ -36,4 +36,4 @@ r.add_route('/', extended_hello)
 r.add_route('/callback', with_callback)
 
 
-app.serve()
+app.run()

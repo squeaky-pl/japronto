@@ -21,6 +21,9 @@ def server():
         ['-u', 'integration_tests/dump.py'],
         stdout=subprocess.PIPE, path='.test')
 
+    accepting = server.stdout.readline().decode('utf-8')
+    assert accepting.startswith('Accepting connections ')
+
     yield server
 
     server.terminate()

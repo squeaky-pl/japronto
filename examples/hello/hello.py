@@ -10,4 +10,4 @@ app = Application()
 r = app.router
 r.add_route('/', hello)
 
-app.serve()
+app.run()
