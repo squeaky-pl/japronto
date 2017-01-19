@@ -39,6 +39,21 @@ def run_wrk(loop, endpoint=None):
     return rps
 
 
+def cpu_usage(p):
+    return p.cpu_percent() + sum(c.cpu_percent() for c in p.children())
+
+
+def connections(process):
+    return len(
+        set(c.fd for c in process.connections()) |
+        set(c.fd for p in process.children() for c in p.connections()))
+
+
+def memory(p):
+    return p.memory_percent('uss') \
+        + sum(c.memory_percent('uss') for c in p.children())
+
+
 if __name__ == '__main__':
     buggers.silence()
     loop = uvloop.new_event_loop()
@@ -79,9 +94,9 @@ if __name__ == '__main__':
     for _ in range(10):
         results.append(run_wrk(loop, args.endpoint))
         cpu_usages.append(psutil.cpu_percent())
-        process_cpu_usages.append(process.cpu_percent())
-        conn_cnt.append(len(process.connections()))
-        mem_usages.append(round(process.memory_percent('uss'), 2))
+        process_cpu_usages.append(cpu_usage(process))
+        conn_cnt.append(connections(process))
+        mem_usages.append(round(memory(process), 2))
         print('.', end='')
         sys.stdout.flush()
 
