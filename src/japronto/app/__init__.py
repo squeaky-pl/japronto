@@ -167,7 +167,8 @@ class Application:
             # break reference and cleanup matcher buffer
             del self._matcher
 
-    def run(self, address='0.0.0.0', port=8080, *, protocol_factory=None):
+    def run(self, address='0.0.0.0', port=8080, *, protocol_factory=None,
+            worker_num=None):
         protocol_factory = protocol_factory or Protocol
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -175,18 +176,23 @@ class Application:
         sock.bind((address, port))
         os.set_inheritable(sock.fileno(), True)
 
-        worker = multiprocessing.Process(
-            target=self.serve, args=(sock, address, port, protocol_factory))
+        workers = set()
 
         def stop(signal, frame):
-            worker.terminate()
+            for worker in workers:
+                worker.terminate()
 
         signal.signal(signal.SIGINT, stop)
         signal.signal(signal.SIGTERM, stop)
 
-        worker.daemon = True
-        worker.start()
+        for _ in range(worker_num or 1):
+            worker = multiprocessing.Process(
+                target=self.serve, args=(sock, address, port, protocol_factory))
+            worker.daemon = True
+            worker.start()
+            workers.add(worker)
 
-        worker.join()
+        for worker in workers:
+            worker.join()
 
         sock.close()

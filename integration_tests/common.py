@@ -28,7 +28,10 @@ def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True,
         # wait until the server socket is open
         while 1:
             assert server.poll() is None
-            if process.connections():
+            conn_num = len(process.connections())
+            for child in process.children():
+                conn_num += len(child.connections())
+            if conn_num:
                 break
             time.sleep(.001)
 
