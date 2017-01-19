@@ -20,8 +20,6 @@ def get_connections_and_wait(request):
         return_process=True)
 
     def connection_num():
-        print(process.connections())
-        print([c.connections() for c in process.children()])
         return len(
             set(c.fd for c in process.connections()) |
             set(c.fd for p in process.children() for c in p.connections()))
