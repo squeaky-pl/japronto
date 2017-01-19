@@ -2,6 +2,8 @@ import signal
 import asyncio
 import traceback
 import socket
+import os
+import multiprocessing
 
 import uvloop
 
@@ -137,17 +139,14 @@ class Application:
         self._request_extensions[name] = (handler, property)
 
 
-    def run(self, address='0.0.0.0', port=8080, *, protocol_factory=None, reuse_port=False):
+    def serve(self, sock, address, port, protocol_factory):
         self.__finalize()
 
         loop = self.loop
         asyncio.set_event_loop(loop)
 
-        protocol_factory = protocol_factory or Protocol
-
         server_coro = loop.create_server(
-            lambda: protocol_factory(self),
-            address, port, reuse_port=reuse_port)
+            lambda: protocol_factory(self), sock=sock)
 
         server = loop.run_until_complete(server_coro)
 
@@ -167,3 +166,27 @@ class Application:
 
             # break reference and cleanup matcher buffer
             del self._matcher
+
+    def run(self, address='0.0.0.0', port=8080, *, protocol_factory=None):
+        protocol_factory = protocol_factory or Protocol
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((address, port))
+        os.set_inheritable(sock.fileno(), True)
+
+        worker = multiprocessing.Process(
+            target=self.serve, args=(sock, address, port, protocol_factory))
+
+        def stop(signal, frame):
+            worker.terminate()
+
+        signal.signal(signal.SIGINT, stop)
+        signal.signal(signal.SIGTERM, stop)
+
+        worker.daemon = True
+        worker.start()
+
+        worker.join()
+
+        sock.close()
