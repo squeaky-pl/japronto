@@ -19,7 +19,14 @@ def get_connections_and_wait(request):
         'integration_tests/reaper.py', '1', str(request.param)], path='.test',
         return_process=True)
 
-    yield lambda: len(process.connections()), partial(time.sleep, request.param)
+    def connection_num():
+        print(process.connections())
+        print([c.connections() for c in process.children()])
+        return len(
+            set(c.fd for c in process.connections()) |
+            set(c.fd for p in process.children() for c in p.connections()))
+
+    yield connection_num, partial(time.sleep, request.param)
 
     server.terminate()
     assert server.wait() == 0
