@@ -192,7 +192,8 @@ class Application:
             worker.start()
             workers.add(worker)
 
+        # prevent further operations on socket in parent
+        sock.close()
+
         for worker in workers:
             worker.join()
-
-        sock.close()
