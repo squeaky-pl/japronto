@@ -155,6 +155,10 @@ class Application:
         loop.add_signal_handler(signal.SIGTERM, loop.stop)
         loop.add_signal_handler(signal.SIGINT, loop.stop)
 
+        from japronto.reloader import ChangeDetector
+        detector = ChangeDetector(loop)
+        detector.start()
+
         print('Accepting connections on http://{}:{}'.format(address, port))
 
         try:
