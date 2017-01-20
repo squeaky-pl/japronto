@@ -62,9 +62,9 @@ class ChangeDetector(threading.Thread):
     def run(self):
         for changed in change_detector():
             if changed:
-                self.loop.stop()
+                self.loop.call_soon_threadsafe(self.loop.stop)
                 return
-            time.sleep(1)
+            time.sleep(.5)
 
 
 if __name__ == "__main__":
