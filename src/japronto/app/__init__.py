@@ -208,4 +208,7 @@ class Application:
             worker.join()
 
     def run(self, host='0.0.0.0', port=8080, *, worker_num=None):
+        if os.environ.get('_JAPR_IGNORE_RUN'):
+            return
+
         self._run(host=host, port=port, worker_num=worker_num)
