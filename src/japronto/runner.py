@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, SUPPRESS
 from importlib import import_module
 
 from .app import Application
@@ -12,6 +12,9 @@ def get_parser():
     parser.add_argument(
         '--reload', dest='reload', action='store_const',
         const=True, default=False)
+
+    parser.add_argument(
+        '--reloader-pid', dest='reloader_pid', type=int, help=SUPPRESS)
 
     parser.add_argument('application')
 
@@ -48,4 +51,6 @@ def verify(args):
 
 
 def run(attribute, args):
-    attribute.run(args.host, args.port, worker_num=args.worker_num)
+    attribute._run(
+        args.host, args.port,
+        worker_num=args.worker_num, reloader_pid=args.reloader_pid)

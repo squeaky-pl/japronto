@@ -141,7 +141,7 @@ class Application:
         self._request_extensions[name] = (handler, property)
 
 
-    def serve(self, sock, address, port):
+    def serve(self, sock, address, port, reloader_pid):
         self.__finalize()
 
         loop = self.loop
@@ -155,7 +155,7 @@ class Application:
         loop.add_signal_handler(signal.SIGTERM, loop.stop)
         loop.add_signal_handler(signal.SIGINT, loop.stop)
 
-        if True:
+        if reloader_pid:
             from japronto.reloader import ChangeDetector
             detector = ChangeDetector(loop)
             detector.start()
@@ -174,7 +174,8 @@ class Application:
             # break reference and cleanup matcher buffer
             del self._matcher
 
-    def run(self, address='0.0.0.0', port=8080, *, worker_num=None):
+
+    def _run(self, address, port, *, worker_num, reloader_pid=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((address, port))
@@ -183,19 +184,18 @@ class Application:
         workers = set()
 
         def stop(sig, frame):
-            if sig == signal.SIGHUP:
+            if reloader_pid and sig == signal.SIGHUP:
                 print('Reload request received')
             for worker in workers:
                 worker.terminate()
 
         signal.signal(signal.SIGINT, stop)
         signal.signal(signal.SIGTERM, stop)
-        if True:
-            signal.signal(signal.SIGHUP, stop)
+        signal.signal(signal.SIGHUP, stop)
 
         for _ in range(worker_num or 1):
             worker = multiprocessing.Process(
-                target=self.serve, args=(sock, address, port))
+                target=self.serve, args=(sock, address, port, reloader_pid))
             worker.daemon = True
             worker.start()
             workers.add(worker)
@@ -205,3 +205,6 @@ class Application:
 
         for worker in workers:
             worker.join()
+
+    def run(self, address='0.0.0.0', port=8080, *, worker_num=None):
+        self._run(self, address, port, worker_num=worker_num)

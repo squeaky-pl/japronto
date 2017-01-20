@@ -27,6 +27,7 @@ def main():
     while not terminating:
         child = subprocess.Popen([
             sys.executable, '-m', 'japronto',
+            '--reloader-pid', str(os.getpid()),
             *(v for v in sys.argv[1:] if v != '--reload')])
 
         child.wait()
