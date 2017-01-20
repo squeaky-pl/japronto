@@ -4,7 +4,7 @@ from functools import partial
 import sys
 import json
 
-from japronto.app import Application
+from japronto import Application
 
 DB_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), 'todo.sqlite'))

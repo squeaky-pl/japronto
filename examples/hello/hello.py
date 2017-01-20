@@ -1,4 +1,4 @@
-from japronto.app import Application
+from japronto import Application
 
 
 def hello(request):
