@@ -128,6 +128,9 @@ def padto8(data):
     return data + b'\xdb' * (roundto8(l) - l)
 
 
+retain_handlers = set()
+
+
 def compile(route):
     pattern_buf = b''
     for segment in route.segments:
@@ -141,10 +144,19 @@ def compile(route):
         methods_len += 1
     methods_buf = padto8(methods_buf)
 
+    handler = route.handler
+    if asyncio.iscoroutinefunction(handler) \
+       and analyzer.is_pointless_coroutine(handler):
+        handler = analyzer.coroutine_to_func(handler)
+        # since we save id to handler in matcher entry and this is the only
+        # reference before INCREF-ed in matcher we store it in set to prevent
+        # destruction
+        retain_handlers.add(handler)
+
     return MatcherEntry.pack(
-        id(route), id(route.handler),
-        asyncio.iscoroutinefunction(route.handler),
-        analyzer.is_simple(route.handler),
+        id(route), id(handler),
+        asyncio.iscoroutinefunction(handler),
+        analyzer.is_simple(handler),
         len(pattern_buf), methods_len, route.placeholder_cnt) \
         + pattern_buf + methods_buf
 

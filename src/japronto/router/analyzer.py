@@ -1,5 +1,6 @@
 import dis
 import functools
+import types
 
 
 FLAG_COROUTINE = 128
