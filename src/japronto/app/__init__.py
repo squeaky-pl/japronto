@@ -141,7 +141,7 @@ class Application:
         self._request_extensions[name] = (handler, property)
 
 
-    def serve(self, sock, address, port, reloader_pid):
+    def serve(self, *, sock, host, port, reloader_pid):
         self.__finalize()
 
         loop = self.loop
@@ -160,7 +160,7 @@ class Application:
             detector = ChangeDetector(loop)
             detector.start()
 
-        print('Accepting connections on http://{}:{}'.format(address, port))
+        print('Accepting connections on http://{}:{}'.format(host, port))
 
         try:
             loop.run_forever()
@@ -175,10 +175,10 @@ class Application:
             del self._matcher
 
 
-    def _run(self, address, port, *, worker_num, reloader_pid=None):
+    def _run(self, *, host, port, worker_num=None, reloader_pid=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((address, port))
+        sock.bind((host, port))
         os.set_inheritable(sock.fileno(), True)
 
         workers = set()
@@ -195,7 +195,8 @@ class Application:
 
         for _ in range(worker_num or 1):
             worker = multiprocessing.Process(
-                target=self.serve, args=(sock, address, port, reloader_pid))
+                target=self.serve,
+                kwargs=dict(sock=sock, host=host, port=port, reloader_pid=reloader_pid))
             worker.daemon = True
             worker.start()
             workers.add(worker)
@@ -206,5 +207,5 @@ class Application:
         for worker in workers:
             worker.join()
 
-    def run(self, address='0.0.0.0', port=8080, *, worker_num=None):
-        self._run(self, address, port, worker_num=worker_num)
+    def run(self, host='0.0.0.0', port=8080, *, worker_num=None):
+        self._run(host=host, port=port, worker_num=worker_num)

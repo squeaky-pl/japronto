@@ -52,5 +52,5 @@ def verify(args):
 
 def run(attribute, args):
     attribute._run(
-        args.host, args.port,
+        host=args.host, port=args.port,
         worker_num=args.worker_num, reloader_pid=args.reloader_pid)
