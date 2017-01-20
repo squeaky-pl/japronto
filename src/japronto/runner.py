@@ -4,14 +4,14 @@ from importlib import import_module
 from .app import Application
 
 
-def get_parser(reload=False):
+def get_parser():
     parser = ArgumentParser(prog='python -m japronto')
     parser.add_argument('--host', dest='host', type=str, default='0.0.0.0')
     parser.add_argument('--port', dest='port', type=int, default=8080)
     parser.add_argument('--worker-num', dest='worker_num', type=int, default=1)
-
-    if reload:
-        parser.add_argument('--reload', dest='reload', const=True, default=False)
+    parser.add_argument(
+        '--reload', dest='reload', action='store_const',
+        const=True, default=False)
 
     parser.add_argument('application')
 
