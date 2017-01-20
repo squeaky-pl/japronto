@@ -13,7 +13,8 @@ from japronto.protocol.creaper import Reaper
 
 
 class Application:
-    def __init__(self, loop=None, reaper_settings=None, log_request=False):
+    def __init__(self, loop=None, reaper_settings=None, log_request=False,
+                 protocol_factory=None):
         self._router = None
         self._loop = None
         self._connections = set()
@@ -21,6 +22,7 @@ class Application:
         self._error_handlers = []
         self._log_request = log_request
         self._request_extensions = {}
+        self._protocol_factory = protocol_factory or Protocol
 
     @property
     def loop(self):
@@ -139,14 +141,14 @@ class Application:
         self._request_extensions[name] = (handler, property)
 
 
-    def serve(self, sock, address, port, protocol_factory):
+    def serve(self, sock, address, port):
         self.__finalize()
 
         loop = self.loop
         asyncio.set_event_loop(loop)
 
         server_coro = loop.create_server(
-            lambda: protocol_factory(self), sock=sock)
+            lambda: self._protocol_factory(self), sock=sock)
 
         server = loop.run_until_complete(server_coro)
 
@@ -167,10 +169,7 @@ class Application:
             # break reference and cleanup matcher buffer
             del self._matcher
 
-    def run(self, address='0.0.0.0', port=8080, *, protocol_factory=None,
-            worker_num=None):
-        protocol_factory = protocol_factory or Protocol
-
+    def run(self, address='0.0.0.0', port=8080, *, worker_num=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((address, port))
@@ -187,7 +186,7 @@ class Application:
 
         for _ in range(worker_num or 1):
             worker = multiprocessing.Process(
-                target=self.serve, args=(sock, address, port, protocol_factory))
+                target=self.serve, args=(sock, address, port))
             worker.daemon = True
             worker.start()
             workers.add(worker)
