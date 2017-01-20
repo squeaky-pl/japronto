@@ -1,5 +1,6 @@
 import sys
 import os.path
+import os
 import time
 import threading
 import signal
@@ -10,13 +11,18 @@ def main():
 
     terminating = False
 
-    def terminate(*args):
+    def signal_received(sig, frame):
         nonlocal terminating
-        terminating = True
-        child.terminate()
 
-    signal.signal(signal.SIGINT, terminate)
-    signal.signal(signal.SIGTERM, terminate)
+        if sig == signal.SIGHUP:
+            child.send_signal(signal.SIGHUP)
+        else:
+            terminating = True
+            child.terminate()
+
+    signal.signal(signal.SIGINT, signal_received)
+    signal.signal(signal.SIGTERM, signal_received)
+    signal.signal(signal.SIGHUP, signal_received)
 
     while not terminating:
         child = subprocess.Popen([
