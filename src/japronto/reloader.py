@@ -2,11 +2,11 @@ import sys
 import os.path
 import time
 import threading
+import signal
 
 
 def main():
     import subprocess
-    import signal
 
     terminating = False
 
@@ -63,6 +63,7 @@ class ChangeDetector(threading.Thread):
         for changed in change_detector():
             if changed:
                 self.loop.call_soon_threadsafe(self.loop.stop)
+                os.kill(os.getppid(), signal.SIGHUP)
                 return
             time.sleep(.5)
 

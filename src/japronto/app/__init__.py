@@ -155,9 +155,10 @@ class Application:
         loop.add_signal_handler(signal.SIGTERM, loop.stop)
         loop.add_signal_handler(signal.SIGINT, loop.stop)
 
-        from japronto.reloader import ChangeDetector
-        detector = ChangeDetector(loop)
-        detector.start()
+        if True:
+            from japronto.reloader import ChangeDetector
+            detector = ChangeDetector(loop)
+            detector.start()
 
         print('Accepting connections on http://{}:{}'.format(address, port))
 
@@ -181,12 +182,16 @@ class Application:
 
         workers = set()
 
-        def stop(signal, frame):
+        def stop(sig, frame):
+            if sig == signal.SIGHUP:
+                print('Reload request received')
             for worker in workers:
                 worker.terminate()
 
         signal.signal(signal.SIGINT, stop)
         signal.signal(signal.SIGTERM, stop)
+        if True:
+            signal.signal(signal.SIGHUP, stop)
 
         for _ in range(worker_num or 1):
             worker = multiprocessing.Process(
