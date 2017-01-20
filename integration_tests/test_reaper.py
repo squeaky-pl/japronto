@@ -59,5 +59,5 @@ def test_request(get_connections_and_wait):
 
     wait()
     time.sleep(1)
-    
+
     assert get_connections() == 1

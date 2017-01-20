@@ -6,14 +6,25 @@ import json
 from functools import partial
 
 
+def get_connections(process):
+    return len(
+        set(c.fd for c in process.connections()) |
+        set(c.fd for p in process.children() for c in p.connections()))
+
+
+def get_memory(p):
+    return p.memory_full_info().uss \
+        + sum(c.memory_full_info().uss for c in p.children())
+
+
 def sample_process(pid):
     process = psutil.Process(pid)
     samples = []
 
     while 1:
         try:
-            uss = process.memory_full_info().uss
-            conn = len(process.connections())
+            uss = get_memory(process)
+            conn = get_connections(process)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             break
 
