@@ -8,7 +8,7 @@ import psutil
 
 
 def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True,
-                 return_process=False):
+                 return_process=False, buffer=False):
     if not isinstance(script, list):
         script = [script]
     if path:
@@ -16,7 +16,11 @@ def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True,
     if sanitize:
         os.putenv('LD_PRELOAD', ctypes.util.find_library('asan'))
         os.putenv('LSAN_OPTIONS', 'suppressions=suppr.txt')
+    if not buffer:
+        os.putenv('PYTHONUNBUFFERED', '1')
     server = subprocess.Popen([sys.executable, *script], stdout=stdout)
+    if not buffer:
+        os.unsetenv('PYTHONUNBUFFERED')
     if sanitize:
         os.unsetenv('LSAN_OPTIONS')
         os.unsetenv('LD_PRELOAD')

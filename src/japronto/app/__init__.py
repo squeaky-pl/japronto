@@ -95,7 +95,6 @@ class Application:
 
 
     async def drain(self):
-        print('Draining connections...')
         # TODO idle connections will close connection with half-read requests
         idle_connections = [c for c in self._connections if c.pipeline_empty]
         busy_connections = [c for c in self._connections if not c.pipeline_empty]
@@ -108,14 +107,17 @@ class Application:
 #            sock = c.transport.get_extra_info('socket')
 #            sock.shutdown(socket.SHUT_RD)
 
+        if idle_connections or busy_connections:
+            print('Draining connections...')
+        else:
+            return
+
         if idle_connections:
             print('{} idle connections closed immediately'
                 .format(len(idle_connections)))
         if busy_connections:
             print('{} connections busy, read-end closed'
                 .format(len(busy_connections)))
-        else:
-            return
 
         for x in range(5, 0, -1):
             await asyncio.sleep(1)
@@ -183,9 +185,15 @@ class Application:
 
         workers = set()
 
+        terminating = False
+
         def stop(sig, frame):
+            nonlocal terminating
             if reloader_pid and sig == signal.SIGHUP:
                 print('Reload request received')
+            elif not terminating:
+                terminating = True
+                print('Termination request received')
             for worker in workers:
                 worker.terminate()
 
@@ -206,6 +214,9 @@ class Application:
 
         for worker in workers:
             worker.join()
+
+            if worker.exitcode != 0:
+                print('Worker excited with code {}!'.format(worker.exitcode))
 
     def run(self, host='0.0.0.0', port=8080, *, worker_num=None):
         if os.environ.get('_JAPR_IGNORE_RUN'):
