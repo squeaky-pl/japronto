@@ -23,7 +23,7 @@ def server_terminate(server):
         server.terminate()
         assert server.wait() == 0
 
-        stdout = server.communicate()[0]
+        stdout = server.stdout.read()
 
         return [l.decode('utf-8').strip() for l in stdout.splitlines()]
 
@@ -53,7 +53,7 @@ def connect():
 def test_no_connections(server_terminate):
     lines = server_terminate()
 
-    assert lines[-1] == 'Draining connections...'
+    assert lines[-1] == 'Termination request received'
 
 
 @pytest.mark.parametrize('num', range(1, 5))
@@ -74,7 +74,7 @@ def test_closed_connections(num, connect, server_terminate):
 
     lines = server_terminate()
 
-    assert lines[-1] == 'Draining connections...'
+    assert lines[-1] == 'Termination request received'
 
 
 @pytest.mark.parametrize('num', range(1, 5))
@@ -100,7 +100,7 @@ def test_closed_requests(num, connect, server_terminate):
 
     lines = server_terminate()
 
-    assert lines[-1] == 'Draining connections...'
+    assert lines[-1] == 'Termination request received'
 
 
 @pytest.mark.parametrize('num', range(1, 3))
