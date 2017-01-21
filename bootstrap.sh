@@ -17,7 +17,7 @@ cd -
 
 cd japronto
 ../japronto-env/bin/pip install -r requirements.txt
-../japronto-env/bin/python build.py
+../japronto-env/bin/python build.py --kit=platform
 cd -
 
 git clone https://github.com/wg/wrk
