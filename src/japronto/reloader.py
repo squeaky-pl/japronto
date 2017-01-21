@@ -31,6 +31,8 @@ def main():
             *(v for v in sys.argv[1:] if v != '--reload')])
 
         child.wait()
+        if child.returncode != 0:
+            break
 
 
 def change_detector():
