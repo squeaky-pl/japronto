@@ -351,12 +351,37 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 #endif
 
 
+#define Protocol_catch_exception(request) \
+{ \
+  PyObject* etype; \
+  PyObject* evalue; \
+  PyObject* etraceback; \
+  \
+  PyErr_Fetch(&etype, &evalue, &etraceback); \
+  PyErr_NormalizeException(&etype, &evalue, &etraceback); \
+  if(etraceback) { \
+    PyException_SetTraceback(evalue, etraceback); \
+    Py_DECREF(etraceback); \
+  } \
+  Py_DECREF(etype); \
+  \
+  ((Request*)request)->exception = evalue; \
+}
+
+
 static inline Protocol*
 Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* response)
 {
     Protocol* result = self;
     PyObject* response_bytes = NULL;
     PyObject* error_result = NULL;
+
+    if(response && Py_TYPE(response) != response_capi->ResponseType)
+    {
+      PyErr_SetString(PyExc_ValueError, "View did not return Response instance");
+      Protocol_catch_exception(request);
+      response = NULL;
+    }
 
     if(!response) {
       error_result = PyObject_CallFunctionObjArgs(
@@ -410,23 +435,6 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
     Py_XDECREF(error_result);
     Py_XDECREF(response_bytes);
     return result;
-}
-
-#define Protocol_catch_exception(request) \
-{ \
-  PyObject* etype; \
-  PyObject* evalue; \
-  PyObject* etraceback; \
-  \
-  PyErr_Fetch(&etype, &evalue, &etraceback); \
-  PyErr_NormalizeException(&etype, &evalue, &etraceback); \
-  if(etraceback) { \
-    PyException_SetTraceback(evalue, etraceback); \
-    Py_DECREF(etraceback); \
-  } \
-  Py_DECREF(etype); \
-  \
-  ((Request*)request)->exception = evalue; \
 }
 
 

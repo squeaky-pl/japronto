@@ -31,6 +31,7 @@ typedef struct {
   char inline_buffer[REQUEST_INITIAL_BUFFER_LEN];
   KEEP_ALIVE keep_alive;
   bool simple;
+  bool response_called;
   MatcherEntry* matcher_entry;
   PyObject* exception;
 

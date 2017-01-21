@@ -39,6 +39,8 @@ Request_new(PyTypeObject* type, Request* self)
   ((PyObject*)self)->ob_refcnt = 1;
   ((PyObject*)self)->ob_type = type;
 #endif
+  self->response_called = false;
+
   self->matcher_entry = NULL;
   self->exception = NULL;
   self->app = NULL;
@@ -172,6 +174,14 @@ _Request_get_keep_alive(Request* self);
 static PyObject*
 Request_Response(Request* self, PyObject *args, PyObject* kw)
 {
+  if(self->response_called) {
+    PyErr_SetString(
+      PyExc_RuntimeError,
+      "Request.Response can only be called once per request");
+    goto error;
+  }
+
+  self->response_called = true;
   Response* result = &self->response;
 
   if(response_capi->Response_init(result, args, kw) == -1)
