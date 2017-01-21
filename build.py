@@ -5,11 +5,11 @@ from distutils.core import Distribution
 from glob import glob
 import os.path
 import shutil
-from importlib import import_module
 import sysconfig
 import os
 import sys
 import pytoml
+import runpy
 
 
 SRC_LOCATION = 'src'
@@ -23,11 +23,8 @@ class BuildSystem:
 
     def get_extension_by_path(self, path):
         path = SRC_LOCATION + '/' + path
-        module_import = os.path.relpath(os.path.splitext(path)[0], SRC_LOCATION) \
-            .replace('/', '.')
-        module = import_module(module_import)
-        module.system = self
-        extension = module.get_extension()
+        result = runpy.run_path(path, {'system': self})
+        extension = result['get_extension']()
 
         base_path = os.path.dirname(path)
 
