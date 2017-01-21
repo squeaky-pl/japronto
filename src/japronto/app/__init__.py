@@ -3,6 +3,7 @@ import asyncio
 import traceback
 import socket
 import os
+import sys
 import multiprocessing
 
 import uvloop
@@ -13,16 +14,20 @@ from japronto.protocol.creaper import Reaper
 
 
 class Application:
-    def __init__(self, loop=None, reaper_settings=None, log_request=False,
-                 protocol_factory=None):
+    def __init__(self, *, loop=None, reaper_settings=None, log_request=None,
+                 protocol_factory=None, debug=False):
         self._router = None
         self._loop = None
         self._connections = set()
         self._reaper_settings = reaper_settings or {}
         self._error_handlers = []
-        self._log_request = log_request
+        if log_request is not None:
+            self._log_request = log_request
+        else:
+            self._log_request = debug
         self._request_extensions = {}
         self._protocol_factory = protocol_factory or Protocol
+        self._debug = debug
 
     @property
     def loop(self):
@@ -72,8 +77,10 @@ class Application:
         # FIXME traceback should be only available in debug mode
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)
-        print(tb)
-        return request.Response(status_code=500, text=tb)
+        print(tb, file=sys.stderr, end='')
+        return request.Response(
+            status_code=500,
+            text=tb if self._debug else 'Internval Server Error')
 
     def error_handler(self, request, exception):
         for typ, handler in self._error_handlers:
