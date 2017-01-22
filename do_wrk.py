@@ -61,6 +61,7 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser('do_wrk')
     argparser.add_argument('-s', dest='server', default='')
     argparser.add_argument('-e', dest='endpoint')
+    argparser.add_argument('--pid', dest='pid', type=int)
     argparser.add_argument(
         '--no-cpu', dest='cpu_change', default=True,
         action='store_const', const=False)
@@ -73,12 +74,18 @@ if __name__ == '__main__':
 
     aio.set_event_loop(loop)
 
-    os.putenv('PYTHONPATH', 'src')
-    server_fut = aio.create_subprocess_exec(
-        'python', 'examples/hello/hello.py', *args.server.split())
-    server = loop.run_until_complete(server_fut)
-    os.unsetenv('PYTHONPATH')
-    process = psutil.Process(server.pid)
+    if not args.endpoint:
+        os.putenv('PYTHONPATH', 'src')
+        server_fut = aio.create_subprocess_exec(
+            'python', 'examples/hello/hello.py', *args.server.split())
+        server = loop.run_until_complete(server_fut)
+        os.unsetenv('PYTHONPATH')
+    if not args.endpoint:
+        process = psutil.Process(server.pid)
+    elif args.pid:
+        process = psutil.Process(args.pid)
+    else:
+        process = None
 
     cpu_p = 100
     while cpu_p > 5:
@@ -90,18 +97,21 @@ if __name__ == '__main__':
     process_cpu_usages = []
     mem_usages = []
     conn_cnt = []
-    process.cpu_percent()
+    if process:
+        cpu_usage(process)
     for _ in range(10):
         results.append(run_wrk(loop, args.endpoint))
         cpu_usages.append(psutil.cpu_percent())
-        process_cpu_usages.append(cpu_usage(process))
-        conn_cnt.append(connections(process))
-        mem_usages.append(round(memory(process), 2))
+        if process:
+            process_cpu_usages.append(cpu_usage(process))
+            conn_cnt.append(connections(process))
+            mem_usages.append(round(memory(process), 2))
         print('.', end='')
         sys.stdout.flush()
 
-    server.terminate()
-    loop.run_until_complete(server.wait())
+    if not args.endpoint:
+        server.terminate()
+        loop.run_until_complete(server.wait())
 
     if args.cpu_change:
         cpu.change('ondemand')
