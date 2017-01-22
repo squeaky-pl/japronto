@@ -1,5 +1,13 @@
 from tornado import ioloop, web
 from tornado.httputil import HTTPHeaders, responses
+from tornado.platform.asyncio import AsyncIOMainLoop
+import asyncio
+import uvloop
+
+
+loop = uvloop.new_event_loop()
+asyncio.set_event_loop(loop)
+AsyncIOMainLoop().install()
 
 
 class MainHandler(web.RequestHandler):
@@ -24,4 +32,5 @@ class MainHandler(web.RequestHandler):
 app = web.Application([('/', MainHandler)])
 
 app.listen(8080)
-ioloop.IOLoop.current().start()
+
+loop.run_forever()
