@@ -47,7 +47,7 @@ class Application:
         self.loop
         self.router
 
-        self._reaper = Reaper(self, **self._reaper_settings)
+#        self._reaper = Reaper(self, **self._reaper_settings)
         self._matcher = self._router.get_matcher()
 
     def protocol_error_handler(self, error):
@@ -177,7 +177,7 @@ class Application:
             server.close()
             loop.run_until_complete(server.wait_closed())
             loop.run_until_complete(self.drain())
-            self._reaper.stop()
+#            self._reaper.stop()
             loop.close()
 
             # break reference and cleanup matcher buffer
