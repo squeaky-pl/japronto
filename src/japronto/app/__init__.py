@@ -170,9 +170,11 @@ class Application:
         import time
 
         loop = Loop()
+        loop.create_server(sock)
+
+        loop.run()
         del loop
 
-        time.sleep(10)
 #        if reloader_pid:
 #            from japronto.reloader import ChangeDetector
 #            detector = ChangeDetector(loop)

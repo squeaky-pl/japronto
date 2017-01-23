@@ -751,9 +751,11 @@ static PyModuleDef cprotocol = {
 
 // ------------------------------ loooop
 
+#include <sys/socket.h>
 
 typedef struct {
   PyObject_HEAD
+  picoev_loop* loop;
 } Loop;
 
 
@@ -766,9 +768,17 @@ Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   self = (Loop*)type->tp_alloc(type, 0);
   if(!self)
-    goto finally;
+    goto error;
 
   picoev_init(MAX_FDS);
+
+  if(!(self->loop = picoev_create_loop(60)))
+    goto error;
+
+  goto finally;
+
+  error:
+  return NULL;
 
   finally:
   return (PyObject*)self;
@@ -778,6 +788,7 @@ Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Loop_dealloc(Loop* self)
 {
+  picoev_destroy_loop(self->loop);
   picoev_deinit();
 
   Py_TYPE(self)->tp_free((PyObject*)self);
@@ -785,10 +796,79 @@ Loop_dealloc(Loop* self)
 
 
 static int
-Loop_init(Protocol* self, PyObject *args, PyObject *kw)
+Loop_init(Loop* self, PyObject *args, PyObject *kw)
 {
   return 0;
 }
+
+
+// copied from Modules/socketmodule.h
+typedef int SOCKET_T;
+typedef struct {
+    PyObject_HEAD
+    SOCKET_T sock_fd;
+    // more things here that we dont need
+} PySocketSockObject;
+
+
+
+static void accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
+{
+  int newfd = accept(fd, NULL, NULL);
+  if (newfd != -1) {
+    printf("connected: %d\n", newfd);
+//    setup_sock(newfd);
+//    picoev_add(loop, newfd, PICOEV_READ, TIMEOUT_SECS, rw_callback, NULL);
+  }
+}
+
+static PyObject*
+Loop_create_server(Loop* self, PySocketSockObject* sock)
+{
+  PyObject* result = Py_None;
+
+  printf("Create server: %d\n", sock->sock_fd);
+
+  if(picoev_add(self->loop, sock->sock_fd, PICOEV_READ, 0, accept_callback, NULL) == -1)
+    goto error;
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XINCREF(result);
+  return result;
+}
+
+
+static PyObject*
+Loop_run(Loop* self)
+{
+  PyObject* result = Py_None;
+  while (1) {
+    fputc('.', stdout); fflush(stdout);
+    if(picoev_loop_once(self->loop, 10) == -1)
+      goto error;
+  }
+
+  goto finally;
+
+  error:
+  result = NULL;
+
+  finally:
+  Py_XINCREF(result);
+  return result;
+}
+
+
+static PyMethodDef Loop_methods[] = {
+  {"run", (PyCFunction)Loop_run, METH_NOARGS, ""},
+  {"create_server", (PyCFunction)Loop_create_server, METH_O, ""},
+  {NULL}
+};
 
 
 static PyTypeObject LoopType = {
@@ -819,7 +899,7 @@ static PyTypeObject LoopType = {
   0,                         /* tp_weaklistoffset */
   0,                         /* tp_iter */
   0,                         /* tp_iternext */
-  0,                         /* tp_methods */
+  Loop_methods,              /* tp_methods */
   0,                         /* tp_members */
   0,                         /* tp_getset */
   0,                         /* tp_base */
