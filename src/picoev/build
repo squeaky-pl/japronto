@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -ex
+
+gcc -c picoev_epoll.c -O3 -fpic
+gcc -shared -o libpicoev.so picoev_epoll.o
+strip libpicoev.so
