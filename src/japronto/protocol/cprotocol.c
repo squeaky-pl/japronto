@@ -17,8 +17,8 @@ static PyObject* RouteNotFoundException;
 
 static PyObject* socket_str;
 static PyObject* one;
-static PyObject* IPPROTO_TCP;
-static PyObject* TCP_NODELAY;
+static PyObject* PY_IPPROTO_TCP;
+static PyObject* PY_TCP_NODELAY;
 
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
@@ -190,7 +190,7 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
     goto error;
 
   PyObject* tmp;
-  if(!(tmp = PyObject_CallFunctionObjArgs(setsockopt, IPPROTO_TCP, TCP_NODELAY, one, NULL)))
+  if(!(tmp = PyObject_CallFunctionObjArgs(setsockopt, PY_IPPROTO_TCP, PY_TCP_NODELAY, one, NULL)))
     goto error;
   Py_DECREF(tmp);
 
@@ -752,6 +752,10 @@ static PyModuleDef cprotocol = {
 // ------------------------------ loooop
 
 #include <sys/socket.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 typedef struct {
   PyObject_HEAD
@@ -760,6 +764,7 @@ typedef struct {
 
 
 #define MAX_FDS 1024
+#define TIMEOUT_SECS 10
 
 static PyObject *
 Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
@@ -811,14 +816,68 @@ typedef struct {
 } PySocketSockObject;
 
 
+static void setup_sock(int fd)
+{
+  int on = 1, r;
+
+  r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+  assert(r == 0);
+  r = fcntl(fd, F_SETFL, O_NONBLOCK);
+  assert(r == 0);
+}
+
+
+static void close_conn(picoev_loop* loop, int fd)
+{
+  picoev_del(loop, fd);
+  close(fd);
+  printf("closed: %d\n", fd);
+}
+
+
+static void rw_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
+{
+  if ((events & PICOEV_TIMEOUT) != 0) {
+
+    /* timeout */
+    close_conn(loop, fd);
+
+  } else if ((events & PICOEV_READ) != 0) {
+
+    /* update timeout, and read */
+    char buf[1024];
+    ssize_t r;
+    picoev_set_timeout(loop, fd, TIMEOUT_SECS);
+    r = read(fd, buf, sizeof(buf));
+    switch (r) {
+    case 0: /* connection closed by peer */
+      close_conn(loop, fd);
+      break;
+    case -1: /* error */
+      if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
+	break;
+      } else { /* fatal error */
+	close_conn(loop, fd);
+      }
+      break;
+    default: /* got some data, send back */
+      if (write(fd, buf, r) != r) {
+	close_conn(loop, fd); /* failed to send all data at once, close */
+      }
+      break;
+    }
+
+  }
+}
+
 
 static void accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
   int newfd = accept(fd, NULL, NULL);
   if (newfd != -1) {
     printf("connected: %d\n", newfd);
-//    setup_sock(newfd);
-//    picoev_add(loop, newfd, PICOEV_READ, TIMEOUT_SECS, rw_callback, NULL);
+    setup_sock(newfd);
+    picoev_add(loop, newfd, PICOEV_READ, TIMEOUT_SECS, rw_callback, NULL);
   }
 }
 
@@ -928,8 +987,8 @@ PyInit_cprotocol(void)
   PyObject* route = NULL;
   socket_str = NULL;
   one = NULL;
-  IPPROTO_TCP = NULL;
-  TCP_NODELAY = NULL;
+  PY_IPPROTO_TCP = NULL;
+  PY_TCP_NODELAY = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -996,10 +1055,10 @@ PyInit_cprotocol(void)
   if(!(socket = PyImport_ImportModule("socket")))
     goto error;
 
-  if(!(IPPROTO_TCP = PyObject_GetAttrString(socket, "IPPROTO_TCP")))
+  if(!(PY_IPPROTO_TCP = PyObject_GetAttrString(socket, "IPPROTO_TCP")))
     goto error;
 
-  if(!(TCP_NODELAY = PyObject_GetAttrString(socket, "TCP_NODELAY")))
+  if(!(PY_TCP_NODELAY = PyObject_GetAttrString(socket, "TCP_NODELAY")))
     goto error;
 
   Py_INCREF(&ProtocolType);
