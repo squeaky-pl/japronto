@@ -19,7 +19,8 @@ def get_extension():
         include_dirs=[
             '.', '..', '../parser', '../pipeline',
             '../router', '../request',
-            '../response', *cparser.include_dirs],
-        libraries=cparser.libraries, library_dirs=cparser.library_dirs,
+            '../response', *cparser.include_dirs, '../../picoev'],
+        runtime_library_dirs=['../../picoev'],
+        libraries=[*cparser.libraries, 'picoev'], library_dirs=[*cparser.library_dirs, '../../picoev'],
         extra_link_args=cparser.extra_link_args,
         define_macros=define_macros)

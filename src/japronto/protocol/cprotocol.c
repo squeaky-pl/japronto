@@ -7,6 +7,7 @@
 #include "cresponse.h"
 #include "capsule.h"
 #include "match_dict.h"
+#include "picoev.h"
 
 #ifdef PARSER_STANDALONE
 static PyObject* Parser;
@@ -756,6 +757,8 @@ typedef struct {
 } Loop;
 
 
+#define MAX_FDS 1024
+
 static PyObject *
 Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -765,6 +768,8 @@ Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   if(!self)
     goto finally;
 
+  picoev_init(MAX_FDS);
+
   finally:
   return (PyObject*)self;
 }
@@ -773,6 +778,8 @@ Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Loop_dealloc(Loop* self)
 {
+  picoev_deinit();
+
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
