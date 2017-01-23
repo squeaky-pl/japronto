@@ -169,7 +169,7 @@ class Application:
         japronto.picoloop.prepare_sock(sock)
         import time
 
-        loop = Loop()
+        loop = Loop(self)
         loop.create_server(sock)
 
         loop.run()

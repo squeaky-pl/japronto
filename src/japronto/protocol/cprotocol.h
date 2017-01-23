@@ -29,6 +29,7 @@ typedef struct {
   PyObject* error_handler;
   PyObject* transport;
   PyObject* write;
+  int socket;
   PyObject* create_task;
   PyObject* request_logger;
 #ifdef PROTOCOL_TRACK_REFCNT

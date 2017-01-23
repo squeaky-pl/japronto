@@ -45,8 +45,9 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->app = NULL;
   self->matcher = NULL;
   self->error_handler = NULL;
-  self->transport = NULL;
-  self->write = NULL;
+//  self->transport = NULL;
+//  self->write = NULL;
+  self->socket = 0;
   self->create_task = NULL;
   self->request_logger = NULL;
 
@@ -60,8 +61,8 @@ Protocol_dealloc(Protocol* self)
 {
   Py_XDECREF(self->request_logger);
   Py_XDECREF(self->create_task);
-  Py_XDECREF(self->write);
-  Py_XDECREF(self->transport);
+//  Py_XDECREF(self->write);
+//  Py_XDECREF(self->transport);
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
   Py_XDECREF(self->app);
@@ -82,7 +83,8 @@ static void* Protocol_pipeline_ready(PipelineEntry entry, PyObject* protocol);
 
 
 static int
-Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
+//Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
+Protocol_init(Protocol* self, PyObject* app)
 {
   int result = 0;
   PyObject* loop = NULL;
@@ -120,8 +122,9 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   if(Pipeline_init(&self->pipeline, Protocol_pipeline_ready, (PyObject*)self) == -1)
     goto error;
 
-  if(!PyArg_ParseTuple(args, "O", &self->app))
-    goto error;
+  //if(!PyArg_ParseTuple(args, "O", &self->app))
+  //  goto error;
+  self->app = app;
   Py_INCREF(self->app);
 
   self->matcher = PyObject_GetAttrString(self->app, "_matcher");
@@ -163,7 +166,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 
 
 static PyObject*
-Protocol_connection_made(Protocol* self, PyObject* transport)
+Protocol_connection_made(Protocol* self, int socket)
 {
 #ifdef PROTOCOL_TRACK_REFCNT
   printf("made: %ld, %ld, %ld, ",
@@ -173,11 +176,11 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   self->false_cnt = Py_REFCNT(Py_False);
 #endif
 
-  PyObject* get_extra_info = NULL;
+/*  PyObject* get_extra_info = NULL;
   PyObject* socket = NULL;
-  PyObject* setsockopt = NULL;
+  PyObject* setsockopt = NULL;*/
   PyObject* connections = NULL;
-  self->transport = transport;
+/*  self->transport = transport;
   Py_INCREF(self->transport);
 
   if(!(get_extra_info = PyObject_GetAttrString(transport, "get_extra_info")))
@@ -195,7 +198,8 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   Py_DECREF(tmp);
 
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
-    goto error;
+    goto error;*/
+  self->socket = socket;
 
   if(!(connections = PyObject_GetAttrString(self->app, "_connections")))
     goto error;
@@ -218,9 +222,9 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 
   finally:
   Py_XDECREF(connections);
-  Py_XDECREF(setsockopt);
+/*  Py_XDECREF(setsockopt);
   Py_XDECREF(socket);
-  Py_XDECREF(get_extra_info);
+  Py_XDECREF(get_extra_info); */
   Py_RETURN_NONE;
 }
 
@@ -230,14 +234,14 @@ Protocol_close(Protocol* self)
 {
   void* result = self;
 
-  PyObject* close = NULL;
+/*  PyObject* close = NULL;
   close = PyObject_GetAttrString(self->transport, "close");
   if(!close)
     goto error;
   PyObject* tmp = PyObject_CallFunctionObjArgs(close, NULL);
   if(!tmp)
     goto error;
-  Py_DECREF(tmp);
+  Py_DECREF(tmp); */
 
   goto finally;
 
@@ -412,9 +416,12 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       Py_DECREF(tmp);
     }
 
-    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
+/*    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
       goto error;
-    Py_DECREF(tmp);
+    Py_DECREF(tmp);*/
+
+    if(write(self->socket, PyBytes_AS_STRING(response_bytes), Py_SIZE(response_bytes)) != Py_SIZE(response_bytes))
+      abort();
 
     if(self->request_logger) {
       if(!(tmp = PyObject_CallFunctionObjArgs(self->request_logger, request, NULL)))
@@ -547,8 +554,8 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
       goto error;
   }
 
-  ((Request*)request)->transport = self->transport;
-  Py_INCREF(self->transport);
+//  ((Request*)request)->transport = self->transport;
+// Py_INCREF(self->transport);
 
   ((Request*)request)->app = self->app;
   Py_INCREF(self->app);
@@ -760,6 +767,7 @@ static PyModuleDef cprotocol = {
 typedef struct {
   PyObject_HEAD
   picoev_loop* loop;
+  PyObject* app;
 } Loop;
 
 
@@ -780,6 +788,8 @@ Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   if(!(self->loop = picoev_create_loop(60)))
     goto error;
 
+  self->app = NULL;
+
   goto finally;
 
   error:
@@ -793,6 +803,8 @@ Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Loop_dealloc(Loop* self)
 {
+  Py_XDECREF(self->app);
+
   picoev_destroy_loop(self->loop);
   picoev_deinit();
 
@@ -803,6 +815,16 @@ Loop_dealloc(Loop* self)
 static int
 Loop_init(Loop* self, PyObject *args, PyObject *kw)
 {
+  if(!PyArg_ParseTuple(args, "O", &self->app))
+    goto error;
+  Py_INCREF(self->app);
+
+  goto finally;
+
+  error:
+  return -1;
+
+  finally:
   return 0;
 }
 
@@ -820,8 +842,8 @@ static void setup_sock(int fd)
 {
   int on = 1, r;
 
-  r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
-  assert(r == 0);
+//  r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+//  assert(r == 0);
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
 }
@@ -831,11 +853,11 @@ static void close_conn(picoev_loop* loop, int fd)
 {
   picoev_del(loop, fd);
   close(fd);
-  printf("closed: %d\n", fd);
+  //printf("closed: %d\n", fd);
 }
 
 
-static void rw_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
+static void rw_callback(picoev_loop* loop, int fd, int events, void* _protocol)
 {
   if ((events & PICOEV_TIMEOUT) != 0) {
 
@@ -843,9 +865,11 @@ static void rw_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     close_conn(loop, fd);
 
   } else if ((events & PICOEV_READ) != 0) {
+    Protocol* protocol = _protocol;
+    PyObject* bytes;
 
     /* update timeout, and read */
-    char buf[1024];
+    char buf[4096];
     ssize_t r;
     picoev_set_timeout(loop, fd, TIMEOUT_SECS);
     r = read(fd, buf, sizeof(buf));
@@ -861,9 +885,17 @@ static void rw_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
       }
       break;
     default: /* got some data, send back */
-      if (write(fd, buf, r) != r) {
-	close_conn(loop, fd); /* failed to send all data at once, close */
-      }
+      /*if (write(fd, buf, r) != r) {
+        close_conn(loop, fd);
+      }*/
+      if(!(bytes = PyBytes_FromStringAndSize(buf, r)))
+        abort();
+
+      if(!(Protocol_data_received(protocol, bytes)))
+        abort();
+
+      Py_DECREF(bytes);
+
       break;
     }
 
@@ -871,13 +903,22 @@ static void rw_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 }
 
 
-static void accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
+static void accept_callback(picoev_loop* loop, int fd, int events, void* _loop)
 {
+  Loop* py_loop = (Loop*)_loop;
+
   int newfd = accept(fd, NULL, NULL);
   if (newfd != -1) {
-    printf("connected: %d\n", newfd);
+    Protocol* protocol;
+    if(!(protocol = (Protocol*)Protocol_new(&ProtocolType, NULL, NULL)))
+      abort();
+    if(Protocol_init(protocol, py_loop->app) == -1)
+      abort();
+    if(!Protocol_connection_made(protocol, newfd))
+      abort();
+//    printf("connected: %d\n", newfd);
     setup_sock(newfd);
-    picoev_add(loop, newfd, PICOEV_READ, TIMEOUT_SECS, rw_callback, NULL);
+    picoev_add(loop, newfd, PICOEV_READ, TIMEOUT_SECS, rw_callback, protocol);
   }
 }
 
@@ -886,9 +927,9 @@ Loop_create_server(Loop* self, PySocketSockObject* sock)
 {
   PyObject* result = Py_None;
 
-  printf("Create server: %d\n", sock->sock_fd);
+//  printf("Create server: %d\n", sock->sock_fd);
 
-  if(picoev_add(self->loop, sock->sock_fd, PICOEV_READ, 0, accept_callback, NULL) == -1)
+  if(picoev_add(self->loop, sock->sock_fd, PICOEV_READ, 0, accept_callback, self) == -1)
     goto error;
 
   goto finally;
@@ -907,7 +948,7 @@ Loop_run(Loop* self)
 {
   PyObject* result = Py_None;
   while (1) {
-    fputc('.', stdout); fflush(stdout);
+//    fputc('.', stdout); fflush(stdout);
     if(picoev_loop_once(self->loop, 10) == -1)
       goto error;
   }
