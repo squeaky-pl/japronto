@@ -748,6 +748,85 @@ static PyModuleDef cprotocol = {
 };
 
 
+// ------------------------------ loooop
+
+
+typedef struct {
+  PyObject_HEAD
+} Loop;
+
+
+static PyObject *
+Loop_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  Loop* self = NULL;
+
+  self = (Loop*)type->tp_alloc(type, 0);
+  if(!self)
+    goto finally;
+
+  finally:
+  return (PyObject*)self;
+}
+
+
+static void
+Loop_dealloc(Loop* self)
+{
+  Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+
+static int
+Loop_init(Protocol* self, PyObject *args, PyObject *kw)
+{
+  return 0;
+}
+
+
+static PyTypeObject LoopType = {
+  PyVarObject_HEAD_INIT(NULL, 0)
+  "cprotocol.Loop",      /* tp_name */
+  sizeof(Loop),          /* tp_basicsize */
+  0,                         /* tp_itemsize */
+  (destructor)Loop_dealloc, /* tp_dealloc */
+  0,                         /* tp_print */
+  0,                         /* tp_getattr */
+  0,                         /* tp_setattr */
+  0,                         /* tp_reserved */
+  0,                         /* tp_repr */
+  0,                         /* tp_as_number */
+  0,                         /* tp_as_sequence */
+  0,                         /* tp_as_mapping */
+  0,                         /* tp_hash  */
+  0,                         /* tp_call */
+  0,                         /* tp_str */
+  0,                         /* tp_getattro */
+  0,                         /* tp_setattro */
+  0,                         /* tp_as_buffer */
+  Py_TPFLAGS_DEFAULT,        /* tp_flags */
+  "Loop",                /* tp_doc */
+  0,                         /* tp_traverse */
+  0,                         /* tp_clear */
+  0,                         /* tp_richcompare */
+  0,                         /* tp_weaklistoffset */
+  0,                         /* tp_iter */
+  0,                         /* tp_iternext */
+  0,                         /* tp_methods */
+  0,                         /* tp_members */
+  0,                         /* tp_getset */
+  0,                         /* tp_base */
+  0,                         /* tp_dict */
+  0,                         /* tp_descr_get */
+  0,                         /* tp_descr_set */
+  0,                         /* tp_dictoffset */
+  (initproc)Loop_init,   /* tp_init */
+  0,                         /* tp_alloc */
+  Loop_new,              /* tp_new */
+};
+
+
+
 PyMODINIT_FUNC
 PyInit_cprotocol(void)
 {
@@ -766,6 +845,9 @@ PyInit_cprotocol(void)
   TCP_NODELAY = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
+    goto error;
+
+  if(PyType_Ready(&LoopType) < 0)
     goto error;
 
   m = PyModule_Create(&cprotocol);
@@ -835,6 +917,9 @@ PyInit_cprotocol(void)
 
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
+
+  Py_INCREF(&LoopType);
+  PyModule_AddObject(m, "Loop", (PyObject*)&LoopType);
 
   static Protocol_CAPI capi = {
     Protocol_close

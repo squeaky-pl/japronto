@@ -9,7 +9,7 @@ import multiprocessing
 import uvloop
 
 from japronto.router import Router, RouteNotFoundException
-from japronto.protocol.cprotocol import Protocol
+from japronto.protocol.cprotocol import Protocol, Loop
 from japronto.protocol.creaper import Reaper
 
 
@@ -153,35 +153,44 @@ class Application:
     def serve(self, *, sock, host, port, reloader_pid):
         self.__finalize()
 
-        loop = self.loop
-        asyncio.set_event_loop(loop)
+#        loop = self.loop
+#        asyncio.set_event_loop(loop)
 
-        server_coro = loop.create_server(
-            lambda: self._protocol_factory(self), sock=sock)
+#        server_coro = loop.create_server(
+#            lambda: self._protocol_factory(self), sock=sock)
 
-        server = loop.run_until_complete(server_coro)
+#        server = loop.run_until_complete(server_coro)
 
-        loop.add_signal_handler(signal.SIGTERM, loop.stop)
-        loop.add_signal_handler(signal.SIGINT, loop.stop)
+#        loop.add_signal_handler(signal.SIGTERM, loop.stop)
+#        loop.add_signal_handler(signal.SIGINT, loop.stop)
 
-        if reloader_pid:
-            from japronto.reloader import ChangeDetector
-            detector = ChangeDetector(loop)
-            detector.start()
+
+        import japronto.picoloop
+        japronto.picoloop.prepare_sock(sock)
+        import time
+
+        loop = Loop()
+        del loop
+
+        time.sleep(10)
+#        if reloader_pid:
+#            from japronto.reloader import ChangeDetector
+#            detector = ChangeDetector(loop)
+#            detector.start()
 
         print('Accepting connections on http://{}:{}'.format(host, port))
 
-        try:
-            loop.run_forever()
-        finally:
-            server.close()
-            loop.run_until_complete(server.wait_closed())
-            loop.run_until_complete(self.drain())
+#        try:
+#            loop.run_forever()
+#        finally:
+#            server.close()
+#            loop.run_until_complete(server.wait_closed())
+#            loop.run_until_complete(self.drain())
 #            self._reaper.stop()
-            loop.close()
+#            loop.close()
 
             # break reference and cleanup matcher buffer
-            del self._matcher
+        del self._matcher
 
 
     def _run(self, *, host, port, worker_num=None, reloader_pid=None):
