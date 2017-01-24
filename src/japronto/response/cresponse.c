@@ -9,14 +9,11 @@
 static PyObject* json_dumps;
 static const size_t reason_offset = 13;
 static const size_t minor_offset = 7;
-static const size_t keep_alive_offset = 45;
-static const char keep_alive_close[] = "     close";
 #endif
 
 
 
 static const char header[] = "HTTP/1.1 200 OK\r\n"
-  "Connection:                 keep-alive\r\n"
   "Content-Length: ";
 
 
@@ -175,29 +172,6 @@ static const char text_plain[] = "text/plain";
   buffer_offset++;
 
 
-static inline size_t
-Response_render_slow_path(Response* self, size_t buffer_offset)
-{
-  memcpy(self->buffer + buffer_offset, "Connection: ", strlen("Connection: "));
-  buffer_offset += strlen("Connection: ");
-
-  if(self->keep_alive == KEEP_ALIVE_FALSE) {
-    memcpy(self->buffer + buffer_offset, "close", strlen("close"));
-    buffer_offset += strlen("close");
-  } else {
-    memcpy(self->buffer + buffer_offset, "keep-alive", strlen("keep-alive"));
-    buffer_offset += strlen("keep-alive");
-  }
-
-  CRLF
-
-  memcpy(self->buffer + buffer_offset, "Content-Length: ", strlen("Content-Length: "));
-  buffer_offset += strlen("Content-Length: ");
-
-  return buffer_offset;
-}
-
-
 #define bfrcpy(data, len) \
   if(buffer_offset + len > self->buffer_len) \
   { \
@@ -328,22 +302,13 @@ Response_render(Response* self, bool simple)
 
     CRLF
 
-    if(reason_len > 16) {
-      buffer_offset = Response_render_slow_path(self, buffer_offset);
-      goto write_rest;
-    }
-
-    memcpy(self->buffer + buffer_offset, "Connection:", strlen("Connection:"));
+    memcpy(self->buffer + buffer_offset, "Content-Length: ", strlen("Content-Length: "));
+    buffer_offset += strlen("Content-Length: ");
   } else {
     memcpy(self->buffer + code_offset, "200", 3);
+    buffer_offset = strlen(header);
   }
 
-  if(self->keep_alive == KEEP_ALIVE_FALSE)
-    memcpy(self->buffer + keep_alive_offset, keep_alive_close, strlen(keep_alive_close));
-
-  buffer_offset = strlen(header);
-
-  write_rest:
   if(self->body) {
     if(PyBytes_AsStringAndSize(self->body, (char**)&body, &body_len) == -1)
       goto error;
@@ -357,6 +322,18 @@ Response_render(Response* self, bool simple)
   }
 
   CRLF
+
+  if(self->minor_version == 1 && self->keep_alive == KEEP_ALIVE_FALSE) {
+    memcpy(
+      self->buffer + buffer_offset, "Connection: close\r\n",
+      strlen("Connection: close\r\n"));
+    buffer_offset += strlen("Connection: close\r\n");
+  } else if(self->minor_version == 0 && self->keep_alive == KEEP_ALIVE_TRUE) {
+    memcpy(
+      self->buffer + buffer_offset, "Connection: keep-alive\r\n",
+      strlen("Connection: keep-aplive\r\n"));
+    buffer_offset += strlen("Connection: keep-alive\r\n");
+  }
 
   memcpy(self->buffer + buffer_offset, Content_Type, strlen(Content_Type));
   buffer_offset += strlen(Content_Type);
