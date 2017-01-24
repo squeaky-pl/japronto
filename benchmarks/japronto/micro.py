@@ -8,6 +8,6 @@ def hello(request):
 app = Application()
 
 r = app.router
-r.add_route('/', hello)
+r.add_route('/', hello, method='GET')
 
 app.run()
