@@ -38,6 +38,9 @@ typedef struct {
   Py_ssize_t false_cnt;
 #endif
   bool closed;
+
+  size_t write_pos;
+  char write_buffer[140];
 } Protocol;
 
 

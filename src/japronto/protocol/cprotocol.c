@@ -51,6 +51,8 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->create_task = NULL;
   self->request_logger = NULL;
 
+  self->write_pos = 0;
+
   finally:
   return (PyObject*)self;
 }
@@ -374,6 +376,46 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 }
 
 
+/*static inline void
+loop_write(Protocol* self, char* buf, size_t len)
+{
+  printf("protd %p, fd %d, write_pos, %ld\n", self, self->socket, self->write_pos);
+
+  if(self->write_pos + len < sizeof(self->write_buffer)) {
+    memcpy(self->write_buffer + self->write_pos, buf, len);
+    self->write_pos += len;
+
+    return;
+  }
+//    printf("write %p, %ld\n", buf, len);
+
+  int r;
+  r = write(self->socket, buf, len);
+  if(r == -1 || r != (ssize_t)len)
+    abort();
+
+  if(self->write_pos) {
+    r = write(self->socket, self->write_buffer, self->write_pos);
+    if(r == -1 || r != (ssize_t)self->write_pos)
+      abort();
+  }
+
+  self->write_pos = 0;
+}*/
+
+
+static inline void
+loop_write(Protocol* self, char* buf, size_t len) {
+  int r = write(self->socket, buf, len);
+  if(r == -1 || r != (ssize_t)len) {
+    if(errno == EPIPE || errno == ECONNRESET)
+      return;
+    perror(NULL);
+    assert(0);
+  }
+}
+
+
 static inline Protocol*
 Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* response)
 {
@@ -420,8 +462,7 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       goto error;
     Py_DECREF(tmp);*/
 
-    if(write(self->socket, PyBytes_AS_STRING(response_bytes), Py_SIZE(response_bytes)) != Py_SIZE(response_bytes))
-      abort();
+    loop_write(self, PyBytes_AS_STRING(response_bytes), (size_t)Py_SIZE(response_bytes));
 
     if(self->request_logger) {
       if(!(tmp = PyObject_CallFunctionObjArgs(self->request_logger, request, NULL)))
@@ -844,16 +885,20 @@ static void setup_sock(int fd)
 
 //  r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
 //  assert(r == 0);
+
+//  r = setsockopt(fd, IPPROTO_TCP, TCP_CORK, &on, sizeof(on));
+//  assert(r == 0);
+
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
 }
 
 
-static void close_conn(picoev_loop* loop, int fd)
+static inline void close_conn(picoev_loop* loop, int fd)
 {
   picoev_del(loop, fd);
   close(fd);
-  //printf("closed: %d\n", fd);
+//  printf("closed: %d\n", fd);
 }
 
 
@@ -871,17 +916,19 @@ static void rw_callback(picoev_loop* loop, int fd, int events, void* _protocol)
     /* update timeout, and read */
     char buf[4096];
     ssize_t r;
-    picoev_set_timeout(loop, fd, TIMEOUT_SECS);
+    picoev_set_timeout(loop, fd, 600000);
     r = read(fd, buf, sizeof(buf));
+//    printf("fd %d, readsize %ld\n", fd, r);
     switch (r) {
     case 0: /* connection closed by peer */
       close_conn(loop, fd);
       break;
     case -1: /* error */
+//      perror(NULL);
       if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
-	break;
+        break;
       } else { /* fatal error */
-	close_conn(loop, fd);
+        close_conn(loop, fd);
       }
       break;
     default: /* got some data, send back */
