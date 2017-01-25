@@ -8,6 +8,8 @@
 #include "crequest.h"
 #include <stdbool.h>
 
+#define GATHER_MAX_REQ 24
+
 typedef struct {
   PyObject_HEAD
 
@@ -38,14 +40,13 @@ typedef struct {
   Py_ssize_t false_cnt;
 #endif
   bool closed;
-  PyObject* scatter_buffer;
+  PyObject* scatter_buffer[GATHER_MAX_REQ];
   size_t scatter_pos;
   size_t gather_len;
   PyBytesObject* prev_gather_bytes;
 } Protocol;
 
 #define GATHER_MAX_LEN (4096 - sizeof(PyBytesObject))
-#define GATHER_MAX_REQ 24
 
 #ifndef PARSER_STANDALONE
 Protocol* Protocol_on_headers(Protocol*, char* method, size_t method_len,

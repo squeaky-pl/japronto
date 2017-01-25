@@ -49,9 +49,6 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->create_task = NULL;
   self->request_logger = NULL;
 
-  if(!(self->scatter_buffer = PyList_New(24)))
-    return NULL;
-
   self->prev_gather_bytes = NULL;
 
   finally:
@@ -63,7 +60,6 @@ static void
 Protocol_dealloc(Protocol* self)
 {
   Py_XDECREF(self->prev_gather_bytes);
-  Py_XDECREF(self->scatter_buffer);
   Py_XDECREF(self->request_logger);
   Py_XDECREF(self->create_task);
   Py_XDECREF(self->write);
@@ -447,7 +443,7 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
     //Py_DECREF(tmp);
 
     Py_INCREF(response_bytes);
-    PyList_SET_ITEM(self->scatter_buffer, self->scatter_pos, response_bytes);
+    self->scatter_buffer[self->scatter_pos] = response_bytes;
     self->scatter_pos++;
     self->gather_len += Py_SIZE(response_bytes);
 
@@ -468,7 +464,7 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
 
       size_t gather_offset = 0;
       for(int i = 0; i < GATHER_MAX_REQ; i++) {
-        PyObject* item = PyList_GET_ITEM(self->scatter_buffer, i);
+        PyObject* item = self->scatter_buffer[i];
         memcpy(
           gather_bytes->ob_sval + gather_offset, PyBytes_AS_STRING(item),
           Py_SIZE(item));
