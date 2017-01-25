@@ -52,6 +52,8 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   if(!(self->scatter_buffer = PyList_New(24)))
     return NULL;
 
+  self->prev_gather_bytes = NULL;
+
   finally:
   return (PyObject*)self;
 }
@@ -60,6 +62,7 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
+  Py_XDECREF(self->prev_gather_bytes);
   Py_XDECREF(self->scatter_buffer);
   Py_XDECREF(self->request_logger);
   Py_XDECREF(self->create_task);
@@ -153,6 +156,7 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
   }
 
   self->scatter_pos = 0;
+  self->gather_len = 0;
 
   goto finally;
 
@@ -379,6 +383,21 @@ Protocol_on_headers(Protocol* self, char* method, size_t method_len,
 }
 
 
+static inline PyBytesObject*
+Bytes_FromSize(size_t size)
+{
+  PyBytesObject* result;
+  if(!(result = malloc(sizeof(PyBytesObject) + GATHER_MAX_LEN)))
+    return (PyBytesObject*)PyErr_NoMemory();
+
+  result->ob_base.ob_base.ob_refcnt = 1;
+  result->ob_base.ob_base.ob_type = &PyBytes_Type;
+  result->ob_base.ob_size = (Py_ssize_t)size;
+
+  return result;
+}
+
+
 static inline Protocol*
 Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* response)
 {
@@ -430,15 +449,40 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
     Py_INCREF(response_bytes);
     PyList_SET_ITEM(self->scatter_buffer, self->scatter_pos, response_bytes);
     self->scatter_pos++;
+    self->gather_len += Py_SIZE(response_bytes);
 
-    if(self->scatter_pos == 24) {
-      if(!(tmp = PyObject_CallFunctionObjArgs(self->writelines, self->scatter_buffer, NULL)))
+    if(self->scatter_pos == GATHER_MAX_REQ) {
+      PyBytesObject* gather_bytes = NULL;
+      if(self->prev_gather_bytes) {
+        if(Py_REFCNT(self->prev_gather_bytes) == 1) {
+          gather_bytes = self->prev_gather_bytes;
+          Py_SIZE(gather_bytes) = (ssize_t)self->gather_len;
+        } else {
+          self->prev_gather_bytes = NULL;
+          Py_DECREF(self->prev_gather_bytes);
+        }
+      }
+
+      if(!gather_bytes && !(gather_bytes = Bytes_FromSize(self->gather_len)))
+        goto error;
+
+      size_t gather_offset = 0;
+      for(int i = 0; i < GATHER_MAX_REQ; i++) {
+        PyObject* item = PyList_GET_ITEM(self->scatter_buffer, i);
+        memcpy(
+          gather_bytes->ob_sval + gather_offset, PyBytes_AS_STRING(item),
+          Py_SIZE(item));
+        gather_offset += Py_SIZE(item);
+      }
+
+      if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_bytes, NULL)))
         goto error;
       Py_DECREF(tmp);
-      /*for(int i = 0; i < 8; i++)
-        Py_DECREF(PyList_GET_ITEM(self->scatter_buffer, i));*/
+
+      self->prev_gather_bytes = gather_bytes;
 
       self->scatter_pos = 0;
+      self->gather_len = 0;
     }
 
     if(self->request_logger) {
