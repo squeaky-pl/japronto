@@ -15,6 +15,7 @@ typedef struct {
   size_t responses_end;
   size_t len;
   PyBytesObject* prev_buffer;
+  bool enabled;
 } Gather;
 
 
@@ -57,7 +58,7 @@ typedef struct {
 Protocol* Protocol_on_headers(Protocol*, char* method, size_t method_len,
                               char* path, size_t path_len, int minor_version,
                               void* headers, size_t num_headers);
-Protocol* Protocol_on_body(Protocol*, char* body, size_t body_len);
+Protocol* Protocol_on_body(Protocol*, char* body, size_t body_len, size_t tail_len);
 Protocol* Protocol_on_error(Protocol*, PyObject*);
 #endif
 

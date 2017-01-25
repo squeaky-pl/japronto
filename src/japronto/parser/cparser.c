@@ -470,7 +470,7 @@ static int _parse_body(Parser* self) {
     goto error;
   Py_DECREF(on_body_result);
 #else
-  if(!Protocol_on_body(self->protocol, body, body_len))
+  if(!Protocol_on_body(self->protocol, body, body_len, self->buffer_end - self->buffer_start))
     goto error;
 #endif
 

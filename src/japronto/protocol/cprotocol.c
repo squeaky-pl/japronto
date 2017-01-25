@@ -436,28 +436,30 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       Py_DECREF(tmp);
     }
 
-
-
-    //if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
-    //  goto error;
-    //Py_DECREF(tmp);
-
     Gather* gather = &self->gather;
 
-    Py_INCREF(response_bytes);
-    gather->responses[gather->responses_end] = response_bytes;
-    gather->responses_end++;
-    gather->len += Py_SIZE(response_bytes);
+    if(gather->enabled) {
+      if(gather->len + Py_SIZE(response_bytes) > GATHER_MAX_LEN)
+        gather->enabled = false;
 
-    if(gather->responses_end == GATHER_MAX_RESP) {
+      gather->responses[gather->responses_end] = response_bytes;
+      gather->responses_end++;
+      gather->len += Py_SIZE(response_bytes);
+      response_bytes = NULL;
+
+      if(gather->responses_end == GATHER_MAX_RESP)
+        gather->enabled = false;
+    }
+
+    if(!gather->enabled && gather->len) {
       PyBytesObject* gather_buffer = NULL;
       if(gather->prev_buffer) {
         if(Py_REFCNT(gather->prev_buffer) == 1) {
           gather_buffer = gather->prev_buffer;
           Py_SIZE(gather_buffer) = (ssize_t)gather->len;
         } else {
-          gather->prev_buffer = NULL;
           Py_DECREF(gather->prev_buffer);
+          gather->prev_buffer = NULL;
         }
       }
 
@@ -465,12 +467,13 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
         goto error;
 
       size_t gather_offset = 0;
-      for(int i = 0; i < GATHER_MAX_RESP; i++) {
+      for(size_t i = 0; i < gather->responses_end; i++) {
         PyObject* item = gather->responses[i];
         memcpy(
           gather_buffer->ob_sval + gather_offset, PyBytes_AS_STRING(item),
           Py_SIZE(item));
         gather_offset += Py_SIZE(item);
+        Py_DECREF(item);
       }
 
       if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_buffer, NULL)))
@@ -480,6 +483,12 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       gather->prev_buffer = gather_buffer;
       gather->responses_end = 0;
       gather->len = 0;
+    }
+
+    if(response_bytes) {
+      if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
+        goto error;
+      Py_DECREF(tmp);
     }
 
     if(self->request_logger) {
@@ -575,7 +584,7 @@ static PyObject*
 Protocol_on_body(Protocol* self, PyObject *args)
 #else
 Protocol*
-Protocol_on_body(Protocol* self, char* body, size_t body_len)
+Protocol_on_body(Protocol* self, char* body, size_t body_len, size_t tail_len)
 #endif
 {
 #ifdef PARSER_STANDALONE
@@ -609,9 +618,13 @@ Protocol_on_body(Protocol* self, char* body, size_t body_len)
 
   request = (PyObject*)&self->static_request;
   if((matcher_entry && matcher_entry->coro_func) || !PIPELINE_EMPTY(&self->pipeline)) {
+    self->gather.enabled = false;
+
     if(!(request = request_capi->Request_clone(&self->static_request)))
       goto error;
-  }
+  } else
+    // TODO: should be tweaked to minimal request length
+    self->gather.enabled = tail_len > 0;
 
   ((Request*)request)->transport = self->transport;
   Py_INCREF(self->transport);
