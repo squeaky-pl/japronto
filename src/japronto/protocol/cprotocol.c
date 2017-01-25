@@ -437,53 +437,62 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
     }
 
     Gather* gather = &self->gather;
+    PyBytesObject* gather_buffer = NULL;
 
-    if(gather->enabled) {
-      if(gather->len + Py_SIZE(response_bytes) > GATHER_MAX_LEN)
-        gather->enabled = false;
+    if(!gather->enabled)
+      goto maybe_flush;
 
-      gather->responses[gather->responses_end] = response_bytes;
-      gather->responses_end++;
-      gather->len += Py_SIZE(response_bytes);
-      response_bytes = NULL;
+    if(gather->responses_end == GATHER_MAX_RESP)
+      goto flush;
 
-      if(gather->responses_end == GATHER_MAX_RESP)
-        gather->enabled = false;
+    if(gather->len + Py_SIZE(response_bytes) > GATHER_MAX_LEN)
+      goto maybe_flush;
+
+    gather->responses[gather->responses_end] = response_bytes;
+    gather->responses_end++;
+    gather->len += Py_SIZE(response_bytes);
+    response_bytes = NULL;
+
+    goto dont_flush;
+
+    maybe_flush:
+
+    if(!gather->len)
+      goto dont_flush;
+
+    flush:
+    if(gather->prev_buffer) {
+      if(Py_REFCNT(gather->prev_buffer) == 1) {
+        gather_buffer = gather->prev_buffer;
+        Py_SIZE(gather_buffer) = (ssize_t)gather->len;
+      } else {
+        Py_DECREF(gather->prev_buffer);
+        gather->prev_buffer = NULL;
+      }
     }
 
-    if(!gather->enabled && gather->len) {
-      PyBytesObject* gather_buffer = NULL;
-      if(gather->prev_buffer) {
-        if(Py_REFCNT(gather->prev_buffer) == 1) {
-          gather_buffer = gather->prev_buffer;
-          Py_SIZE(gather_buffer) = (ssize_t)gather->len;
-        } else {
-          Py_DECREF(gather->prev_buffer);
-          gather->prev_buffer = NULL;
-        }
-      }
+    if(!gather_buffer && !(gather_buffer = Bytes_FromSize(gather->len)))
+      goto error;
 
-      if(!gather_buffer && !(gather_buffer = Bytes_FromSize(gather->len)))
-        goto error;
-
-      size_t gather_offset = 0;
-      for(size_t i = 0; i < gather->responses_end; i++) {
-        PyObject* item = gather->responses[i];
-        memcpy(
-          gather_buffer->ob_sval + gather_offset, PyBytes_AS_STRING(item),
-          Py_SIZE(item));
-        gather_offset += Py_SIZE(item);
-        Py_DECREF(item);
-      }
-
-      if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_buffer, NULL)))
-        goto error;
-      Py_DECREF(tmp);
-
-      gather->prev_buffer = gather_buffer;
-      gather->responses_end = 0;
-      gather->len = 0;
+    size_t gather_offset = 0;
+    for(size_t i = 0; i < gather->responses_end; i++) {
+      PyObject* item = gather->responses[i];
+      memcpy(
+        gather_buffer->ob_sval + gather_offset, PyBytes_AS_STRING(item),
+        Py_SIZE(item));
+      gather_offset += Py_SIZE(item);
+      Py_DECREF(item);
     }
+
+    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_buffer, NULL)))
+      goto error;
+    Py_DECREF(tmp);
+
+    gather->prev_buffer = gather_buffer;
+    gather->responses_end = 0;
+    gather->len = 0;
+
+    dont_flush:
 
     if(response_bytes) {
       if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
