@@ -8,7 +8,15 @@
 #include "crequest.h"
 #include <stdbool.h>
 
-#define GATHER_MAX_REQ 24
+#define GATHER_MAX_RESP 24
+
+typedef struct {
+  PyObject* responses[GATHER_MAX_RESP];
+  size_t responses_end;
+  size_t len;
+  PyBytesObject* prev_buffer;
+} Gather;
+
 
 typedef struct {
   PyObject_HEAD
@@ -40,10 +48,7 @@ typedef struct {
   Py_ssize_t false_cnt;
 #endif
   bool closed;
-  PyObject* scatter_buffer[GATHER_MAX_REQ];
-  size_t scatter_pos;
-  size_t gather_len;
-  PyBytesObject* prev_gather_bytes;
+  Gather gather;
 } Protocol;
 
 #define GATHER_MAX_LEN (4096 - sizeof(PyBytesObject))
