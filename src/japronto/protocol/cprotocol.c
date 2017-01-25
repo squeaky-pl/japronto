@@ -49,6 +49,9 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
   self->create_task = NULL;
   self->request_logger = NULL;
 
+  if(!(self->scatter_buffer = PyList_New(24)))
+    return NULL;
+
   finally:
   return (PyObject*)self;
 }
@@ -57,9 +60,11 @@ Protocol_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static void
 Protocol_dealloc(Protocol* self)
 {
+  Py_XDECREF(self->scatter_buffer);
   Py_XDECREF(self->request_logger);
   Py_XDECREF(self->create_task);
   Py_XDECREF(self->write);
+  Py_XDECREF(self->writelines);
   Py_XDECREF(self->transport);
   Py_XDECREF(self->error_handler);
   Py_XDECREF(self->matcher);
@@ -147,6 +152,8 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
       goto error;
   }
 
+  self->scatter_pos = 0;
+
   goto finally;
 
   error:
@@ -194,6 +201,9 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   Py_DECREF(tmp);
 
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
+    goto error;
+
+  if(!(self->writelines = PyObject_GetAttrString(transport, "writelines")))
     goto error;
 
   if(!(connections = PyObject_GetAttrString(self->app, "_connections")))
@@ -411,9 +421,25 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
       Py_DECREF(tmp);
     }
 
-    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
-      goto error;
-    Py_DECREF(tmp);
+
+
+    //if(!(tmp = PyObject_CallFunctionObjArgs(self->write, response_bytes, NULL)))
+    //  goto error;
+    //Py_DECREF(tmp);
+
+    Py_INCREF(response_bytes);
+    PyList_SET_ITEM(self->scatter_buffer, self->scatter_pos, response_bytes);
+    self->scatter_pos++;
+
+    if(self->scatter_pos == 24) {
+      if(!(tmp = PyObject_CallFunctionObjArgs(self->writelines, self->scatter_buffer, NULL)))
+        goto error;
+      Py_DECREF(tmp);
+      /*for(int i = 0; i < 8; i++)
+        Py_DECREF(PyList_GET_ITEM(self->scatter_buffer, i));*/
+
+      self->scatter_pos = 0;
+    }
 
     if(self->request_logger) {
       if(!(tmp = PyObject_CallFunctionObjArgs(self->request_logger, request, NULL)))

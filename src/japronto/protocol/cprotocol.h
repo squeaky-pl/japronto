@@ -29,6 +29,7 @@ typedef struct {
   PyObject* error_handler;
   PyObject* transport;
   PyObject* write;
+  PyObject* writelines;
   PyObject* create_task;
   PyObject* request_logger;
 #ifdef PROTOCOL_TRACK_REFCNT
@@ -37,6 +38,8 @@ typedef struct {
   Py_ssize_t false_cnt;
 #endif
   bool closed;
+  PyObject* scatter_buffer;
+  size_t scatter_pos;
 } Protocol;
 
 
