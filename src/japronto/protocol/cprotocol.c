@@ -332,6 +332,39 @@ Protocol_data_received(Protocol* self, PyObject* data)
   Py_RETURN_NONE;
 }
 
+
+static inline PyObject* Gather_flush(Gather* gather);
+
+#ifndef PARSER_STANDALONE
+Protocol*
+Protocol_on_incomplete(Protocol* self)
+{
+  Gather* gather = &self->gather;
+  PyObject* gather_buffer = NULL;
+
+  if(!gather->len)
+    goto finally;
+
+  if(!(gather_buffer = Gather_flush(gather)))
+    goto error;
+
+  PyObject* tmp;
+  if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_buffer, NULL)))
+    goto error;
+  Py_DECREF(tmp);
+
+  goto finally;
+
+  error:
+  self = NULL;
+
+  finally:
+  Py_XDECREF(gather_buffer);
+  return self;
+}
+#endif
+
+
 #ifdef PARSER_STANDALONE
 static PyObject*
 Protocol_on_headers(Protocol* self, PyObject *args)

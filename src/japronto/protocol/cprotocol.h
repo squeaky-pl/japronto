@@ -55,6 +55,7 @@ typedef struct {
 #define GATHER_MAX_LEN (4096 - sizeof(PyBytesObject))
 
 #ifndef PARSER_STANDALONE
+Protocol* Protocol_on_incomplete(Protocol* self);
 Protocol* Protocol_on_headers(Protocol*, char* method, size_t method_len,
                               char* path, size_t path_len, int minor_version,
                               void* headers, size_t num_headers);

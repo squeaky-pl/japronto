@@ -569,7 +569,7 @@ Parser_feed(Parser* self, PyObject* py_data)
         goto error;
 
       if(iresult <= 0)
-        goto finally;
+        break;
 
       self->state = PARSER_BODY;
     }
@@ -580,11 +580,16 @@ Parser_feed(Parser* self, PyObject* py_data)
         goto error;
 
       if(iresult < 0)
-        goto finally;
+        break;
 
       self->state = PARSER_HEADERS;
     }
   }
+
+#ifndef PARSER_STANDALONE
+  if(iresult == -2)
+    Protocol_on_incomplete(self->protocol);
+#endif
 
   goto finally;
 
