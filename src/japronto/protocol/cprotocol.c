@@ -15,9 +15,6 @@ static PyObject* PyRequest;
 static PyObject* RouteNotFoundException;
 
 static PyObject* socket_str;
-static PyObject* one;
-static PyObject* IPPROTO_TCP;
-static PyObject* TCP_NODELAY;
 
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
@@ -168,6 +165,19 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 }
 
 
+// copied from Modules/socketmodule.h
+// FIXME on Windows SOCKET_T is a different type
+typedef int SOCKET_T;
+typedef struct {
+    PyObject_HEAD
+    SOCKET_T sock_fd;
+    // more things here that we dont need
+} PySocketSockObject;
+
+
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+
 static PyObject*
 Protocol_connection_made(Protocol* self, PyObject* transport)
 {
@@ -180,8 +190,7 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 #endif
 
   PyObject* get_extra_info = NULL;
-  PyObject* socket = NULL;
-  PyObject* setsockopt = NULL;
+  PySocketSockObject* socket = NULL;
   PyObject* connections = NULL;
   self->transport = transport;
   Py_INCREF(self->transport);
@@ -189,16 +198,14 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(!(get_extra_info = PyObject_GetAttrString(transport, "get_extra_info")))
     goto error;
 
-  if(!(socket = PyObject_CallFunctionObjArgs(get_extra_info, socket_str, NULL)))
+  if(!(socket = (PySocketSockObject*)PyObject_CallFunctionObjArgs(
+       get_extra_info, socket_str, NULL)))
     goto error;
 
-  if(!(setsockopt = PyObject_GetAttrString(socket, "setsockopt")))
-    goto error;
+  const int on = 1;
 
-  PyObject* tmp;
-  if(!(tmp = PyObject_CallFunctionObjArgs(setsockopt, IPPROTO_TCP, TCP_NODELAY, one, NULL)))
+  if(setsockopt(socket->sock_fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) != 0)
     goto error;
-  Py_DECREF(tmp);
 
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
     goto error;
@@ -227,7 +234,6 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 
   finally:
   Py_XDECREF(connections);
-  Py_XDECREF(setsockopt);
   Py_XDECREF(socket);
   Py_XDECREF(get_extra_info);
   Py_RETURN_NONE;
@@ -906,12 +912,8 @@ PyInit_cprotocol(void)
 #endif
   PyObject* api_capsule = NULL;
   PyObject* crequest = NULL;
-  PyObject* socket = NULL;
   PyObject* route = NULL;
   socket_str = NULL;
-  one = NULL;
-  IPPROTO_TCP = NULL;
-  TCP_NODELAY = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -969,18 +971,6 @@ PyInit_cprotocol(void)
   if(!(socket_str = PyUnicode_FromString("socket")))
     goto error;
 
-  if(!(one = PyLong_FromLong(1)))
-    goto error;
-
-  if(!(socket = PyImport_ImportModule("socket")))
-    goto error;
-
-  if(!(IPPROTO_TCP = PyObject_GetAttrString(socket, "IPPROTO_TCP")))
-    goto error;
-
-  if(!(TCP_NODELAY = PyObject_GetAttrString(socket, "TCP_NODELAY")))
-    goto error;
-
   Py_INCREF(&ProtocolType);
   PyModule_AddObject(m, "Protocol", (PyObject*)&ProtocolType);
 
@@ -1001,7 +991,6 @@ PyInit_cprotocol(void)
   m = NULL;
   finally:
   Py_XDECREF(api_capsule);
-  Py_XDECREF(socket);
   Py_XDECREF(crequest);
   Py_XDECREF(route);
 #ifdef PARSER_STANDALONE
