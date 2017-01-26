@@ -49,6 +49,7 @@ typedef struct {
   Py_ssize_t false_cnt;
 #endif
   bool closed;
+  int fd;
   Gather gather;
 } Protocol;
 

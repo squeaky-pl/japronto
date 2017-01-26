@@ -207,6 +207,8 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(setsockopt(socket->sock_fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) != 0)
     goto error;
 
+  self->fd = socket->sock_fd;
+
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
     goto error;
 
@@ -339,7 +341,7 @@ Protocol_data_received(Protocol* self, PyObject* data)
 }
 
 
-static inline PyObject* Gather_flush(Gather* gather);
+static inline PyObject* Gather_flush(Gather* gather, int fd);
 
 #ifndef PARSER_STANDALONE
 Protocol*
@@ -351,7 +353,7 @@ Protocol_on_incomplete(Protocol* self)
   if(!gather->len)
     goto finally;
 
-  if(!(gather_buffer = Gather_flush(gather)))
+  if(!(gather_buffer = Gather_flush(gather, 0)))
     goto error;
 
   PyObject* tmp;
@@ -434,7 +436,7 @@ Bytes_FromSize(size_t size)
 
 
 static inline
-PyObject* Gather_flush(Gather* gather)
+PyObject* Gather_flush(Gather* gather, int fd)
 {
   PyBytesObject* gather_buffer = NULL;
 
@@ -443,7 +445,7 @@ PyObject* Gather_flush(Gather* gather)
     goto reset;
   }
 
-  if(gather->prev_buffer) {
+/*  if(gather->prev_buffer) {
     if(Py_REFCNT(gather->prev_buffer) == 1) {
       gather_buffer = gather->prev_buffer;
       Py_SIZE(gather_buffer) = (ssize_t)gather->len;
@@ -466,7 +468,19 @@ PyObject* Gather_flush(Gather* gather)
     Py_DECREF(item);
   }
 
-  gather->prev_buffer = gather_buffer;
+  gather->prev_buffer = gather_buffer;*/
+
+  struct iovec vectors[GATHER_MAX_RESP];
+  for(size_t i = 0; i < gather->responses_end; i++) {
+    vectors[i].iov_base = PyBytes_AS_STRING(gather->responses[i]);
+    vectors[i].iov_len = Py_SIZE(gather->responses[i]);
+  }
+
+  if(writev(fd, vectors, gather->responses_end) != gather->len)
+    abort();
+
+  for(size_t i = 0; i < gather->responses_end; i++)
+    Py_DECREF(gather->responses[i]);
 
   reset:
   gather->responses_end = 0;
@@ -478,8 +492,8 @@ PyObject* Gather_flush(Gather* gather)
   return NULL;
 
   finally:
-  if(gather_buffer == gather->prev_buffer)
-    Py_INCREF(gather_buffer);
+//  if(gather_buffer == gather->prev_buffer)
+//    Py_INCREF(gather_buffer);
   return (PyObject*)gather_buffer;
 }
 
@@ -549,12 +563,13 @@ Protocol_write_response_or_err(Protocol* self, PyObject* request, Response* resp
     if(!gather->len)
       goto dont_flush;
 
-    if(!(gather_buffer = Gather_flush(gather)))
-      goto error;
+    Gather_flush(gather, self->fd);
+//    if(!(gather_buffer = Gather_flush(gather)))
+//       goto error;
 
-    if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_buffer, NULL)))
+    /*if(!(tmp = PyObject_CallFunctionObjArgs(self->write, gather_buffer, NULL)))
       goto error;
-    Py_DECREF(tmp);
+    Py_DECREF(tmp);*/
 
     dont_flush:
 
