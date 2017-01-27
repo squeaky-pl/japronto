@@ -28,19 +28,22 @@ def main():
 
     while not terminating:
         child = subprocess.Popen([
-            sys.executable, *sys.argv])
-
+            sys.executable, '-m', 'japronto',
+            '--reloader-pid', str(os.getpid()),
+            *(v for v in sys.argv[1:] if v != '--reload')])
         child.wait()
         if child.returncode != 0:
             break
 
 
-def exec_reloader():
-    os.putenv('_JAPR_RELOADER', 'main')
-
+def exec_reloader(*, host,  port, worker_num):
+    args = ['--host', host, '--port', str(port)]
+    if worker_num:
+        args.extend(['--worker-num', str(worker_num)])
     os.execv(
         sys.executable,
-        [sys.executable, *sys.argv])
+        [sys.executable, '-m', 'japronto.reloader',
+         *args, '--script', *sys.argv])
 
 
 def change_detector():
