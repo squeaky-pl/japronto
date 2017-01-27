@@ -43,6 +43,7 @@ Response_new(PyTypeObject* type, Response* self)
   self->body = NULL;
   self->encoding = NULL;
   self->headers = NULL;
+  self->cookies = NULL;
 
   self->buffer = self->inline_buffer;
   self->buffer_len = RESPONSE_INITIAL_BUFFER_LEN;
@@ -65,6 +66,7 @@ Response_dealloc(Response* self)
   if(self->buffer != self->inline_buffer)
     free(self->buffer);
 
+  Py_XDECREF(self->cookies);
   Py_XDECREF(self->headers);
   Py_XDECREF(self->encoding);
   Py_XDECREF(self->body);
@@ -85,7 +87,7 @@ static const size_t code_offset = 9;
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
-  static char *kwlist[] = {"text", "status_code", "body", "json", "mime_type", "encoding", "headers", NULL};
+  static char *kwlist[] = {"text", "status_code", "body", "json", "mime_type", "encoding", "headers", "cookies", NULL};
 
   PyObject* status_code = NULL;
   PyObject* body = NULL;
@@ -94,11 +96,13 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   PyObject* mime_type = NULL;
   PyObject* encoding = NULL;
   PyObject* headers = NULL;
+  PyObject* cookies = NULL;
 
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
-      args, kw, "|OOOOOOO", kwlist,
-      &text, &status_code, &body, &json, &mime_type, &encoding, &headers))
+      args, kw, "|OOOOOOOO", kwlist,
+      &text, &status_code, &body, &json,
+      &mime_type, &encoding, &headers, &cookies))
       goto error;
 
   if(!empty(status_code)) {
@@ -148,6 +152,11 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   if(!empty(headers)) {
     self->headers = headers;
     Py_INCREF(self->headers);
+  }
+
+  if(!empty(cookies)) {
+    self->cookies = cookies;
+    Py_INCREF(self->cookies);
   }
 
   goto finally;
@@ -214,7 +223,7 @@ static Cache cache = {0};
 
 #define Response_cacheable(r, simple) \
   simple && r->body && Py_SIZE(r->body) < CACHE_CUTOFF \
-  && !r->status_code && !r->headers && !r->mime_type \
+  && !r->status_code && !r->headers && !r->cookies && !r->mime_type \
   && !r->encoding && r->minor_version == 1 && r->keep_alive == KEEP_ALIVE_TRUE
 
 static inline PyObject*
@@ -258,7 +267,9 @@ Response_cache(PyObject* body, PyObject* response_bytes)
 PyObject*
 Response_render(Response* self, bool simple)
 {
-  PyObject* response_bytes;
+  PyObject* response_bytes = NULL;
+  PyObject* cookies_str = NULL;
+  PyObject* cookies_bytes = NULL;
 
 #ifdef RESPONSE_CACHE
   bool cacheable = Response_cacheable(self, simple);
@@ -403,6 +414,34 @@ Response_render(Response* self, bool simple)
   }
 
   empty_headers:
+
+  if(!self->cookies)
+    goto empty_cookies;
+
+  Py_ssize_t cookies_len;
+  if((cookies_len = PyObject_Size(self->cookies)) < 0)
+    goto error;
+
+  if(!cookies_len)
+    goto empty_cookies;
+
+  if(!(cookies_str = PyObject_Str(self->cookies)))
+    goto error;
+
+  if(!(cookies_bytes = PyUnicode_AsASCIIString(cookies_str)))
+    goto error;
+
+  char* ccookies;
+  Py_ssize_t ccookies_len;
+  if(PyBytes_AsStringAndSize(cookies_bytes, &ccookies, &ccookies_len) == -1)
+    goto error;
+
+  memcpy(self->buffer + buffer_offset, ccookies, (size_t)ccookies_len);
+  buffer_offset += (size_t)ccookies_len;
+
+  CRLF
+
+  empty_cookies:
   CRLF
 
   if(body) {
@@ -419,10 +458,17 @@ Response_render(Response* self, bool simple)
     Response_cache(self->body, response_bytes);
 #endif
 
-  return response_bytes;
+  goto finally;
 
   error:
-    return NULL;
+  Py_XDECREF(response_bytes);
+  response_bytes = NULL;
+
+  finally:
+  Py_XDECREF(cookies_str);
+  Py_XDECREF(cookies_bytes);
+
+  return response_bytes;
 }
 
 

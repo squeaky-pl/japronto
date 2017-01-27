@@ -19,6 +19,7 @@ typedef struct {
   PyObject* body;
   PyObject* encoding;
   PyObject* headers;
+  PyObject* cookies;
 
   char* buffer;
   size_t buffer_len;
