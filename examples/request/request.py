@@ -23,10 +23,8 @@ cookies: {cookies}
 
     return request.Response(text=text)
 
+app = Application()
+app.router.add_route('/', dump)
+app.router.add_route('/{a}/{b}', dump)
 
-if __name__ == '__main__':
-    app = Application()
-    app.router.add_route('/', dump)
-    app.router.add_route('/{a}/{b}', dump)
-
-    app.run()
+app.run()
