@@ -2,6 +2,7 @@ import urllib.parse
 from json import loads as json_loads
 import cgi
 import encodings.idna
+import collections
 from http.cookies import SimpleCookie, _unquote as unquote_cookie
 
 
@@ -92,7 +93,8 @@ def parsed_form_and_files(request):
     if request.mime_type == 'application/x-www-form-urlencoded':
         return dict(urllib.parse.parse_qsl(request.text)), None
     elif request.mime_type == 'multipart/form-data':
-        return None, None
+        boundary = parsed_content_type(request)[1]['boundary'].encode('utf-8')
+        return parse_multipart_form(request.body, boundary)
 
     return None, None
 
@@ -167,3 +169,48 @@ def cookies(request):
                     pass
 
     return cookies
+
+
+File = collections.namedtuple('File', ['type', 'body', 'name'])
+
+
+def parse_multipart_form(body, boundary):
+    files = {}
+    fields = {}
+
+    form_parts = body.split(boundary)
+    for form_part in form_parts[1:-1]:
+        file_name = None
+        file_type = None
+        field_name = None
+        line_index = 2
+        line_end_index = 0
+        while not line_end_index == -1:
+            line_end_index = form_part.find(b'\r\n', line_index)
+            form_line = form_part[line_index:line_end_index].decode('utf-8')
+            line_index = line_end_index + 2
+
+            if not form_line:
+                break
+
+            colon_index = form_line.index(':')
+            form_header_field = form_line[0:colon_index]
+            form_header_value, form_parameters = cgi.parse_header(
+                form_line[colon_index + 2:])
+
+            if form_header_field == 'Content-Disposition':
+                if 'filename' in form_parameters:
+                    file_name = form_parameters['filename']
+                field_name = form_parameters.get('name')
+            elif form_header_field == 'Content-Type':
+                file_type = form_header_value
+
+        post_data = form_part[line_index:-4]
+        if file_name or file_type:
+            file = File(type=file_type, name=file_name, body=post_data)
+            files[field_name] = file
+        else:
+            value = post_data.decode('utf-8')
+            fields[field_name] = value
+
+    return fields, files
