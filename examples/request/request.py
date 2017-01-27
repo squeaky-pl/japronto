@@ -17,8 +17,9 @@ keep_alive: {0.keep_alive}
 route: {0.route}
 hostname: {0.hostname}
 port: {0.port}
-remote_addr: {0.remote_addr}
-""".strip().format(request)
+remote_addr: {0.remote_addr},
+cookies: {cookies}
+""".strip().format(request, cookies={k: (m.value, m) for k, m in request.cookies.items()})
 
     return request.Response(text=text)
 

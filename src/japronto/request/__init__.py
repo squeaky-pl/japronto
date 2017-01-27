@@ -1,6 +1,7 @@
 import urllib.parse
 from json import loads as json_loads
 import encodings.idna
+from http.cookies import SimpleCookie, _unquote as unquote_cookie
 
 
 class HttpRequest(object):
@@ -78,7 +79,7 @@ def form(request):
 
 def memoize(func):
     def wrapper(request):
-        ns = request.extra.setdefault('_hl', {})
+        ns = request.extra.setdefault('_japronto', {})
         try:
             return ns[func.__name__]
         except KeyError:
@@ -110,3 +111,47 @@ def port(request):
 
 def hostname(request):
     return hostname_and_port(request)[0]
+
+
+def parse_cookie(cookie):
+    """Parse a ``Cookie`` HTTP header into a dict of name/value pairs.
+    This function attempts to mimic browser cookie parsing behavior;
+    it specifically does not follow any of the cookie-related RFCs
+    (because browsers don't either).
+    The algorithm used is identical to that used by Django version 1.9.10.
+    """
+    cookiedict = {}
+    for chunk in cookie.split(str(';')):
+        if str('=') in chunk:
+            key, val = chunk.split(str('='), 1)
+        else:
+            # Assume an empty name per
+            # https://bugzilla.mozilla.org/show_bug.cgi?id=169091
+            key, val = str(''), chunk
+        key, val = key.strip(), val.strip()
+        if key or val:
+            # unquote using Python's algorithm.
+            cookiedict[key] = unquote_cookie(val)
+    return cookiedict
+
+
+@memoize
+def cookies(request):
+    """A dictionary of Cookie.Morsel objects."""
+    cookies = SimpleCookie()
+    if 'Cookie' in request.headers:
+        try:
+            parsed = parse_cookie(request.headers['Cookie'])
+        except Exception:
+            pass
+        else:
+            for k, v in parsed.items():
+                try:
+                    cookies[k] = v
+                except Exception:
+                    # SimpleCookie imposes some restrictions on keys;
+                    # parse_cookie does not. Discard any cookies
+                    # with disallowed keys.
+                    pass
+
+    return cookies
