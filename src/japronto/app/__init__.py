@@ -11,6 +11,7 @@ import uvloop
 from japronto.router import Router, RouteNotFoundException
 from japronto.protocol.cprotocol import Protocol
 from japronto.protocol.creaper import Reaper
+from japronto.reloader import exec_reloader, main as reloader_main
 
 
 class Application:
@@ -225,8 +226,21 @@ class Application:
             if worker.exitcode != 0:
                 print('Worker excited with code {}!'.format(worker.exitcode))
 
-    def run(self, host='0.0.0.0', port=8080, *, worker_num=None):
+    def run(self, host='0.0.0.0', port=8080, *, worker_num=None, reload=False):
         if os.environ.get('_JAPR_IGNORE_RUN'):
             return
 
-        self._run(host=host, port=port, worker_num=worker_num)
+        reloader_pid = None
+        if reload:
+            if '_JAPR_RELOADER' not in os.environ:
+                exec_reloader()
+            elif os.environ['_JAPR_RELOADER'] == 'main':
+                reloader_main()
+                return
+
+            else:
+                reloader_pid = int(os.environ['_JAPR_RELOADER'])
+
+        self._run(
+            host=host, port=port, worker_num=worker_num,
+            reloader_pid=reloader_pid)

@@ -24,15 +24,23 @@ def main():
     signal.signal(signal.SIGTERM, signal_received)
     signal.signal(signal.SIGHUP, signal_received)
 
+    os.putenv('_JAPR_RELOADER', str(os.getpid()))
+
     while not terminating:
         child = subprocess.Popen([
-            sys.executable, '-m', 'japronto',
-            '--reloader-pid', str(os.getpid()),
-            *(v for v in sys.argv[1:] if v != '--reload')])
+            sys.executable, *sys.argv])
 
         child.wait()
         if child.returncode != 0:
             break
+
+
+def exec_reloader():
+    os.putenv('_JAPR_RELOADER', 'main')
+
+    os.execv(
+        sys.executable,
+        [sys.executable, *sys.argv])
 
 
 def change_detector():
