@@ -1,5 +1,6 @@
 import urllib.parse
 from json import loads as json_loads
+import cgi
 import encodings.idna
 from http.cookies import SimpleCookie, _unquote as unquote_cookie
 
@@ -25,57 +26,6 @@ class HttpRequest(object):
         return '<HttpRequest {0.method} {0.path} {0.version}, {1} headers>' \
             .format(self, len(self.headers))
 
-def text(request):
-    if request.body is None:
-        return None
-
-    return request.body.decode(request.encoding or 'utf-8')
-
-
-def json(request):
-    if request.body is None:
-        return None
-
-    return json_loads(request.text)
-
-
-def query(request):
-    qs = request.query_string
-    if not qs:
-        return {}
-    return dict(urllib.parse.parse_qsl(qs))
-
-
-def remote_addr(request):
-    return request.transport.get_extra_info('peername')[0]
-
-
-def mime_type(request):
-    content_type = request.headers.get('Content-Type')
-    if not content_type:
-        return None
-
-    return content_type.split(';')[0].strip()
-
-
-def encoding(request):
-    content_type = request.headers.get('Content-Type')
-    if not content_type:
-        return None
-
-    _, *rest = [v.split('=') for v in content_type.split(';')]
-
-    rest = {k.strip(): v.strip() for k, v in rest}
-
-    return rest.get('charset')
-
-
-def form(request):
-    if request.mime_type == 'application/x-www-form-urlencoded':
-        return dict(urllib.parse.parse_qsl(request.text))
-    else:
-        return None
-
 
 def memoize(func):
     def wrapper(request):
@@ -91,6 +41,68 @@ def memoize(func):
         return result
 
     return wrapper
+
+@memoize
+def text(request):
+    if request.body is None:
+        return None
+
+    return request.body.decode(request.encoding or 'utf-8')
+
+
+@memoize
+def json(request):
+    if request.body is None:
+        return None
+
+    return json_loads(request.text)
+
+
+@memoize
+def query(request):
+    qs = request.query_string
+    if not qs:
+        return {}
+    return dict(urllib.parse.parse_qsl(qs))
+
+
+def remote_addr(request):
+    return request.transport.get_extra_info('peername')[0]
+
+
+@memoize
+def parsed_content_type(request):
+    content_type = request.headers.get('Content-Type')
+    if not content_type:
+        return None, {}
+
+    return cgi.parse_header(content_type)
+
+
+def mime_type(request):
+    return parsed_content_type(request)[0]
+
+
+def encoding(request):
+    return parsed_content_type(request)[1].get('charset')
+
+
+@memoize
+def parsed_form_and_files(request):
+    if request.mime_type == 'application/x-www-form-urlencoded':
+        return dict(urllib.parse.parse_qsl(request.text)), None
+    elif request.mime_type == 'multipart/form-data':
+        return None, None
+
+    return None, None
+
+
+def form(request):
+    return parsed_form_and_files(request)[0]
+
+
+def files(request):
+    return parsed_form_and_files(request)[1]
 
 
 @memoize

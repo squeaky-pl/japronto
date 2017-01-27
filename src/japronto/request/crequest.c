@@ -756,6 +756,7 @@ static PyGetSetDef Request_getset[] = {
   PROXY(mime_type),
   PROXY(encoding),
   PROXY(form),
+  PROXY(files),
   PROXY(remote_addr),
   PROXY(hostname),
   PROXY(port),
