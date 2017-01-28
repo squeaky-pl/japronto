@@ -84,6 +84,9 @@ static const size_t code_offset = 9;
 
 #define empty(v) (!v || v == Py_None)
 
+static PyObject* application_json;
+static PyObject* application_octet;
+
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
@@ -122,7 +125,6 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   if(!empty(text)) {
     assert(empty(body));
 
-    // TODO handle other encodings
     if(!encoding) {
       if(!(self->body = PyUnicode_AsUTF8String(text)))
         goto error;
@@ -147,10 +149,12 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
     self->mime_type = mime_type;
     Py_INCREF(self->mime_type);
   } else {
-    // TODO moveto static const
     if(!empty(json)) {
-      if(!(self->mime_type = PyUnicode_FromString("application/json")))
-        goto error;
+      self->mime_type = application_json;
+      Py_INCREF(self->mime_type);
+    } else if(!empty(body)) {
+      self->mime_type = application_octet;
+      Py_INCREF(self->mime_type);
     }
   }
 
@@ -369,8 +373,6 @@ Response_render(Response* self, bool simple)
   }
   memcpy(self->buffer + buffer_offset, mime_type, (size_t)mime_type_len);
   buffer_offset += mime_type_len;
-  memcpy(self->buffer + buffer_offset, charset, strlen(charset));
-  buffer_offset += strlen(charset);
 
   Py_ssize_t encoding_len = strlen(utf8);
   const char* encoding = utf8;
@@ -379,8 +381,19 @@ Response_render(Response* self, bool simple)
     if(!encoding)
       goto error;
   }
-  memcpy(self->buffer + buffer_offset, encoding, (size_t)encoding_len);
-  buffer_offset += (size_t)encoding_len;
+
+  #define text_or_json \
+    (mime_type_len >= 5 \
+     && (memcmp(mime_type, "text/", 5) == 0 \
+         || memcmp(mime_type + mime_type_len - 5, "/json", 5) == 0))
+
+  if(self->encoding || text_or_json) {
+    memcpy(self->buffer + buffer_offset, charset, strlen(charset));
+    buffer_offset += strlen(charset);
+
+    memcpy(self->buffer + buffer_offset, encoding, (size_t)encoding_len);
+    buffer_offset += (size_t)encoding_len;
+  }
 
   CRLF
 
@@ -560,6 +573,12 @@ PyInit_cresponse(void)
     goto error;
 
   if(!(json_dumps = PyObject_GetAttrString(json, "dumps")))
+    goto error;
+
+  if(!(application_json = PyUnicode_FromString("application/json")))
+    goto error;
+
+  if(!(application_octet = PyUnicode_FromString("application/octet-stream")))
     goto error;
 
   static Response_CAPI capi = {
