@@ -360,6 +360,10 @@ Response_render(Response* self, bool simple)
     buffer_offset += strlen("Connection: keep-alive\r\n");
   }
 
+  // dont output Content-Type if there is no body
+  if(!self->body)
+    goto headers;
+
   memcpy(self->buffer + buffer_offset, Content_Type, strlen(Content_Type));
   buffer_offset += strlen(Content_Type);
 
@@ -396,6 +400,8 @@ Response_render(Response* self, bool simple)
   }
 
   CRLF
+
+  headers:
 
   if(!self->headers)
     goto empty_headers;
