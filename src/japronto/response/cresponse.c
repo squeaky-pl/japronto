@@ -38,7 +38,7 @@ Response_new(PyTypeObject* type, Response* self)
   self->opaque = false;
 #endif
 
-  self->status_code = NULL;
+  self->code = NULL;
   self->mime_type = NULL;
   self->body = NULL;
   self->encoding = NULL;
@@ -71,7 +71,7 @@ Response_dealloc(Response* self)
   Py_XDECREF(self->encoding);
   Py_XDECREF(self->body);
   Py_XDECREF(self->mime_type);
-  Py_XDECREF(self->status_code);
+  Py_XDECREF(self->code);
 
 #ifdef RESPONSE_OPAQUE
   if(self->opaque)
@@ -87,9 +87,9 @@ static const size_t code_offset = 9;
 int
 Response_init(Response* self, PyObject *args, PyObject *kw)
 {
-  static char *kwlist[] = {"text", "status_code", "body", "json", "mime_type", "encoding", "headers", "cookies", NULL};
+  static char *kwlist[] = {"text", "code", "body", "json", "mime_type", "encoding", "headers", "cookies", NULL};
 
-  PyObject* status_code = NULL;
+  PyObject* code = NULL;
   PyObject* body = NULL;
   PyObject* text = NULL;
   PyObject* json = NULL;
@@ -101,13 +101,13 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
   // FIXME: check argument types
   if (!PyArg_ParseTupleAndKeywords(
       args, kw, "|OOOOOOOO", kwlist,
-      &text, &status_code, &body, &json,
+      &text, &code, &body, &json,
       &mime_type, &encoding, &headers, &cookies))
       goto error;
 
-  if(!empty(status_code)) {
-    self->status_code = status_code;
-    Py_INCREF(self->status_code);
+  if(!empty(code)) {
+    self->code = code;
+    Py_INCREF(self->code);
   }
 
   if(!empty(json)) {
@@ -223,7 +223,7 @@ static Cache cache = {0};
 
 #define Response_cacheable(r, simple) \
   simple && r->body && Py_SIZE(r->body) < CACHE_CUTOFF \
-  && !r->status_code && !r->headers && !r->cookies && !r->mime_type \
+  && !r->code && !r->headers && !r->cookies && !r->mime_type \
   && !r->encoding && r->minor_version == 1 && r->keep_alive == KEEP_ALIVE_TRUE
 
 static inline PyObject*
@@ -283,16 +283,16 @@ Response_render(Response* self, bool simple)
 
   *(self->buffer + minor_offset) = '0' + (char)self->minor_version;
 
-  if(self->status_code) {
-    unsigned long status_code = PyLong_AsUnsignedLong(self->status_code);
+  if(self->code) {
+    unsigned long code = PyLong_AsUnsignedLong(self->code);
 
-    if(status_code < 100 || status_code > 599) {
+    if(code < 100 || code > 599) {
       PyErr_SetString(PyExc_ValueError, "Invalid status code");
       goto error;
     }
 
-    unsigned int status_category = status_code / 100 - 1;
-    unsigned int status_rest = status_code % 100;
+    unsigned int status_category = code / 100 - 1;
+    unsigned int status_rest = code % 100;
 
     const ReasonRange* reason_range = reason_ranges + status_category;
     if(status_rest > reason_range->maximum) {
@@ -301,7 +301,7 @@ Response_render(Response* self, bool simple)
     }
 
     /* TODO these are always 3 digit, maybe modulus would be faster */
-    snprintf(self->buffer + code_offset, 4, "%ld", status_code);
+    snprintf(self->buffer + code_offset, 4, "%ld", code);
     *(self->buffer + code_offset + 3) = ' ';
 
     const char* reason = reason_range->reasons[status_rest];

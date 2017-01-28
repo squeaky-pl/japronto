@@ -70,16 +70,16 @@ class Application:
 
     def default_error_handler(self, request, exception):
         if isinstance(exception, RouteNotFoundException):
-            return request.Response(status_code=404, text='Not Found')
+            return request.Response(code=404, text='Not Found')
         if isinstance(exception, asyncio.CancelledError):
-            return request.Response(status_code=503, text='Service unavailable')
+            return request.Response(code=503, text='Service unavailable')
 
         # FIXME traceback should be only available in debug mode
         tb = traceback.format_exception(None, exception, exception.__traceback__)
         tb = ''.join(tb)
         print(tb, file=sys.stderr, end='')
         return request.Response(
-            status_code=500,
+            code=500,
             text=tb if self._debug else 'Internval Server Error')
 
     def error_handler(self, request, exception):
@@ -96,7 +96,7 @@ class Application:
             print('-- while handling:')
             traceback.print_exception(None, exception, exception.__traceback__)
             return request.Response(
-                status_code=500, text='Internal Server Error')
+                code=500, text='Internal Server Error')
 
         return self.default_error_handler(request, exception)
 

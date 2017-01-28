@@ -55,7 +55,7 @@ def show_todo(request):
     cur.execute("""SELECT id, todo FROM todos WHERE id = ?""", (id,))
     todo = cur.fetchone()
     if not todo:
-        return request.Response(status_code=404, json={})
+        return request.Response(code=404, json={})
     todo = {"id": todo[0], "todo": todo[1]}
 
     return request.Response(json=todo)

@@ -14,7 +14,7 @@ typedef struct {
   int minor_version;
   KEEP_ALIVE keep_alive;
 
-  PyObject* status_code;
+  PyObject* code;
   PyObject* mime_type;
   PyObject* body;
   PyObject* encoding;

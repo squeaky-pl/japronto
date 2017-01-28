@@ -34,7 +34,7 @@ def dump(request, exception=None):
              "args": ", ".join(str(a) for a in exception.args)
          }
 
-    return request.Response(status_code=500 if exception else 200, json=result)
+    return request.Response(code=500 if exception else 200, json=result)
 
 
 async def adump(request):
