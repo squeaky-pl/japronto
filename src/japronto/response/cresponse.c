@@ -123,8 +123,18 @@ Response_init(Response* self, PyObject *args, PyObject *kw)
     assert(empty(body));
 
     // TODO handle other encodings
-    if(!(self->body = PyUnicode_AsUTF8String(text)))
-      goto error;
+    if(!encoding) {
+      if(!(self->body = PyUnicode_AsUTF8String(text)))
+        goto error;
+    } else {
+      char* cencoding;
+      if(!(cencoding = PyUnicode_AsUTF8(encoding)))
+        goto error;
+
+      if(!(self->body = PyUnicode_AsEncodedString(text, cencoding, NULL)))
+        goto error;
+    }
+
     Py_DECREF(text);
   }
 
