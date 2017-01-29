@@ -1,2 +1,2 @@
-from .app import Application
-from .router import RouteNotFoundException
+from .app import Application # NOQA
+from .router import RouteNotFoundException # NOQA

@@ -1,5 +1,3 @@
-from collections import deque
-
 _responses = None
 
 

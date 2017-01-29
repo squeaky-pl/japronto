@@ -1,5 +1,4 @@
 from distutils.core import Extension
-import os.path
 
 
 def get_extension():

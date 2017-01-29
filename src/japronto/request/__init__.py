@@ -3,7 +3,7 @@ from json import loads as json_loads
 import cgi
 import encodings.idna
 import collections
-from http.cookies import SimpleCookie, _unquote as unquote_cookie
+from http.cookies import _unquote as unquote_cookie
 
 
 class HttpRequest(object):

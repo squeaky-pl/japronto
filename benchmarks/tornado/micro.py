@@ -1,4 +1,4 @@
-from tornado import ioloop, web
+from tornado import web
 from tornado.httputil import HTTPHeaders, responses
 from tornado.platform.asyncio import AsyncIOMainLoop
 import asyncio
@@ -16,10 +16,10 @@ class MainHandler(web.RequestHandler):
 
     # skip calculating ETag, ~8% faster
     def set_etag_header(self):
-         pass
+        pass
 
     def check_etag_header(self):
-         return False
+        return False
 
     # torando sends Server and Date headers by default, ~4% faster
     def clear(self):
@@ -28,6 +28,7 @@ class MainHandler(web.RequestHandler):
         self._write_buffer = []
         self._status_code = 200
         self._reason = responses[200]
+
 
 app = web.Application([('/', MainHandler)])
 

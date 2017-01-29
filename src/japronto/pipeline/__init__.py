@@ -1,6 +1,3 @@
-from functools import partial
-
-
 class Pipeline:
     def __init__(self, ready):
         self._queue = []

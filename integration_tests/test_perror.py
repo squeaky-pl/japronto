@@ -1,9 +1,6 @@
 import pytest
 from hypothesis import given, strategies as st, settings, Verbosity
 import subprocess
-import psutil
-import sys
-import time
 import queue
 import threading
 from functools import partial

@@ -1,10 +1,9 @@
 from functools import partial
-from unittest.mock import Mock
 from itertools import zip_longest
 
 import pytest
 
-from cases import base, parametrize_cases, should_keep_alive
+from cases import parametrize_cases
 from parts import one_part, make_parts, geometric_series, fancy_series
 from protocol.tracing import CTracingProtocol, CffiTracingProtocol
 from parser import cffiparser, header_errors, body_errors

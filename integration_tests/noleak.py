@@ -1,6 +1,4 @@
-import os.path
 import sys
-import base64
 
 
 from japronto.app import Application

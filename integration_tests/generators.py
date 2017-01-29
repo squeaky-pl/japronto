@@ -70,4 +70,4 @@ def send_requests(conn, number, **kwargs):
         request = generate_request(**kwargs)
         print_request(request)
         conn.request(**request)
-        response = conn.getresponse()
+        conn.getresponse()

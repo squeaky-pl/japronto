@@ -1,21 +1,10 @@
 import pytest
-import subprocess
-import sys
-import os
 import client
-import socket
-import psutil
-import time
 import json
-import urllib.parse
-import string
-import re
-import ctypes.util
 import base64
 from functools import partial
 
-from hypothesis import given, strategies as st, settings, Verbosity, \
-    HealthCheck
+from hypothesis import given, settings, Verbosity, HealthCheck
 
 import integration_tests.common
 from integration_tests import strategies as st

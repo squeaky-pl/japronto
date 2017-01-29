@@ -87,7 +87,7 @@ def make_class(flavor):
 
 async def handle_requests(queue, transport):
     while 1:
-        request = await queue.get()
+        await queue.get()
 
         response = Response(text='Hello queue!')
 

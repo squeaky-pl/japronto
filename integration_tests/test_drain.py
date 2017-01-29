@@ -1,7 +1,5 @@
 import pytest
-import psutil
 import subprocess
-import sys
 import time
 
 import client
@@ -95,7 +93,7 @@ def test_closed_requests(num, connect, server_terminate):
         con = connect()
         con.putrequest('GET', '/')
         con.endheaders()
-        resp = con.getresponse()
+        con.getresponse()
         con.close()
 
     lines = server_terminate()

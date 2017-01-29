@@ -1,10 +1,11 @@
 from aiohttp import web
 import asyncio
-import sys
 import uvloop
+
 
 loop = uvloop.new_event_loop()
 asyncio.set_event_loop(loop)
+
 
 async def hello(request):
     return web.Response(text='Hello world!')

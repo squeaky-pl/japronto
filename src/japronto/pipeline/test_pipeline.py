@@ -2,7 +2,6 @@ import asyncio
 import gc
 import sys
 from collections import namedtuple
-import asyncio
 from functools import partial
 
 import pytest

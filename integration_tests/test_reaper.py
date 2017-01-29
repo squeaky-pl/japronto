@@ -1,9 +1,6 @@
 from functools import partial
-import subprocess
-import sys
 import time
 
-import psutil
 import pytest
 
 import client

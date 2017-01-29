@@ -1,5 +1,3 @@
-import os.path
-import sys
 import base64
 import asyncio
 
