@@ -1,4 +1,6 @@
 import asyncio
+from enum import IntEnum
+from struct import Struct
 
 from . import analyzer
 
@@ -17,10 +19,12 @@ class Route:
             sum(1 for s in self.segments if s[0] == 'placeholder')
 
     def __repr__(self):
-        return '<Route {}, {} {}>'.format(self.pattern, self.methods, hex(id(self)))
+        return '<Route {}, {} {}>'.format(
+            self.pattern, self.methods, hex(id(self)))
 
     def describe(self):
-        return self.pattern + (' ' if self.methods else '') + ' '.join(self.methods)
+        return self.pattern + (' ' if self.methods else '') + \
+            ' '.join(self.methods)
 
     def __eq__(self, other):
         return self.pattern == other.pattern and self.methods == other.methods
@@ -52,7 +56,8 @@ def parse(pattern):
         if not _:
             raise ValueError('Unbalanced "{" in pattern')
         if rest and rest[0] != '/':
-            raise ValueError('"}" must be followed by "/" or appear at the end')
+            raise ValueError(
+                '"}" must be followed by "/" or appear at the end')
         if name in names:
             raise ValueError('Duplicate name "{}" in pattern'.format(name))
         names.add(name)
@@ -61,12 +66,10 @@ def parse(pattern):
     return result
 
 
-from struct import Struct
-from enum import IntEnum
-
 class SegmentType(IntEnum):
     EXACT = 0
     PLACEHOLDER = 1
+
 
 """
 typedef struct {
@@ -124,8 +127,8 @@ def padto8(data):
 
        This makes x86_64 faster and prevents
        undefined behavior on other platforms"""
-    l = len(data)
-    return data + b'\xdb' * (roundto8(l) - l)
+    length = len(data)
+    return data + b'\xdb' * (roundto8(length) - length)
 
 
 retain_handlers = set()

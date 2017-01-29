@@ -17,7 +17,8 @@ def is_simple(fun):
             seen_load_fast_0 = True
             continue
 
-        if instruction.opname == 'LOAD_ATTR' and instruction.argval == 'Response':
+        if instruction.opname == 'LOAD_ATTR' \
+           and instruction.argval == 'Response':
             seen_load_response = True
             continue
 
@@ -40,7 +41,8 @@ def is_pointless_coroutine(fun):
 
 
 def coroutine_to_func(f):
-    """Based on http://stackoverflow.com/questions/13503079/how-to-create-a-copy-of-a-python-function"""
+    # Based on http://stackoverflow.com/questions/13503079/
+    # how-to-create-a-copy-of-a-python-function
     oc = f.__code__
     code = types.CodeType(
         oc.co_argcount, oc.co_kwonlyargcount, oc.co_nlocals, oc.co_stacksize,

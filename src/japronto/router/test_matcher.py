@@ -64,8 +64,8 @@ def parametrize_request_route_and_dict(cases):
     return pytest.mark.parametrize(
         'req,route,match_dict',
         ((FakeRequest.from_str(req), route_from_str(route), match_dict)
-         for req, route, match_dict in cases),
-         ids=[req + '-' + route for req, route, _ in cases])
+            for req, route, match_dict in cases),
+            ids=[req + '-' + route for req, route, _ in cases])
 
 
 @parametrize_request_route_and_dict([
@@ -73,7 +73,7 @@ def parametrize_request_route_and_dict(cases):
     ('POST /', '/', {}),
     ('GET /test', '/test GET', {}),
     ('DELETE /hi/jane', '/hi/{there} POST,DELETE', {'there': 'jane'}),
-    ('PATCH /lets/dance', '/{oh}/{dear} PATCH', {'oh': 'lets', 'dear': 'dance'}),
+    ('PATCH /lets/go', '/{oh}/{dear} PATCH', {'oh': 'lets', 'dear': 'go'}),
     ('PATCH /lets', '/lets PATCH', {})
 ])
 @parametrize_make_matcher()

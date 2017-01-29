@@ -1,4 +1,5 @@
 import asyncio
+from collections import namedtuple
 
 import pytest
 
@@ -31,15 +32,14 @@ def test_parse_error(pattern, error):
     assert error in info.value.args[0]
 
 
-from collections import namedtuple
-
 DecodedRoute = namedtuple(
     'DecodedRoute',
     'route_id,handler_id,coro_func,simple,placeholder_cnt,segments,methods')
 
 
 def decompile(buffer):
-    route_id, handler_id, coro_func, simple, pattern_len, methods_len, placeholder_cnt \
+    route_id, handler_id, coro_func, simple, \
+        pattern_len, methods_len, placeholder_cnt \
         = MatcherEntry.unpack_from(buffer, 0)
     offset = MatcherEntry.size
     pattern_offset_end = offset + roundto8(pattern_len)
@@ -67,11 +67,11 @@ def handler():
 
 
 async def coro():
-    pass
+    # needs to have await to prevent being promoted to function
+    await asyncio.sleep(1)
 
 
-@pytest.mark.parametrize('route',
-[
+@pytest.mark.parametrize('route', [
     Route('/', handler, []),
     Route('/', coro, ['GET']),
     Route('/test/{hi}', handler, []),

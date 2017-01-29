@@ -45,6 +45,8 @@ pointless_fixtures = OrderedDict([
     ('yieldfrom', ('def a(b): yield from b', False)),
     ('await', ('async def a(b): await b', False))
 ])
+
+
 @pytest.mark.parametrize(
     'code,pointless', pointless_fixtures.values(),
     ids=list(pointless_fixtures.keys()))
