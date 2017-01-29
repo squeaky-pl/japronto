@@ -21,10 +21,7 @@ class Application:
         self._connections = set()
         self._reaper_settings = reaper_settings or {}
         self._error_handlers = []
-        if log_request is not None:
-            self._log_request = log_request
-        else:
-            self._log_request = debug
+        self._log_request = log_request
         self._request_extensions = {}
         self._protocol_factory = protocol_factory or Protocol
         self._debug = debug
@@ -187,7 +184,12 @@ class Application:
             # break reference and cleanup matcher buffer
             del self._matcher
 
-    def _run(self, *, host, port, worker_num=None, reloader_pid=None):
+    def _run(self, *, host, port, worker_num=None, reloader_pid=None,
+             debug=None):
+        self._debug = debug or self._debug
+        if self._debug and not self._log_request:
+            self._log_request = self._debug
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((host, port))
@@ -229,7 +231,8 @@ class Application:
             if worker.exitcode != 0:
                 print('Worker excited with code {}!'.format(worker.exitcode))
 
-    def run(self, host='0.0.0.0', port=8080, *, worker_num=None, reload=False):
+    def run(self, host='0.0.0.0', port=8080, *, worker_num=None, reload=False,
+            debug=False):
         if os.environ.get('_JAPR_IGNORE_RUN'):
             return
 
@@ -243,4 +246,4 @@ class Application:
 
         self._run(
             host=host, port=port, worker_num=worker_num,
-            reloader_pid=reloader_pid)
+            reloader_pid=reloader_pid, debug=debug)
