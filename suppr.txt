@@ -4,5 +4,3 @@ leak:PyMem_RawMalloc
 leak:_PyObject_GC_Resize
 leak:PyThread_allocate_lock
 leak:resize_compact
-
-leak:__pyx_tp_new_6uvloop_4loop_Loop
