@@ -151,24 +151,15 @@ def parse_cookie(cookie):
 
 @memoize
 def cookies(request):
-    """A dictionary of Cookie.Morsel objects."""
-    cookies = SimpleCookie()
-    if 'Cookie' in request.headers:
-        try:
-            parsed = parse_cookie(request.headers['Cookie'])
-        except Exception:
-            pass
-        else:
-            for k, v in parsed.items():
-                try:
-                    cookies[k] = v
-                except Exception:
-                    # SimpleCookie imposes some restrictions on keys;
-                    # parse_cookie does not. Discard any cookies
-                    # with disallowed keys.
-                    pass
+    if 'Cookie' not in request.headers:
+        return {}
 
-    return cookies
+    try:
+        cookies = parse_cookie(request.headers['Cookie'])
+    except Exception:
+        return {}
+
+    return {k: urllib.parse.unquote(v) for k, v in cookies.items()}
 
 
 File = collections.namedtuple('File', ['type', 'body', 'name'])
