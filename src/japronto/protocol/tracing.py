@@ -54,9 +54,8 @@ def _body_from_cprotocol(body: memoryview):
     return None if body is None else body.tobytes()
 
 
-
 def _request_from_cffiprotocol(method: "char[]", path: "char[]", version: int,
-                              headers: "struct phr_header[]"):
+                               headers: "struct phr_header[]"):
     method = ffi.buffer(method)[:].decode('ascii')
     path = ffi.buffer(path)[:].decode('ascii')
     version = "1.0" if version == 0 else "1.1"

@@ -20,6 +20,7 @@ def make_class(flavor):
         return CProtocol
 
     from japronto.parser import cparser
+
     class HttpProtocol(asyncio.Protocol):
         def __init__(self, loop, handler):
             self.parser = cparser.HttpRequestParser(
@@ -68,7 +69,9 @@ def make_class(flavor):
                 text.append(b'Connection: keep-alive\r\n')
                 text.append(b'Content-Length: ')
                 text.extend([str(len(body)).encode(), b'\r\n'])
-                text.extend([b'Content-Type: ', mime_type.encode(), b'; encoding=', encoding.encode(), b'\r\n\r\n'])
+                text.extend([
+                    b'Content-Type: ', mime_type.encode(),
+                    b'; encoding=', encoding.encode(), b'\r\n\r\n'])
                 text.append(body.encode())
 
                 self.transport.write(b''.join(text))
@@ -102,6 +105,7 @@ def handle_request_block(request, transport, response):
     response.__init__(404, text='Hello block')
 
     transport.write(response.render())
+
 
 def handle_dump(request, transport, response):
     text = request.path
