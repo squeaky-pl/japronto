@@ -77,7 +77,7 @@ if __name__ == '__main__':
     if not args.endpoint:
         os.putenv('PYTHONPATH', 'src')
         server_fut = aio.create_subprocess_exec(
-            'python', 'examples/hello/hello.py', *args.server.split())
+            'python', 'benchmarks/japronto/micro.py', *args.server.split())
         server = loop.run_until_complete(server_fut)
         os.unsetenv('PYTHONPATH')
     if not args.endpoint:
