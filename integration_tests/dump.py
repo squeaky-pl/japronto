@@ -6,6 +6,7 @@ import asyncio
 
 from japronto.app import Application
 
+
 class ForcedException(Exception):
     pass
 
@@ -29,10 +30,10 @@ def dump(request, exception=None):
     }
 
     if exception:
-         result['exception'] = {
-             "type": type(exception).__name__,
-             "args": ", ".join(str(a) for a in exception.args)
-         }
+        result['exception'] = {
+         "type": type(exception).__name__,
+         "args": ", ".join(str(a) for a in exception.args)
+        }
 
     return request.Response(code=500 if exception else 200, json=result)
 

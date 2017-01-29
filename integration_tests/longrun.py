@@ -43,13 +43,16 @@ def setup():
 def run():
     time.sleep(2)
     for reverse in [True, False]:
-        for combination in integration_tests.generators.generate_combinations(reverse=reverse):
+        for combination in integration_tests.generators.generate_combinations(
+          reverse=reverse):
             conn = client.Connection('localhost:8080')
             time.sleep(2)
-            integration_tests.generators.send_requests(conn, 200, **combination)
+            integration_tests.generators.send_requests(
+                conn, 200, **combination)
             time.sleep(2)
             conn.close()
     time.sleep(2)
+
 
 def main():
     setup()

@@ -55,12 +55,16 @@ def connect(request):
 
 
 full_request_line = 'GET /asd?qwe HTTP/1.1'
+
+
 def make_truncated_request_line(cut):
     return full_request_line[:-cut]
 
 
 st_request_cut = st.integers(min_value=1, max_value=len(full_request_line) - 1)
 st_request_line = st.builds(make_truncated_request_line, st_request_cut)
+
+
 @given(request_line=st_request_line)
 @settings(verbosity=Verbosity.verbose, max_examples=20)
 def test_truncated_request_line(line_getter, connect, request_line):
@@ -76,7 +80,6 @@ def test_truncated_request_line(line_getter, connect, request_line):
     assert response.text == 'malformed_headers'
 
 
-
 @given(request_line=st_request_line)
 @settings(verbosity=Verbosity.verbose, max_examples=20)
 def test_truncated_request_line_disconnect(line_getter, connect, request_line):
@@ -89,12 +92,16 @@ def test_truncated_request_line_disconnect(line_getter, connect, request_line):
 
 
 full_header = 'X-Header: asd'
+
+
 def make_truncated_header(cut):
     return full_header[:-cut]
 
 
 st_header_cut = st.integers(min_value=5, max_value=len(full_header) - 1)
 st_header_line = st.builds(make_truncated_header, st_header_cut)
+
+
 @given(header_line=st_header_line)
 @settings(verbosity=Verbosity.verbose, max_examples=20)
 def test_truncated_header(line_getter, connect, header_line):

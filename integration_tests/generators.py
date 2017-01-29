@@ -35,7 +35,8 @@ def print_request(request):
         else:
             if len(body) > 32:
                 body = body[:32] + b'...'
-    print(repr(request['method']), repr(request['path']), repr(request['query_string']), body)
+    print(repr(request['method']), repr(request['path']),
+          repr(request['query_string']), body)
 
 
 def generate_request(*, method=None, path=None, query_string=None,

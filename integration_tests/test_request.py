@@ -14,7 +14,8 @@ import ctypes.util
 import base64
 from functools import partial
 
-from hypothesis import given, strategies as st, settings, Verbosity, HealthCheck
+from hypothesis import given, strategies as st, settings, Verbosity, \
+    HealthCheck
 
 import integration_tests.common
 from integration_tests import strategies as st
@@ -66,6 +67,8 @@ def test_method(prefix, connect, method):
 
 
 st_route_prefix = st.sampled_from(['/dump/', '/dump1/', '/dump2/'])
+
+
 @given(route_prefix=st_route_prefix)
 @settings(verbosity=Verbosity.verbose)
 def test_route(prefix, connect, route_prefix):
@@ -127,6 +130,8 @@ def test_headers(prefix, connect, headers):
 
 
 st_errors = st.sampled_from(['not-found', 'forced-1', 'forced-2'])
+
+
 @given(error=st_errors)
 @settings(
     verbosity=Verbosity.verbose,
@@ -193,6 +198,8 @@ def test_chunked(prefix, connect, size_k, body):
 
 
 st_errors = st.sampled_from([None, None, None, 'not-found', 'forced-1'])
+
+
 @given(
     method=st.method,
     error=st_errors,
@@ -245,7 +252,8 @@ def test_all(prefix, connect, size_k, method, error, route_prefix,
         assert json_body['body'] is None
     if error:
         assert json_body['exception']['type'] == \
-            'RouteNotFoundException' if error == 'not-found' else 'ForcedException'
+            'RouteNotFoundException' if error == 'not-found' \
+            else 'ForcedException'
         assert json_body['exception']['args'] == \
             '' if error == 'not-found' else error
     else:
@@ -265,6 +273,8 @@ st_request = st.fixed_dictionaries({
     'body': st.identity_body
 })
 st_requests = st.lists(st_request, min_size=2)
+
+
 @given(requests=st_requests)
 @settings(
     verbosity=Verbosity.verbose,
@@ -275,7 +285,7 @@ def test_pipeline(requests):
     for request in requests:
         connection.putrequest(
             request['method'], request['route_prefix'] +
-             ('/not-found' if request['error'] == 'not-found' else '') +
+            ('/not-found' if request['error'] == 'not-found' else '') +
             '{param1}/{param2}'.format_map(request),
             request['query_string'])
         for name, value in request['headers']:
@@ -302,25 +312,28 @@ def test_pipeline(requests):
             {} if request['error'] == 'not-found' else \
             {'p1': request['param1'], 'p2': request['param2']}
         assert json_body['query_string'] == request['query_string']
-        assert json_body['headers'] == {k.title(): v for k, v in request['headers']}
+        assert json_body['headers'] == \
+            {k.title(): v for k, v in request['headers']}
         if request['body'] is not None:
             assert base64.b64decode(json_body['body']) == request['body']
         else:
             assert json_body['body'] is None
         if request['error']:
             assert json_body['exception']['type'] == \
-                'RouteNotFoundException' if request['error'] == 'not-found' else 'ForcedException'
+                'RouteNotFoundException' if request['error'] == 'not-found' \
+                else 'ForcedException'
             assert json_body['exception']['args'] == \
                 '' if request['error'] == 'not-found' else request['error']
         else:
             assert 'exception' not in json_body
-
 
     connection.close()
 
 
 def format_sleep_qs(val):
     return 'sleep=' + str(val / 100)
+
+
 st_sleep = st.builds(format_sleep_qs, st.integers(min_value=0, max_value=10))
 st_prefix = st.sampled_from(['/dump', '/async/dump'])
 st_async_request = st.fixed_dictionaries({
@@ -330,6 +343,8 @@ st_async_request = st.fixed_dictionaries({
 })
 st_async_requests = st.lists(st_async_request, min_size=2, max_size=5) \
     .filter(lambda rs: any(r['prefix'].startswith('/async') for r in rs))
+
+
 @given(requests=st_async_requests)
 @settings(verbosity=Verbosity.verbose)
 def test_async_pipeline(requests):
