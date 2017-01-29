@@ -100,12 +100,17 @@ class Application:
 
         return self.default_error_handler(request, exception)
 
+    def _get_idle_and_busy_connections(self):
+        # FIXME if there is buffered data in gather the connections should be
+        # considered busy, now it's idle
+        return \
+            [c for c in self._connections if c.pipeline_empty], \
+            [c for c in self._connections if not c.pipeline_empty]
 
     async def drain(self):
         # TODO idle connections will close connection with half-read requests
-        idle_connections = [c for c in self._connections if c.pipeline_empty]
-        busy_connections = [c for c in self._connections if not c.pipeline_empty]
-        for c in idle_connections:
+        idle, busy = self._get_idle_and_busy_connections()
+        for c in idle:
             c.transport.close()
 #       for c in busy_connections:
 #            need to implement something that makes protocol.on_data
@@ -114,33 +119,32 @@ class Application:
 #            sock = c.transport.get_extra_info('socket')
 #            sock.shutdown(socket.SHUT_RD)
 
-        if idle_connections or busy_connections:
+        if idle or busy:
             print('Draining connections...')
         else:
             return
 
-        if idle_connections:
-            print('{} idle connections closed immediately'
-                .format(len(idle_connections)))
-        if busy_connections:
-            print('{} connections busy, read-end closed'
-                .format(len(busy_connections)))
+        if idle:
+            print('{} idle connections closed immediately'.format(len(idle)))
+        if busy:
+            print('{} connections busy, read-end closed'.format(len(busy)))
 
         for x in range(5, 0, -1):
             await asyncio.sleep(1)
-            idle_connections = [c for c in self._connections if c.pipeline_empty]
-            for c in idle_connections:
+            idle, busy = self._get_idle_and_busy_connections()
+            for c in idle:
                 c.transport.close()
-            busy_connections = [c for c in self._connections if not c.pipeline_empty]
-            if not busy_connections:
+            if not busy:
                 break
             else:
-                print("{} seconds remaining, {} connections still busy".format(x, len(busy_connections)))
+                print(
+                    "{} seconds remaining, {} connections still busy"
+                    .format(x, len(busy)))
 
-        busy_connections = [c for c in self._connections if not c.pipeline_empty]
-        if busy_connections:
-            print('Forcefully killing {} connections'.format(len(busy_connections)))
-        for c in busy_connections:
+        _, busy = self._get_idle_and_busy_connections()
+        if busy:
+            print('Forcefully killing {} connections'.format(len(busy)))
+        for c in busy:
             c.pipeline_cancel()
 
     def extend_request(self, handler, *, name=None, property=False):
