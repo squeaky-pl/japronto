@@ -30,9 +30,8 @@ def json(request):
     return request.Response(json={'hello': 'world'})
 
 
-codes = [200, 201, 400, 404, 500]
 def code(request):
-    return request.Response(code=random.choice(codes))
+    return request.Response(code=random.choice([200, 201, 400, 404, 500]))
 
 
 def headers(request):

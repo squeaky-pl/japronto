@@ -1,8 +1,6 @@
 import os.path
 import sqlite3
 from functools import partial
-import sys
-import json
 
 from japronto import Application
 
@@ -69,7 +67,7 @@ def cursor(request):
     def done_cb(request):
         request.extra['conn'].close()
 
-    if not 'conn' in request.extra:
+    if 'conn' not in request.extra:
         request.extra['conn'] = db_connect()
         request.add_done_callback(done_cb)
 

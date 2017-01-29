@@ -5,6 +5,7 @@ class KittyError(Exception):
     def __init__(self):
         self.greet = 'meow'
 
+
 class DoggieError(Exception):
     def __init__(self):
         self.greet = 'woof'
