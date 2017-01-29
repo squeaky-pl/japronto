@@ -18,6 +18,7 @@ Creating your Hello world app
 Copy and paste following code into a fail named `hello.py`:
 
   ```python
+  # examples/1_hello/hello.py
   from japronto import Application
 
 
@@ -41,7 +42,7 @@ Copy and paste following code into a fail named `hello.py`:
   app.run(debug=True)
   ```
 
-The source code for all the examples can be found in `https://github.com/squeaky_pl/japronto/tree/master/examples`
+The source code for all the examples can be found at `https://github.com/squeaky_pl/japronto/tree/master/examples`.
 
 Run it
 ------
