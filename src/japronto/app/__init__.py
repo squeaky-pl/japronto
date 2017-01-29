@@ -14,7 +14,7 @@ from japronto.protocol.creaper import Reaper
 
 
 class Application:
-    def __init__(self, *, loop=None, reaper_settings=None, log_request=None,
+    def __init__(self, *, reaper_settings=None, log_request=None,
                  protocol_factory=None, debug=False):
         self._router = None
         self._loop = None
@@ -75,7 +75,8 @@ class Application:
             return request.Response(code=503, text='Service unavailable')
 
         # FIXME traceback should be only available in debug mode
-        tb = traceback.format_exception(None, exception, exception.__traceback__)
+        tb = traceback.format_exception(
+            None, exception, exception.__traceback__)
         tb = ''.join(tb)
         print(tb, file=sys.stderr, end='')
         return request.Response(
@@ -153,7 +154,6 @@ class Application:
 
         self._request_extensions[name] = (handler, property)
 
-
     def serve(self, *, sock, host, port, reloader_pid):
         self.__finalize()
 
@@ -187,7 +187,6 @@ class Application:
             # break reference and cleanup matcher buffer
             del self._matcher
 
-
     def _run(self, *, host, port, worker_num=None, reloader_pid=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -215,7 +214,8 @@ class Application:
         for _ in range(worker_num or 1):
             worker = multiprocessing.Process(
                 target=self.serve,
-                kwargs=dict(sock=sock, host=host, port=port, reloader_pid=reloader_pid))
+                kwargs=dict(sock=sock, host=host, port=port,
+                            reloader_pid=reloader_pid))
             worker.daemon = True
             worker.start()
             workers.add(worker)
