@@ -59,7 +59,7 @@ class Response:
 
         rest = {k.strip(): v.strip() for k, v in rest}
 
-        return rest.get('charset')
+        return rest.get('charset', 'iso-8859-1')
 
 
     def read_body(self):
