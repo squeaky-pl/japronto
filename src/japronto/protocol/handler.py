@@ -2,7 +2,6 @@ import asyncio
 from asyncio.queues import Queue
 
 
-#from responses.py import factory, dispose, Response
 from japronto.response.cresponse import Response
 from japronto.protocol.cprotocol import Protocol as CProtocol
 

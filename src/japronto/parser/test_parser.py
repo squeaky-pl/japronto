@@ -31,8 +31,7 @@ def make_cffi(protocol_factory=CffiTracingProtocol):
     return parser, protocol
 
 
-@pytest.mark.parametrize('data,get_size,dir,parts',
-[
+@pytest.mark.parametrize('data,get_size,dir,parts', [
     (b'abcde', 2, 1, [b'ab', b'cd', b'e']),
     (b'abcde', 2, -1, [b'a', b'bc', b'de']),
     (b'aaBBBBccccCCCCd', geometric_series(), 1,
@@ -78,7 +77,8 @@ _end = object()
 @parametrize_do_parts()
 @parametrize_cases(
     'base',
-    '10msg', '10msg!', '10get', '10get!', 'keep:10msg+10get', 'keep:10get+10msg',
+    '10msg', '10msg!', '10get', '10get!', 'keep:10msg+10get',
+    'keep:10get+10msg',
 
     '10malformed_headers1', '10malformed_headers2', '10incomplete_headers!',
     'keep:10msg+10malformed_headers2', 'keep:10msg+10incomplete_headers!',
@@ -180,7 +180,8 @@ def test_empty(make_parser):
     '11msgzero+11msgzero',
     '11get+11getmsg+11get',
 
-    'close:11msg+e excessive_data:11msg', 'close:11msg+e excessive_data:close:11msg',
+    'close:11msg+e excessive_data:11msg',
+    'close:11msg+e excessive_data:close:11msg',
     'close:11msg+e excessive_data:close:11msg+11msg',
     '11msg+close:11msgzero+e excessive_data:11get',
 

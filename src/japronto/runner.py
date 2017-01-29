@@ -39,8 +39,8 @@ def verify(args):
             module, attribute = args.application.rsplit('.', 1)
         except ValueError:
             print(
-                "Application specificer must contain at least one '.', got '{}'."
-                .format(args.application))
+                "Application specificer must contain at least one '.'," +
+                "got '{}'.".format(args.application))
             return False
 
         try:
@@ -52,7 +52,8 @@ def verify(args):
         try:
             attribute = getattr(module, attribute)
         except AttributeError:
-            print("Module '{}' does not have an attribute '{}'."
+            print(
+                "Module '{}' does not have an attribute '{}'."
                 .format(module.__name__, attribute))
             return False
 

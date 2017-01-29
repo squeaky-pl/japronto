@@ -43,6 +43,7 @@ def memoize(func):
 
     return wrapper
 
+
 @memoize
 def text(request):
     if request.body is None:

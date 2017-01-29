@@ -55,9 +55,6 @@ class HttpRequestParser(object):
         else:
             self._reset_state()
 
-        # method = ffi.string(self.c_method[0], self.method_len[0]).decode('ascii')
-        # path = ffi.string(self.c_path[0], self.path_len[0]).decode('ascii')
-        # version = "1." + str(self.minor_version[0])
         method = ffi.cast(
             'char[{}]'.format(self.method_len[0]), self.c_method[0])
         path = ffi.cast(
@@ -74,16 +71,9 @@ class HttpRequestParser(object):
         else:
             self.connection = 'keep-alive'
 
-        # headers = {}
-        # for idx in range(self.num_headers[0]):
-        #    header = self.c_headers[idx]
-        #    name = ffi.string(header.name, header.name_len).decode('ascii').title()
-        #    value = ffi.string(header.value, header.value_len).decode('latin1')
-        #    headers[name] = value
-
         for header in headers:
             header_name = ffi.string(header.name, header.name_len).title()
-            #maybe len + strcasecmp C style is faster?
+            # maybe len + strcasecmp C style is faster?
             if header_name == b'Transfer-Encoding':
                 self.transfer = ffi.string(
                     header.value, header.value_len).decode('ascii')
@@ -151,7 +141,8 @@ class HttpRequestParser(object):
                 self.chunked_decoder,
                 ffi.from_buffer(self.buffer) + chunked_offset_start,
                 self.chunked_offset)
-            self.chunked_offset[0] = self.chunked_offset[0] + chunked_offset_start
+            self.chunked_offset[0] = self.chunked_offset[0] \
+                + chunked_offset_start
 
             if result == -2:
                 self.buffer = self.buffer[:self.chunked_offset[0]]

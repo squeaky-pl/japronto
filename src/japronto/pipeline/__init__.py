@@ -1,7 +1,6 @@
 from functools import partial
 
 
-
 class Pipeline:
     def __init__(self, ready):
         self._queue = []
@@ -36,7 +35,6 @@ class Pipeline:
     def write(self, task):
         self._ready(task)
         print('Written', task.result())
-
 
 
 if __name__ == '__main__':

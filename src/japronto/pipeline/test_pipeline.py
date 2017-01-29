@@ -117,6 +117,7 @@ def create_futures(resolves, case):
 @parametrize_make_pipeline()
 def test_fake_future(make_pipeline, case):
     pipeline, results = make_pipeline()
+
     def queue(x):
         fut = FakeFuture()
         pipeline.queue(fut)
