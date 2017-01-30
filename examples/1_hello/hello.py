@@ -14,7 +14,7 @@ app = Application()
 
 # The Router instance lets you register your handlers and execute
 # them depending on the url path and methods
-r.add_route('/', hello)
+app.router.add_route('/', hello)
 
 # Finally start our server and handle requests until termination is
 # requested. Enabling debug lets you see request logs and stack traces.

@@ -1,13 +1,16 @@
 from argparse import ArgumentParser, SUPPRESS
 from importlib import import_module
 import os
+import sys
 import runpy
 
 from .app import Application
 
 
 def get_parser():
-    parser = ArgumentParser(prog='python -m japronto')
+    prog = 'python -m japronto' if sys.argv[0].endswith('__main__.py') \
+        else 'japronto'
+    parser = ArgumentParser(prog=prog)
     parser.add_argument('--host', dest='host', type=str, default='0.0.0.0')
     parser.add_argument('--port', dest='port', type=int, default=8080)
     parser.add_argument('--worker-num', dest='worker_num', type=int, default=1)
