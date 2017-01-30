@@ -2,4 +2,4 @@ from .app import Application # NOQA
 from .router import RouteNotFoundException # NOQA
 
 
-__version__ = '0.1'
+__version__ = '0.1a1'
