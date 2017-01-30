@@ -46,4 +46,6 @@ setup(
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Internet :: WWW/HTTP'
     ],
+    zip_safe=False,
+    include_package_data=True
 )

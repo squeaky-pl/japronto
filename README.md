@@ -14,3 +14,12 @@ Tutorial
 5. [Response object](tutorial/5_response.md)
 6. [Handling exceptions](tutorial/6_exceptions.md)
 7. [Extending request](tutorial/7_extend.md)
+
+License
+-------
+
+This software is distributed under [MIT License](https://en.wikipedia.org/wiki/MIT_License). This is a very permissive license that let's you use this software for any
+commercial and non-commercial work. Full text of the license is
+incuded in [LICENSE.txt](LICENSE.txt) file.
+
+The source distribution of this software includes a copy of picohttpparser which is distributed under MIT license as well.
