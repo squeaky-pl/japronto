@@ -17,9 +17,10 @@ sys.path.insert(0, SRC_LOCATION)
 
 
 class BuildSystem:
-    def __init__(self, args):
+    def __init__(self, args, relative_source=False):
         self.args = args
         self.dest = self.args.dest
+        self.relative_source = relative_source
 
     def get_extension_by_path(self, path):
         path = SRC_LOCATION + '/' + path
@@ -34,12 +35,18 @@ class BuildSystem:
 
             return os.path.abspath(os.path.join(base_path, p))
 
-        for attr in ['sources', 'include_dirs', 'library_dirs', 'runtime_library_dirs']:
+        attrs = ['sources', 'include_dirs', 'library_dirs', 'runtime_library_dirs']
+        for attr in attrs:
             val = getattr(extension, attr)
             if not val:
                 continue
 
-            val = [fix_path(v) for v in val]
+            if attr == 'sources' and self.relative_source:
+                val = [
+                    (os.path.normpath(os.path.join(base_path, v)) if not v.startswith('src')
+                    else v) for v in val]
+            else:
+                val = [fix_path(v) for v in val]
             if attr == 'runtime_library_dirs':
                 setattr(extension, attr, None)
                 attr = 'extra_link_args'
@@ -173,7 +180,8 @@ kits = {
         'japronto.response.cresponse']
 }
 
-def main():
+
+def get_parser():
     argparser = argparse.ArgumentParser('build')
     argparser.add_argument(
         '-d', dest='debug', const=True, action='store_const', default=False)
@@ -209,6 +217,24 @@ def main():
     argparser.add_argument('--path', dest='path')
     argparser.add_argument('--extra-compile', dest='extra_compile', default='')
     argparser.add_argument('--kit', dest='kit')
+
+    return argparser
+
+
+def get_platform():
+    argparser = get_parser()
+    args = argparser.parse_args([])
+    system = BuildSystem(args, relative_source=True)
+
+    ext_modules = system.discover_extensions()
+    ext_modules = [e for e in ext_modules if e.name in kits['platform']]
+
+    print({e.name: e.sources for e in ext_modules})
+    return ext_modules
+
+
+def main():
+    argparser = get_parser()
     args = argparser.parse_args(sys.argv[1:])
 
     if args.profile_clean:

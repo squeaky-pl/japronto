@@ -4,7 +4,10 @@ Japronto
 import codecs
 import os
 import re
+
 from setuptools import setup, find_packages
+
+import build
 
 
 with codecs.open(os.path.join(os.path.abspath(os.path.dirname(
@@ -47,5 +50,6 @@ setup(
         'Topic :: Internet :: WWW/HTTP'
     ],
     zip_safe=False,
-    include_package_data=True
+    include_package_data=True,
+    ext_modules=build.get_platform()
 )
