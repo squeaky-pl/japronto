@@ -5,6 +5,7 @@ At the moment Response instances are immutable once created, this
 restriction will be lifted in a next version.
 
   ```python
+  # examples/5_response/response.py
   import random
   from http.cookies import SimpleCookie
 
