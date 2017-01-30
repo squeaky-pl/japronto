@@ -44,7 +44,9 @@ class BuildSystem:
             if attr == 'sources' and self.relative_source:
                 val = [
                     (os.path.normpath(os.path.join(base_path, v)) if not v.startswith('src')
-                    else v) for v in val]
+                     else v) for v in val]
+            elif attr == 'runtime_library_dirs' and self.relative_source:
+                pass
             else:
                 val = [fix_path(v) for v in val]
             if attr == 'runtime_library_dirs':

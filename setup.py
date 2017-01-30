@@ -51,5 +51,6 @@ setup(
     ],
     zip_safe=False,
     include_package_data=True,
+    package_data={'picohttpparser': ['*.so']},
     ext_modules=build.get_platform()
 )

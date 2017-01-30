@@ -1,4 +1,4 @@
-include README.md LICENSE.txt
+include README.md LICENSE.txt src/picohttpparser/libpicohttpparser.so
 global-exclude **/test_* **/*_ext.py
 exclude src/japronto/parser/build_libpicohttpparser.py src/japronto/parser/cffiparser.py
 

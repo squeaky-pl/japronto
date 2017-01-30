@@ -1,7 +1,7 @@
 import atexit
 import psutil
 
-noisy = ['atom', 'chrome', 'firefox', 'dropbox', 'opera', 'spotify']
+noisy = ['atom', 'chrome', 'firefox', 'dropbox', 'opera', 'spotify', 'gnome-documents']
 
 def silence():
     for proc in psutil.process_iter():
