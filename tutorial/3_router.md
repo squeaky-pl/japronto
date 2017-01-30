@@ -57,6 +57,6 @@ and optionally one or more `method`s.
   app.run()
   ```
 
-The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky-pl/japronto/tree/master/examples).
 
 **Next:** [Request object](5_request.md)

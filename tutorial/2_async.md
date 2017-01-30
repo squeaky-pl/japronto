@@ -39,7 +39,7 @@ better off programming synchronously.
   app.run()
   ```
 
-The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky-pl/japronto/tree/master/examples).
 
 
 **Next:** [Router](3_router.md)

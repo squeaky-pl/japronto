@@ -85,7 +85,7 @@ restriction will be lifted in a next version.
   app.run()
   ```
 
-The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky-pl/japronto/tree/master/examples).
 
 
 **Next:** [Handling exceptions](6_exceptions.md)

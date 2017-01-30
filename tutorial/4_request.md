@@ -97,7 +97,7 @@ three categories: Request line and headers, message body and miscellaneous.
   app.run()
   ```
 
-The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky-pl/japronto/tree/master/examples).
 
 
 **Next:** [Response object](5_response.md)
