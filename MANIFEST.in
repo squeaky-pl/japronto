@@ -1,4 +1,4 @@
 include README.md LICENSE.txt
-global-exclude test_* *_ext.py
+global-exclude **/test_* **/*_ext.py
 exclude src/japronto/parser/build_libpicohttpparser.py src/japronto/parser/cffiparser.py
 
