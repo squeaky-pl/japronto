@@ -42,7 +42,7 @@ Copy and paste following code into a fail named `hello.py`:
   app.run(debug=True)
   ```
 
-The source code for all the examples can be found at `https://github.com/squeaky_pl/japronto/tree/master/examples`.
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
 
 Run it
 ------

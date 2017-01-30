@@ -64,6 +64,6 @@ There might be cases when there are exceptions raised you want to turn into cust
   app.run()
   ```
 
-The source code for all the examples can be found at https://github.com/squeaky_pl/japronto/tree/master/examples.
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
 
 **Next:** [Extending request](7_extend.md)

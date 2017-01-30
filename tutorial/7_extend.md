@@ -56,4 +56,4 @@ on request completion by registering a callback in a view.
   app.run()
   ```
 
-The source code for all the examples can be found at https://github.com/squeaky_pl/japronto/tree/master/examples.
+The source code for all the examples can be found in [examples directory](https://github.com/squeaky_pl/japronto/tree/master/examples).
