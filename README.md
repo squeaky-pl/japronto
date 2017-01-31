@@ -15,6 +15,17 @@ Tutorial
 6. [Handling exceptions](tutorial/6_exceptions.md)
 7. [Extending request](tutorial/7_extend.md)
 
+Features
+--------
+
+- HTTP 1.x implementation with support for chunked uploads
+- Full support for HTTP pipelining
+- Keep-alive connections with configurable reaper
+- Support for synchronous and asynchronous views
+- Master-multi worker based on forking
+- Support for code reloading on changes
+- Simple routing
+
 License
 -------
 
