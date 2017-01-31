@@ -4,7 +4,7 @@ Japronto (from Portuguese "já pronto" /ˈʒa pɾõtu/ meaning "already done") i
 Python 3.5+ web __micro-framework__ integrated with __pipelining HTTP server__
 based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser).
 
-You can read more in the [release announcement on medium](https://medium.com/@squeaky_pl/million-requests-per-second-with-python)
+You can read more in the [release announcement on medium](https://medium.com/@squeaky_pl/million-requests-per-second-with-python-95c137af319)
 
 Performance
 -----------
