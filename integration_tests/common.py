@@ -15,7 +15,7 @@ def start_server(script, *, stdout=None, path=None, sanitize=True, wait=True,
         os.putenv('PYTHONPATH', path)
     if sanitize:
         os.putenv('LD_PRELOAD', ctypes.util.find_library('asan'))
-        os.putenv('LSAN_OPTIONS', 'suppressions=suppr.txt')
+        os.putenv('LSAN_OPTIONS', 'suppressions=misc/suppr.txt')
     if not buffer:
         os.putenv('PYTHONUNBUFFERED', '1')
     server = subprocess.Popen([sys.executable, *script], stdout=stdout)
