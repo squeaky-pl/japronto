@@ -9,7 +9,8 @@ sys.path.insert(0, '.')
 
 import integration_tests.common
 import integration_tests.generators
-import client
+
+from misc import client
 
 
 def setup():
@@ -26,7 +27,7 @@ def setup():
 
     os.putenv('COLLECTOR_FILE', '.collector/{}.json'.format(server.pid))
     collector = subprocess.Popen([
-        sys.executable, 'collector.py', str(server.pid)])
+        sys.executable, 'misc/collector.py', str(server.pid)])
     os.unsetenv('COLLECTOR_FILE')
 
     def cleanup(*args):

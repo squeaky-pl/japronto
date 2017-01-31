@@ -1,5 +1,4 @@
 import pytest
-import client
 import json
 import base64
 from functools import partial
@@ -8,6 +7,7 @@ from hypothesis import given, settings, Verbosity, HealthCheck
 
 import integration_tests.common
 from integration_tests import strategies as st
+from misc import client
 
 
 pytestmark = pytest.mark.needs_build(coverage=True)

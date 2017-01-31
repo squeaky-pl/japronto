@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-import client
+from misc import client
 import integration_tests.common
 
 

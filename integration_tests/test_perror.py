@@ -5,7 +5,7 @@ import queue
 import threading
 from functools import partial
 
-import client
+from misc import client
 import integration_tests.common
 
 

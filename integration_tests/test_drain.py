@@ -2,7 +2,7 @@ import pytest
 import subprocess
 import time
 
-import client
+from misc import client
 import integration_tests.common
 
 
