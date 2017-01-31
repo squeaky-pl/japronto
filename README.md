@@ -4,7 +4,7 @@ Japronto (from Portuguese "já pronto" /ˈʒa pɾõtu/ meaning "already done") i
 Python 3.5+ web __micro-framework__ integrated with __pipelining HTTP server__
 based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser).
 
-You can read more in the [release announcement on medium](https://medium.com/todo)
+You can read more in the [release announcement on medium](https://medium.com/@squeaky_pl/million-requests-per-second-with-python)
 
 Performance
 -----------
@@ -13,7 +13,7 @@ Here comes a chart to help you imagine what kind of things you can do with Japro
 
 ![Requests per second](benchmarks/results.png)
 
-These results of a simple "Hello world" application were obtained on AWS c4.2xlarge instance. To be fair all the contestants (including Go) were running single worker process. Servers were load tested using [wrk](https://github.com/wg/wrk) with 1 thread, 100 connections and 24 simultaneous (pipelined) requests per connection.
+These results of a simple "Hello world" application were obtained on AWS c4.2xlarge instance. To be fair all the contestants (including Go) were running single worker process. Servers were load tested using [wrk](https://github.com/wg/wrk) with 1 thread, 100 connections and 24 simultaneous (pipelined) requests per connection (cumulative parallelism of 2400 requests).
 
 The source code for the benchmark can be found in [benchmarks](benchmarks) directory.
 
