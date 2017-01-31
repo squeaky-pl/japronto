@@ -1,6 +1,6 @@
 # Japronto!
 
-Japronto (from Portuguese "já pronto" meaning "already done") is a __screaming-fast__, __scalable__
+Japronto (from Portuguese "já pronto" meaning "already done") is a __screaming-fast__, __scalable__, __asynchronous__
 Python 3.5+ web __micro-framework__ integrated with __pipelining HTTP server__
 based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser).
 
@@ -20,6 +20,24 @@ The source code for the benchmark can be found in [benchmarks](benchmarks) direc
 The server is written in hand tweaked C trying to take advantage of modern CPUs. It relies on picohttpparser for header &
 chunked-encoding parsing while uvloop provides asynchronous I/O. It also tries to save up on
 system calls by combining writes together when possible.
+
+Hello world
+-----------
+
+Here is how a simple web application looks like in Japronto:
+
+```python
+from japronto import Application
+
+
+def hello(request):
+    return request.Response(text='Hello world!')
+
+
+app = Application()
+app.router.add_route('/', hello)
+app.run(debug=True)
+```
 
 Tutorial
 --------
