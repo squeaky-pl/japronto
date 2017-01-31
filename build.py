@@ -8,7 +8,10 @@ import shutil
 import sysconfig
 import os
 import sys
-import pytoml
+try:
+    import pytoml
+except ImportError:
+    pytoml = None
 import runpy
 
 
