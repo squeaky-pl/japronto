@@ -1,6 +1,6 @@
 # Japronto!
 
-Japronto (from Portuguese "já pronto" meaning "already done") is a __screaming-fast__, __scalable__, __asynchronous__
+Japronto (from Portuguese "já pronto" /ˈʒa pɾõtu/ meaning "already done") is a __screaming-fast__, __scalable__, __asynchronous__
 Python 3.5+ web __micro-framework__ integrated with __pipelining HTTP server__
 based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser).
 
