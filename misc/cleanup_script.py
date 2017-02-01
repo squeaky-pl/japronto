@@ -1,5 +1,6 @@
 import sys
 
+
 def main():
     fp = open(sys.argv[1])
 
@@ -14,6 +15,7 @@ def main():
         print(line)
 
     fp.close()
+
 
 if __name__ == '__main__':
     main()

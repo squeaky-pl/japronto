@@ -4,10 +4,10 @@ import sys
 import argparse
 
 import parsers
-import parts
 import cases
 import buggers
 import cpu
+
 
 def get_http10long():
     return cases.base['10long'].data
@@ -32,7 +32,8 @@ if __name__ == '__main__':
     argparser.add_argument(
         '-p', '--parsers', dest='parsers', default='cffi,cext')
     argparser.add_argument(
-        '-b', '--benchmarks', dest='benchmarks', default='http10long,websites,websitesn')
+        '-b', '--benchmarks', dest='benchmarks',
+        default='http10long,websites,websitesn')
 
     result = argparser.parse_args(sys.argv[1:])
     parsers = result.parsers.split(',')
@@ -57,7 +58,8 @@ parser.feed_disconnect()
         for parser in parsers:
             print('-- {} {} --'.format(dataset, parser))
             subprocess.check_call([
-                'python', '-m', 'perf', 'timeit', '-s', setup.format(parser, dataset), loop])
+                'python', '-m', 'perf', 'timeit', '-s',
+                setup.format(parser, dataset), loop])
             print()
 
     setup += """
@@ -75,5 +77,6 @@ parser.feed_disconnect()
         for parser in parsers:
             print('-- website parts {} --'.format(parser))
             subprocess.check_call([
-                'python', '-m', 'perf', 'timeit', '-s', setup.format(parser, 'websites'), loop])
+                'python', '-m', 'perf', 'timeit', '-s',
+                setup.format(parser, 'websites'), loop])
             print()

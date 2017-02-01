@@ -29,13 +29,13 @@ def basic(request):
 # Message body
 # If there is a message body attached to a request (as in a case of `POST`)
 # method the following attriutes can be used to examine it.
-# Given a `POST` request with body set to `b'J\xc3\xa1'`, `Content-Length` header set
-# to `3` and `Content-Type` header set to `text/plain; charset=utf-8` this
-# would yield `mime_type` set to `'text/plain'`, `encoding` set to `'utf-8'`,
-# `body` set to `b'J\xc3\xa1'` and `text` set to `'Já'`.
-# `form` and `files` attributes are dictionaries respectively used for HTML forms and
-# HTML file uploads. The `json` helper property will try to decode `body` as a
-# JSON document and give you resulting Python data type.
+# Given a `POST` request with body set to `b'J\xc3\xa1'`, `Content-Length`
+# header set to `3` and `Content-Type` header set to `text/plain;
+# charset=utf-8` this would yield `mime_type` set to `'text/plain'`,
+# `encoding` set to `'utf-8'`, `body` set to `b'J\xc3\xa1'` and `text` set to
+# `'Já'`.  `form` and `files` attributes are dictionaries respectively used for
+# HTML forms and HTML file uploads. The `json` helper property will try to
+# decode `body` as a JSON document and give you resulting Python data type.
 def body(request):
     text = """Body related properties:
       Mime type: {0.mime_type}

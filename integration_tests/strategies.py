@@ -2,8 +2,6 @@ import string
 import re
 
 from hypothesis import strategies as st
-from hypothesis.strategies import \
-    builds, integers, sampled_from, fixed_dictionaries, lists
 
 
 _method_alphabet = ''.join(chr(x) for x in range(33, 256) if x != 127)

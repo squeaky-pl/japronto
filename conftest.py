@@ -2,11 +2,11 @@ import subprocess
 import sys
 import os
 import shutil
-import pytest
 
 
 builds = []
 coverages = set()
+
 
 def add_build(mark):
     global builds
@@ -15,6 +15,7 @@ def add_build(mark):
     cfg = args, kwargs
     if cfg not in builds:
         builds.append(cfg)
+
 
 def execute_builds():
     common_options = ['--coverage', '-d', '--sanitize']
@@ -68,7 +69,8 @@ def make_coverage():
             dest + '/coverage.info', '-q'
         ])
 
-        print('C coverage report saved in', dest + '/coverage_report/index.html')
+        print('C coverage report saved in',
+              dest + '/coverage_report/index.html')
 
 
 def pytest_itemcollected(item):

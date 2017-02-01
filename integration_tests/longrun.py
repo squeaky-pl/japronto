@@ -7,10 +7,10 @@ import time
 
 sys.path.insert(0, '.')
 
-import integration_tests.common
-import integration_tests.generators
+import integration_tests.common  # noqa
+import integration_tests.generators  # noqa
 
-from misc import client
+from misc import client  # noqa
 
 
 def setup():
