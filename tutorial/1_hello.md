@@ -15,7 +15,7 @@ On OSX and Windows or if you simply prefer Docker pull Japronto image with `dock
 Creating your Hello world app
 -----------------------------
 
-Copy and paste following code into a fail named `hello.py`:
+Copy and paste following code into a file named `hello.py`:
 
   ```python
   # examples/1_hello/hello.py
