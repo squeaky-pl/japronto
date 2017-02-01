@@ -34,6 +34,7 @@ def reversed_agent(request):
 def host_startswith(request, prefix):
     return request.headers['Host'].startswith(prefix)
 
+
 app = Application()
 # Finally register out custom property and method
 # By default the names are taken from function names
