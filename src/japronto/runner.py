@@ -48,7 +48,7 @@ def verify(args):
 
         try:
             module = import_module(module)
-        except ModuleNotFoundError as e:
+        except ImportError as e:
             print(e.args[0] + ' on Python search path.')
             return False
 
