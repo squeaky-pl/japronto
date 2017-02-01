@@ -376,7 +376,7 @@ int phr_parse_request(const char *buf_start, size_t len, const char **method, si
     *num_headers = 0;
 
     /* if last_len != 0, check if the request is complete (a fast countermeasure
-       againt slowloris */
+       against slowloris */
     if (last_len != 0 && is_complete(buf, buf_end, last_len, &r) == NULL) {
         return r;
     }

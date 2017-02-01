@@ -45,7 +45,7 @@ and optionally one or more `method`s.
 
   # Requests with the path starting with `/params/` segment and followed
   # by two additional segments will be directed here.
-  # Values of the addtional segments will be stored in side `request.match_dict`
+  # Values of the additional segments will be stored in side `request.match_dict`
   # dictionary with keys taken from {} placeholders. A request to `/params/1/2`
   # would leave `match_dict` set to `{'p1': 1, 'p2': '2'}`.
   def params(request):

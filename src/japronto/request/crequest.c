@@ -313,7 +313,7 @@ bfrcpy(Request* self, const RequestCopy what)
     self->match_dict_entries =
       (MatchDictEntry*)((char*)self->match_dict_entries + shift);
     /* match_dict_entires values don't need moving by shift because the block
-     * they reference couldnt move (the previous call)
+     * they reference couldn't move (the previous call)
      */
   }
 

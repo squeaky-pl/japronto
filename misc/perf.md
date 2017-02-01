@@ -3,7 +3,7 @@ Capturing performance data with perf
 
 For best results the C source should be built with `-g -O0`.
 
-Run the server, record performance events with `-F` frequency `997 Hz`, `-a` all proceses and `-g` take stack info.
+Run the server, record performance events with `-F` frequency `997 Hz`, `-a` all processes and `-g` take stack info.
 
 ```
 python examples/simple/simple.py -p c & \

@@ -66,6 +66,6 @@ License
 
 This software is distributed under [MIT License](https://en.wikipedia.org/wiki/MIT_License). This is a very permissive license that let's you use this software for any
 commercial and non-commercial work. Full text of the license is
-incuded in [LICENSE.txt](LICENSE.txt) file.
+included in [LICENSE.txt](LICENSE.txt) file.
 
 The source distribution of this software includes a copy of picohttpparser which is distributed under MIT license as well.

@@ -113,8 +113,8 @@ typedef struct {
   };
 } Segment;
 """
-ExactSegement = Struct('iN')
-PlaceholderSegent = Struct('iN')
+ExactSegment = Struct('iN')
+PlaceholderSegment = Struct('iN')
 Segment = Struct('iN')
 
 
