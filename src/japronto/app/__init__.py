@@ -229,7 +229,7 @@ class Application:
             worker.join()
 
             if worker.exitcode != 0:
-                print('Worker excited with code {}!'.format(worker.exitcode))
+                print('Worker exited with code {}!'.format(worker.exitcode))
 
     def run(self, host='0.0.0.0', port=8080, *, worker_num=None, reload=False,
             debug=False):
