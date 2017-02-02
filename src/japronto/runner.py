@@ -6,6 +6,11 @@ import runpy
 
 from .app import Application
 
+try:
+    ModuleNotFoundError
+except NameError:
+    ModuleNotFoundError = ImportError
+
 
 def get_parser():
     prog = 'python -m japronto' if sys.argv[0].endswith('__main__.py') \
@@ -48,7 +53,7 @@ def verify(args):
 
         try:
             module = import_module(module)
-        except ImportError as e:
+        except ModuleNotFoundError as e:
             print(e.args[0] + ' on Python search path.')
             return False
 
