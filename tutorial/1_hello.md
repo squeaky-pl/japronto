@@ -49,7 +49,7 @@ Run it
 
 On Linux run the server with just: `python3 hello.py`.
 
-If using Docker run `docker run -P -v hello.py:/hello.py japronto/japronto /hello.py`. This will mount local `hello.py` into container as `/hello.py` which is later passed to Docker entry point.
+If using Docker run `docker run -p 8080:8080 -v $(pwd)/hello.py:/hello.py japronto/japronto --script /hello.py`. This will mount local `hello.py` into container as `/hello.py` which is later passed to Docker entry point.
 
 Now open the address `http://localhost:8000` in your web browser. You should see the message *Hello world!*.
 
