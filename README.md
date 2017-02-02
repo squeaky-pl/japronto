@@ -13,6 +13,8 @@ Here comes a chart to help you imagine what kind of things you can do with Japro
 
 ![Requests per second](benchmarks/results.png)
 
+As user @heppu points out Go’s stdlib HTTP server can be 12% faster than the graph shows when written more carefully. Also there is the awesome fasthttp server for Go that apparently is only 18% slower than Japronto in this particular benchmark. Awesome! For details see https://github.com/squeaky-pl/japronto/pull/12 and https://github.com/squeaky-pl/japronto/pull/14.
+
 These results of a simple "Hello world" application were obtained on AWS c4.2xlarge instance. To be fair all the contestants (including Go) were running single worker process. Servers were load tested using [wrk](https://github.com/wg/wrk) with 1 thread, 100 connections and 24 simultaneous (pipelined) requests per connection (cumulative parallelism of 2400 requests).
 
 The source code for the benchmark can be found in [benchmarks](benchmarks) directory.
