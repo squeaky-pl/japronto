@@ -6,6 +6,11 @@ import runpy
 
 from .app import Application
 
+try:
+    ModuleNotFoundError
+except NameError:
+    ModuleNotFoundError = ImportError
+
 
 def get_parser():
     prog = 'python -m japronto' if sys.argv[0].endswith('__main__.py') \
