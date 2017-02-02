@@ -4,7 +4,6 @@ import asyncio as aio
 import os
 from asyncio.subprocess import PIPE, STDOUT
 import statistics
-import shlex
 
 import uvloop
 import psutil
@@ -16,8 +15,8 @@ from misc import buggers
 def run_wrk(loop, endpoint=None):
     endpoint = endpoint or 'http://localhost:8080'
     wrk_fut = aio.create_subprocess_exec(
-        './wrk', '-t', '1', '-c', '100', '-d', '2', '-s', 'misc/pipeline.lua', endpoint,
-        stdout=PIPE, stderr=STDOUT)
+        './wrk', '-t', '1', '-c', '100', '-d', '2', '-s', 'misc/pipeline.lua',
+        endpoint, stdout=PIPE, stderr=STDOUT)
 
     wrk = loop.run_until_complete(wrk_fut)
 

@@ -38,7 +38,8 @@ class BuildSystem:
 
             return os.path.abspath(os.path.join(base_path, p))
 
-        attrs = ['sources', 'include_dirs', 'library_dirs', 'runtime_library_dirs']
+        attrs = ['sources', 'include_dirs', 'library_dirs',
+                 'runtime_library_dirs']
         for attr in attrs:
             val = getattr(extension, attr)
             if not val:
@@ -46,7 +47,8 @@ class BuildSystem:
 
             if attr == 'sources' and self.relative_source:
                 val = [
-                    (os.path.normpath(os.path.join(base_path, v)) if not v.startswith('src')
+                    (os.path.normpath(os.path.join(base_path, v))
+                     if not v.startswith('src')
                      else v) for v in val]
             elif attr == 'runtime_library_dirs' and self.relative_source:
                 pass
@@ -74,7 +76,7 @@ class BuildSystem:
         return self.dest + '/' + '/'.join(mod_name.split('.')[:-1])
 
     def build_toml(self, mod_name):
-        return self.dest +  '/' + '/'.join(mod_name.split('.')) + '.build.toml'
+        return self.dest + '/' + '/'.join(mod_name.split('.')) + '.build.toml'
 
     def get_so(self, ext):
         return self.dest + '/' + '/'.join(ext.name.split('.')) + '.' + \
@@ -160,10 +162,11 @@ def symlink_python_files(dest):
         if os.path.basename(parent) == '__pycache__':
             continue
 
-        files = [
-            f for f in files
-            if f.endswith('.py') and not f.endswith('_ext.py')
-            and not f.startswith('test_')]
+        def _is_python_file(f):
+            return f.endswith('.py') and not f.endswith('_ext.py') \
+                and not f.startswith('test_')
+
+        files = [f for f in files if _is_python_file(f)]
 
         if not files:
             continue
@@ -191,7 +194,8 @@ def get_parser():
     argparser.add_argument(
         '-d', dest='debug', const=True, action='store_const', default=False)
     argparser.add_argument(
-        '--sanitize', dest='sanitize', const=True, action='store_const', default=False)
+        '--sanitize', dest='sanitize', const=True, action='store_const',
+        default=False)
     argparser.add_argument(
         '--profile-generate', dest='profile_generate', const=True,
         action='store_const', default=False)
@@ -214,11 +218,16 @@ def get_parser():
     argparser.add_argument(
         '--coverage', dest='coverage', const=True,
         action='store_const', default=False)
-    argparser.add_argument('-O1', dest='optimization', const='1', action='store_const')
-    argparser.add_argument('-O2', dest='optimization', const='2', action='store_const')
-    argparser.add_argument('-O3', dest='optimization', const='3', action='store_const')
-    argparser.add_argument('-Os', dest='optimization', const='s', action='store_const')
-    argparser.add_argument('-native', dest='native', const=True, action='store_const', default=False)
+    argparser.add_argument('-O1', dest='optimization', const='1',
+                           action='store_const')
+    argparser.add_argument('-O2', dest='optimization', const='2',
+                           action='store_const')
+    argparser.add_argument('-O3', dest='optimization', const='3',
+                           action='store_const')
+    argparser.add_argument('-Os', dest='optimization', const='s',
+                           action='store_const')
+    argparser.add_argument('-native', dest='native', const=True,
+                           action='store_const', default=False)
     argparser.add_argument('--path', dest='path')
     argparser.add_argument('--extra-compile', dest='extra_compile', default='')
     argparser.add_argument('--kit', dest='kit')
@@ -287,7 +296,9 @@ def main():
     if args.debug:
         append_compile_args('-g3', '-O0', '-Wp,-U_FORTIFY_SOURCE')
     if args.sanitize:
-        append_compile_args('-g3', '-fsanitize=address', '-fsanitize=undefined', '-fno-common', '-fno-omit-frame-pointer')
+        append_compile_args('-g3', '-fsanitize=address',
+                            '-fsanitize=undefined', '-fno-common',
+                            '-fno-omit-frame-pointer')
         prepend_libraries('asan', 'ubsan')
     if args.profile_generate:
         append_compile_args('--profile-generate')
@@ -341,6 +352,7 @@ def main():
                 'sources': ext_module.sources
             }
             pytoml.dump(f, build_info)
+
 
 if __name__ == '__main__':
     main()

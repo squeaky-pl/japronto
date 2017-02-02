@@ -1,5 +1,4 @@
 import asyncio
-import uvloop
 import argparse
 import os.path
 import sys
@@ -7,12 +6,10 @@ import socket
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + '/../../src'))
 
-import japronto.protocol.handler
-
-
-from japronto.router.cmatcher import Matcher
-from japronto.router import Router
-from japronto.app import Application
+import japronto.protocol.handler  # noqa
+from japronto.router.cmatcher import Matcher  # noqa
+from japronto.router import Router  # noqa
+from japronto.app import Application  # noqa
 
 
 def slash(request):

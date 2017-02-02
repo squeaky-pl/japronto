@@ -1,7 +1,7 @@
 # Asynchronous handlers
 
 With Japronto you can freely combine synchronous and asynchronous handlers and
-fully take adventage of both ecosystems. Choose wisely when to use asynchronous
+fully take advantage of both ecosystems. Choose wisely when to use asynchronous
 programming. Unless you are connecting to third party APIs, want to run input-output tasks in the background, expect large
 latency or do long-running blocking queries to your database you are probably
 better off programming synchronously.

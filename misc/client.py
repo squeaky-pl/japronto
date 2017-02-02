@@ -61,7 +61,6 @@ class Response:
 
         return rest.get('charset', 'iso-8859-1')
 
-
     def read_body(self):
         self.body = readexact(self.sock, int(self.headers['Content-Length']))
         self.text = self.body.decode(self.encoding)
@@ -112,7 +111,8 @@ class Connection:
             .format(method=method, url=url)
         self.putline(request_line)
 
-    def request(self, method, path, query_string=None, headers=None, body=None):
+    def request(self, method, path, query_string=None, headers=None,
+                body=None):
         self.putrequest(method, path, query_string)
         headers = headers or []
         for name, value in headers:

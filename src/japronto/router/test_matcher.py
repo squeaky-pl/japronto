@@ -65,7 +65,7 @@ def parametrize_request_route_and_dict(cases):
         'req,route,match_dict',
         ((FakeRequest.from_str(req), route_from_str(route), match_dict)
             for req, route, match_dict in cases),
-            ids=[req + '-' + route for req, route, _ in cases])
+        ids=[req + '-' + route for req, route, _ in cases])
 
 
 @parametrize_request_route_and_dict([

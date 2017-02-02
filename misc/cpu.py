@@ -39,7 +39,8 @@ def change(governor, freq=None):
         try:
             subprocess.check_output([
                 "sudo", "bash", "-c",
-                "echo {governor} > {cpuprefix}cpu{i}/cpufreq/scaling_governor".format(governor=governor, cpuprefix=cpuprefix, i=i)],
+                "echo {governor} > {cpuprefix}cpu{i}/cpufreq/scaling_governor"
+                .format(governor=governor, cpuprefix=cpuprefix, i=i)],
                 stderr=subprocess.STDOUT)
         except:
             break
@@ -47,7 +48,8 @@ def change(governor, freq=None):
         if freq:
             subprocess.check_output([
                 "sudo", "bash", "-c",
-                "echo {freq} > {cpuprefix}cpu{i}/cpufreq/scaling_setspeed".format(freq=freq, cpuprefix=cpuprefix, i=i)],
+                "echo {freq} > {cpuprefix}cpu{i}/cpufreq/scaling_setspeed"
+                .format(freq=freq, cpuprefix=cpuprefix, i=i)],
                 stderr=subprocess.STDOUT)
 
         i += 1
