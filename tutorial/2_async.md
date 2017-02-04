@@ -18,7 +18,7 @@ better off programming synchronously.
       return request.Response(text='I am synchronous!')
 
 
-  # This is an asynchronou handler, it spends most of the time in the event loop.
+  # This is an asynchronous handler, it spends most of the time in the event loop.
   # It wakes up every second 1 to print and finally returns after 3 seconds.
   # This does let other handlers to be executed in the same processes while
   # from the point of view of the client it took 3 seconds to complete.

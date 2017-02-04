@@ -26,8 +26,8 @@ def mime(request):
         """)
 
 
-# Or serve binary data. `Content-Type` set to `appilication/octet-stream`
-# automtically but you can always provide your own `mime_type`.
+# Or serve binary data. `Content-Type` set to `application/octet-stream`
+# automatically but you can always provide your own `mime_type`.
 def body(request):
     return request.Response(body=b'\xde\xad\xbe\xef')
 

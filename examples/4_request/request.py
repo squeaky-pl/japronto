@@ -8,7 +8,7 @@ from japronto import Application
 # Given a HTTP 1.1 `GET` request to `/basic?a=1` this would yield
 # `method` set to `GET`, `path` set to `/basic`, `version` set to `1.1`
 # `query_string` set to `a=1` and `query` set to `{'a': '1'}`.
-# Additionaly if headers are sent they will be present in `request.headers`
+# Additionally if headers are sent they will be present in `request.headers`
 # dictionary. The keys are normalized to standard `Camel-Cased` convention.
 def basic(request):
     text = """Basic request properties:
@@ -28,14 +28,14 @@ def basic(request):
 
 # Message body
 # If there is a message body attached to a request (as in a case of `POST`)
-# method the following attriutes can be used to examine it.
-# Given a `POST` request with body set to `b'J\xc3\xa1'`, `Content-Length`
-# header set to `3` and `Content-Type` header set to `text/plain;
-# charset=utf-8` this would yield `mime_type` set to `'text/plain'`,
-# `encoding` set to `'utf-8'`, `body` set to `b'J\xc3\xa1'` and `text` set to
-# `'Já'`.  `form` and `files` attributes are dictionaries respectively used for
-# HTML forms and HTML file uploads. The `json` helper property will try to
-# decode `body` as a JSON document and give you resulting Python data type.
+# method the following attributes can be used to examine it.
+# Given a `POST` request with body set to `b'J\xc3\xa1'`, `Content-Length` header set
+# to `3` and `Content-Type` header set to `text/plain; charset=utf-8` this
+# would yield `mime_type` set to `'text/plain'`, `encoding` set to `'utf-8'`,
+# `body` set to `b'J\xc3\xa1'` and `text` set to `'Já'`.
+# `form` and `files` attributes are dictionaries respectively used for HTML forms and
+# HTML file uploads. The `json` helper property will try to decode `body` as a
+# JSON document and give you resulting Python data type.
 def body(request):
     text = """Body related properties:
       Mime type: {0.mime_type}

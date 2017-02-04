@@ -78,7 +78,7 @@ class Application:
         print(tb, file=sys.stderr, end='')
         return request.Response(
             code=500,
-            text=tb if self._debug else 'Internval Server Error')
+            text=tb if self._debug else 'Internal Server Error')
 
     def error_handler(self, request, exception):
         for typ, handler in self._error_handlers:
@@ -113,7 +113,7 @@ class Application:
 #       for c in busy_connections:
 #            need to implement something that makes protocol.on_data
 #            start rejecting incoming data
-#            this closes transposrt unfortunately
+#            this closes transport unfortunately
 #            sock = c.transport.get_extra_info('socket')
 #            sock.shutdown(socket.SHUT_RD)
 
