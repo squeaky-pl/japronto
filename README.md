@@ -28,6 +28,8 @@ Early preview
 
 This is an early preview with alpha quality implementation. APIs are provisional meaning that they will change between versions and more testing is needed. Don't use it for anything serious for now and definitely don't use it in production. Please try it though and report back feddback. If you are shopping for your next project's framework I would recommend [Sanic](https://github.com/channelcat/sanic).
 
+At the moment the work is focused on CPython but I have PyPy on my radar, though I am not gonna look into it until PyPy reaches 3.5 compatibility somewhere later this year and most known JIT regressions are removed.
+
 Hello world
 -----------
 
