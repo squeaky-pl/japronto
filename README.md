@@ -23,6 +23,11 @@ The server is written in hand tweaked C trying to take advantage of modern CPUs.
 chunked-encoding parsing while uvloop provides asynchronous I/O. It also tries to save up on
 system calls by combining writes together when possible.
 
+Early preview
+-------------
+
+This is an early preview with alpha quality implementation. APIs are provisional meaning that they will change between versions and more testing is needed. Don't use it for anything serious for now and definitely don't use it in production. Please try it though and report back feddback. If you are shopping for your next project's framework I would recommend [Sanic](https://github.com/channelcat/sanic).
+
 Hello world
 -----------
 
