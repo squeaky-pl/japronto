@@ -1,6 +1,6 @@
 # Handling exceptions
 
-There might be cases when there are exceptions raised you want to turn into custom responses instead of failing with 500 Internal Server Error. Or you might want to override the default 404 handler. Enter exception handlers.
+There may be cases where you may want to respond with a custom response instead of a 500 Internal Server Error when an exception(s) is raised. Or you might want to override the default 404 handler. Enter exception handlers.
 
   ```python
   # examples/6_exceptions/exceptions.py

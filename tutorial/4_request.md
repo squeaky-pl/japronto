@@ -1,6 +1,6 @@
 # Request Object
 
-Request represent an incoming HTTP request with a rich set of properties. They can be divided into
+Request represents an incoming HTTP request with a rich set of properties. They can be divided into
 three categories: Request line and headers, message body and miscellaneous.
 
   ```python
