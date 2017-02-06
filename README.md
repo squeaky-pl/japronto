@@ -9,7 +9,7 @@ You can read more in the [release announcement on medium](https://medium.com/@sq
 Performance
 -----------
 
-Here comes a chart to help you imagine what kind of things you can do with Japronto:
+Here's a chart to help you imagine what kind of things you can do with Japronto:
 
 ![Requests per second](benchmarks/results.png)
 
