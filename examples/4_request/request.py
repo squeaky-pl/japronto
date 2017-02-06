@@ -5,7 +5,7 @@ from japronto import Application
 
 # Request line and headers.
 # This represents the part of a request that comes before message body.
-# Given a HTTP 1.1 `GET` request to `/basic?a=1` this would yield
+# Given an HTTP 1.1 `GET` request to `/basic?a=1` this would yield
 # `method` set to `GET`, `path` set to `/basic`, `version` set to `1.1`
 # `query_string` set to `a=1` and `query` set to `{'a': '1'}`.
 # Additionally if headers are sent they will be present in `request.headers`
@@ -28,7 +28,7 @@ def basic(request):
 
 # Message body
 # If there is a message body attached to a request (as in a case of `POST`)
-# method the following attributes can be used to examine it.
+# the following attributes can be used to examine it.
 # Given a `POST` request with body set to `b'J\xc3\xa1'`, `Content-Length` header set
 # to `3` and `Content-Type` header set to `text/plain; charset=utf-8` this
 # would yield `mime_type` set to `'text/plain'`, `encoding` set to `'utf-8'`,
@@ -62,7 +62,7 @@ def body(request):
 # route chosen by router to handle this request. `hostname` and `port`
 # represent parsed `Host` header if any. `remote_addr` is the address of
 # a client or reverse proxy. If `keep_alive` is true the client requested to
-# keep connection open after the response is delivered. `match_dict` contains
+# keep the connection open after the response is delivered. `match_dict` contains
 # route placeholder values as documented in `2_router.md`. `cookies` contains
 # a dictionary of HTTP cookies if any.
 def misc(request):

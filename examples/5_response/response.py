@@ -4,13 +4,13 @@ from http.cookies import SimpleCookie
 from japronto.app import Application
 
 
-# Providing just text argument yields a `text/plain` response
+# Providing just a text argument yields a `text/plain` response
 # encoded with `utf8` codec (charset set accordingly)
 def text(request):
     return request.Response(text='Hello world!')
 
 
-# You can override encoding by providing `encoding` attribute.
+# You can override encoding by providing the `encoding` attribute.
 def encoding(request):
     return request.Response(text='Já pronto!', encoding='iso-8859-1')
 
@@ -26,7 +26,7 @@ def mime(request):
         """)
 
 
-# Or serve binary data. `Content-Type` set to `application/octet-stream`
+# Or serve binary data. `Content-Type` is set to `application/octet-stream`
 # automatically but you can always provide your own `mime_type`.
 def body(request):
     return request.Response(body=b'\xde\xad\xbe\xef')
