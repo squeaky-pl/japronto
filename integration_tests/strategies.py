@@ -2,7 +2,11 @@ import string
 import re
 
 from hypothesis import strategies as st
-
+sampled_from = st.sampled_from
+fixed_dictionaries = st.fixed_dictionaries
+lists = st.lists
+builds = st.builds
+integers = st.integers
 
 _method_alphabet = ''.join(chr(x) for x in range(33, 256) if x != 127)
 method = st.text(_method_alphabet, min_size=1)
