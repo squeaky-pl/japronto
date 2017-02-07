@@ -361,7 +361,13 @@ static const char *parse_request(const char *buf, const char *buf_end, const cha
     return parse_headers(buf, buf_end, headers, num_headers, max_headers, ret);
 }
 
-int phr_parse_request(const char *buf_start, size_t len, const char **method, size_t *method_len, const char **path,
+#ifdef __SSE4_2__
+#define PHR_PARSE_REQUEST phr_parse_request_sse42
+#else
+#define PHR_PARSE_REQUEST phr_parse_request
+#endif
+
+int PHR_PARSE_REQUEST(const char *buf_start, size_t len, const char **method, size_t *method_len, const char **path,
                       size_t *path_len, int *minor_version, struct phr_header *headers, size_t *num_headers, size_t last_len)
 {
     const char *buf = buf_start, *buf_end = buf_start + len;
@@ -389,6 +395,8 @@ int phr_parse_request(const char *buf_start, size_t len, const char **method, si
     return (int)(buf - buf_start);
 }
 
+// squeaky_pl: we don't use this yet
+#if 0
 static const char *parse_response(const char *buf, const char *buf_end, int *minor_version, int *status, const char **msg,
                                   size_t *msg_len, struct phr_header *headers, size_t *num_headers, size_t max_headers, int *ret)
 {
@@ -464,6 +472,7 @@ int phr_parse_headers(const char *buf_start, size_t len, struct phr_header *head
 
     return (int)(buf - buf_start);
 }
+#endif
 
 enum {
     CHUNKED_IN_CHUNK_SIZE,
@@ -474,6 +483,7 @@ enum {
     CHUNKED_IN_TRAILERS_LINE_MIDDLE
 };
 
+#ifndef __SSE4_2__
 static int decode_hex(int ch)
 {
     if ('0' <= ch && ch <= '9') {
@@ -601,11 +611,15 @@ Exit:
     *_bufsz = dst;
     return ret;
 }
+#endif
 
+// squeaky_pl: we dont use this
+#if 0
 int phr_decode_chunked_is_in_data(struct phr_chunked_decoder *decoder)
 {
     return decoder->_state == CHUNKED_IN_CHUNK_DATA;
 }
+#endif
 
 #undef CHECK_EOF
 #undef EXPECT_CHAR

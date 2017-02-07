@@ -6,5 +6,7 @@ def get_extension():
         'japronto.parser.cparser',
         sources=['cparser.c'],
         include_dirs=['../../picohttpparser'],
-        extra_objects=['src/picohttpparser/picohttpparser.o'],
+        extra_objects=[
+            'src/picohttpparser/picohttpparser.o',
+            'src/picohttpparser/ssepicohttpparser.o'],
         define_macros=[('PARSER_STANDALONE', 1)])
