@@ -53,12 +53,19 @@ struct phr_header {
 int phr_parse_request(const char *buf, size_t len, const char **method, size_t *method_len, const char **path, size_t *path_len,
                       int *minor_version, struct phr_header *headers, size_t *num_headers, size_t last_len);
 
+int phr_parse_request_sse42(const char *buf, size_t len, const char **method, size_t *method_len, const char **path, size_t *path_len,
+                      int *minor_version, struct phr_header *headers, size_t *num_headers, size_t last_len);
+
+
 /* ditto */
+// squeaky_p: we don't use it yet
+#if 0
 int phr_parse_response(const char *_buf, size_t len, int *minor_version, int *status, const char **msg, size_t *msg_len,
                        struct phr_header *headers, size_t *num_headers, size_t last_len);
 
 /* ditto */
 int phr_parse_headers(const char *buf, size_t len, struct phr_header *headers, size_t *num_headers, size_t last_len);
+#endif
 
 /* should be zero-filled before start */
 struct phr_chunked_decoder {

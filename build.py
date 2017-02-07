@@ -261,8 +261,12 @@ class custom_build_ext(build_ext):
         compile_c(
             self.compiler,
             'src/picohttpparser/picohttpparser.c',
-            'src/picohttpparser/picohttpparser.o',
+            'src/picohttpparser/ssepicohttpparser.o',
             options={'unix': ['-msse4.2']})
+        compile_c(
+            self.compiler,
+            'src/picohttpparser/picohttpparser.c',
+            'src/picohttpparser/picohttpparser.o')
         build_ext.build_extensions(self)
 
 
