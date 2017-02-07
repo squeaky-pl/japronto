@@ -31,7 +31,7 @@ setup(
     package_dir={'': 'src'},
     packages=find_packages('src'),
     keywords=['web asyncio'],
-    platforms='linux',
+    platforms='x86_64 Linux and MacOS X',
     install_requires=[
         'uvloop>=0.7.2',
     ],
@@ -44,6 +44,9 @@ setup(
         'Intended Audience :: Developers',
         'Environment :: Web Environment',
         'License :: OSI Approved :: MIT License',
+        'Operating System :: MacOS :: MacOS X',
+        'Operating System :: POSIX :: Linux',
+        'Programming Language :: C',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
