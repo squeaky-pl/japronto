@@ -8,6 +8,7 @@ import shutil
 import sysconfig
 import os
 import sys
+import subprocess
 try:
     import pytoml
 except ImportError:
@@ -247,6 +248,33 @@ def get_platform():
     return ext_modules
 
 
+class custom_build_ext(build_ext):
+    def build_extensions(self):
+        if self.compiler.compiler_type == 'unix':
+            for ext in self.extensions:
+                if not ext.extra_compile_args:
+                    ext.extra_compiler_args = []
+                ext.extra_compile_args.extend([
+                    '-std=c99', '-frecord-gcc-switches', '-UNDEBUG'])
+        compile_c(
+            self.compiler,
+            'src/picohttpparser/picohttpparser.c',
+            'src/picohttpparser/picohttpparser.o',
+            options={'unix': ['-msse4.2']})
+        build_ext.build_extensions(self)
+
+
+def compile_c(compiler, cfile, ofile, *, options=None):
+    if not options:
+        options = {}
+
+    options = options.get(compiler.compiler_type, [])
+    cmd = [*compiler.compiler_so, *options, '-c', '-o', ofile, cfile]
+    print("building '{}'".format(ofile))
+    print(' '.join(cmd))
+    subprocess.check_call(cmd)
+
+
 def main():
     argparser = get_parser()
     args = argparser.parse_args(sys.argv[1:])
@@ -287,8 +315,6 @@ def main():
     def prepend_libraries(*values):
         add_args('libraries', values, append=False)
 
-    append_compile_args('-frecord-gcc-switches', '-UNDEBUG')
-
     if args.native:
         append_compile_args('-march=native')
     if args.optimization:
@@ -317,15 +343,15 @@ def main():
     if args.extra_compile:
         append_compile_args(args.extra_compile)
 
-    ext_modules = [e for e in ext_modules if system.should_rebuild(e)]
-    if not ext_modules:
-        return
+#    ext_modules = [e for e in ext_modules if system.should_rebuild(e)]
+#    if not ext_modules:
+#        return
 
     dist = Distribution(dict(ext_modules=ext_modules))
 
     prune(args.dest)
 
-    cmd = build_ext(dist)
+    cmd = custom_build_ext(dist)
     cmd.build_lib = os.path.join(args.dest, '.build/lib')
     cmd.build_temp = os.path.join(args.dest, '.build/temp')
     cmd.finalize_options()

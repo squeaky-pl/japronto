@@ -26,7 +26,7 @@ setup(
     license='MIT',
     author='Paweł Piotr Przeradowski',
     author_email='przeradowski@gmail.com',
-    description='A micro-framework bundled with server' +
+    description='A micro-framework bundled with server ' +
                 'based on uvloop and picohttpparser',
     package_dir={'': 'src'},
     packages=find_packages('src'),
@@ -52,5 +52,6 @@ setup(
     zip_safe=False,
     include_package_data=True,
     package_data={'picohttpparser': ['*.so']},
-    ext_modules=build.get_platform()
+    ext_modules=build.get_platform(),
+    cmdclass={'build_ext': build.custom_build_ext}
 )

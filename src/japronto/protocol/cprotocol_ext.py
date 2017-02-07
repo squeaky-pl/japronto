@@ -20,6 +20,5 @@ def get_extension():
             '.', '..', '../parser', '../pipeline',
             '../router', '../request',
             '../response', *cparser.include_dirs],
-        libraries=cparser.libraries, library_dirs=cparser.library_dirs,
-        extra_link_args=cparser.extra_link_args,
+        extra_objects=cparser.extra_objects,
         define_macros=define_macros)
