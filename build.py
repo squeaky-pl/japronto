@@ -343,9 +343,9 @@ def main():
     if args.extra_compile:
         append_compile_args(args.extra_compile)
 
-#    ext_modules = [e for e in ext_modules if system.should_rebuild(e)]
-#    if not ext_modules:
-#        return
+    ext_modules = [e for e in ext_modules if system.should_rebuild(e)]
+    if not ext_modules:
+        return
 
     dist = Distribution(dict(ext_modules=ext_modules))
 
