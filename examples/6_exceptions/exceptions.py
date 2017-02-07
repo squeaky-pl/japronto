@@ -1,7 +1,7 @@
 from japronto import Application, RouteNotFoundException
 
 
-# Those are our custom exceptions we want to turn into 200 response.
+# These are our custom exceptions we want to turn into 200 response.
 class KittyError(Exception):
     def __init__(self):
         self.greet = 'meow'
@@ -22,7 +22,7 @@ def dog(request):
     raise DoggieError()
 
 
-# This handler raises ZeroDivisionError which doesnt have an error
+# This handler raises ZeroDivisionError which doesn't have an error
 # handler registered so it will result in 500 Internal Server Error
 def unhandled(request):
     1 / 0

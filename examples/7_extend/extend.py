@@ -13,7 +13,7 @@ def extended_hello(request):
 
 
 # This view registers a callback, such callbacks are executed after handler
-# exit and the response is ready to be sent over the wire.
+# exits and the response is ready to be sent over the wire.
 def with_callback(request):
     def cb(r):
         print('Done!')
@@ -36,7 +36,7 @@ def host_startswith(request, prefix):
 
 
 app = Application()
-# Finally register out custom property and method
+# Finally register the  custom property and method
 # By default the names are taken from function names
 # unelss you provide `name` keyword parameter.
 app.extend_request(reversed_agent, property=True)
