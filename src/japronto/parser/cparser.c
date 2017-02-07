@@ -1,3 +1,4 @@
+#include <strings.h>
 #include <sys/param.h>
 
 #include "cparser.h"

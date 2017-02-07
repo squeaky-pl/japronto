@@ -1,5 +1,7 @@
 #include <stddef.h>
 #include <sys/param.h>
+#include <strings.h>
+#include <string.h>
 
 #include "crequest.h"
 

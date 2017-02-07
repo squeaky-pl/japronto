@@ -254,7 +254,7 @@ class custom_build_ext(build_ext):
             for ext in self.extensions:
                 if not ext.extra_compile_args:
                     ext.extra_compiler_args = []
-                extra_compile_args = ['-std=c99', '-UNDEBUG']
+                extra_compile_args = ['-std=c99', '-UNDEBUG', '-D_GNU_SOURCE']
                 if self.compiler.compiler_so[0].startswith('gcc'):
                     extra_compile_args.append('-frecord-gcc-switches')
                 ext.extra_compile_args.extend(extra_compile_args)
