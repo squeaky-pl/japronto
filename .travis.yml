@@ -1,0 +1,13 @@
+language:
+  - objective-c
+
+env:
+  matrix:
+    - VERSION=3.5.3
+    - VERSION=3.6.0
+
+install:
+  - source misc/terryfy/travis_tools.sh
+  - source misc/terryfy/library_installers.sh
+  - clean_builds
+  - get_python_environment macpython $VERSION venv
