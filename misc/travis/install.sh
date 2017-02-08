@@ -13,7 +13,6 @@ if [[ $JAPR_WHEEL == "1" ]]; then
   pip install twine
 
   if [[ $JAPR_OS == "Linux" ]]; then
-    wget -qO- https://get.docker.com/ | sh
     docker info
     docker pull quay.io/pypa/manylinux1_x86_64
   fi
