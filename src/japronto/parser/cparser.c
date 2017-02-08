@@ -2,6 +2,7 @@
 #include <sys/param.h>
 
 #include "cparser.h"
+#include "cpu_features.h"
 
 #ifndef PARSER_STANDALONE
 #include "cprotocol.h"
@@ -744,9 +745,7 @@ int
 cparser_init(void)
 #endif
 {
-    __builtin_cpu_init();
-
-    if(__builtin_cpu_supports("sse4.2")) {
+    if(supports_x86_sse42()) {
       _phr_parse_request = phr_parse_request_sse42;
     } else {
       printf("Warning: Host CPU doesnt support SSE 4.2, selecting slower implementation");
