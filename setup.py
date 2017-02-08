@@ -30,7 +30,7 @@ setup(
                 'based on uvloop and picohttpparser',
     package_dir={'': 'src'},
     packages=find_packages('src'),
-    keywords=['web asyncio'],
+    keywords=['web', 'asyncio'],
     platforms='x86_64 Linux and MacOS X',
     install_requires=[
         'uvloop>=0.7.2',
