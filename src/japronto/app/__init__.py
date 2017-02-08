@@ -5,6 +5,7 @@ import socket
 import os
 import sys
 import multiprocessing
+import faulthandler
 
 import uvloop
 
@@ -156,6 +157,7 @@ class Application:
         self._request_extensions[name] = (handler, property)
 
     def serve(self, *, sock, host, port, reloader_pid):
+        faulthandler.enable()
         self.__finalize()
 
         loop = self.loop
