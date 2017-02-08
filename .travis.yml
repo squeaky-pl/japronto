@@ -11,3 +11,8 @@ install:
   - source misc/terryfy/library_installers.sh
   - clean_builds
   - get_python_environment macpython $VERSION venv
+  - python setup.py bdist_wheel
+
+script:
+  - ls -lha dist
+  - unzip -l dist/*.whl
