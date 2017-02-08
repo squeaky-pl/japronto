@@ -748,7 +748,7 @@ cparser_init(void)
     if(supports_x86_sse42()) {
       _phr_parse_request = phr_parse_request_sse42;
     } else {
-      printf("Warning: Host CPU doesnt support SSE 4.2, selecting slower implementation");
+      printf("Warning: Host CPU doesn't support SSE 4.2, selecting slower implementation\n");
       _phr_parse_request = phr_parse_request;
     }
 
