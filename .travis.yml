@@ -1,6 +1,4 @@
-os:
-  - linux
-  - osx
+language: python
 
 sudo: required
 
