@@ -1,5 +1,6 @@
-language:
-  - objective-c
+os:
+  - linux
+  - osx
 
 env:
   global:
@@ -8,15 +9,8 @@ env:
     - VERSION=3.5.3
     - VERSION=3.6.0
 
-install:
-  - source misc/terryfy/travis_tools.sh
-  - source misc/terryfy/library_installers.sh
-  - clean_builds
-  - get_python_environment macpython $VERSION venv
-  - pip install twine
+before_install: source misc/travis/before_install.sh
 
-script:
-  - python setup.py bdist_wheel
-  - ls -lha dist
-  - unzip -l dist/*.whl
-  - twine upload -u squeaky dist/*.whl
+install: misc/travis/install.sh
+
+script: misc/travis/script.sh
