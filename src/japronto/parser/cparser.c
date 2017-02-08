@@ -2,6 +2,7 @@
 #include <sys/param.h>
 
 #include "cparser.h"
+#include "cpu_features.h"
 
 #ifndef PARSER_STANDALONE
 #include "cprotocol.h"
@@ -137,6 +138,10 @@ Parser_dealloc(Parser* self)
 #endif
 }
 
+static int
+(*_phr_parse_request)(
+  const char *, size_t, const char **, size_t *, const char **, size_t *,
+  int *, struct phr_header *, size_t *, size_t);
 
 static int _parse_headers(Parser* self) {
 #ifdef PARSER_STANDALONE
@@ -161,7 +166,7 @@ static int _parse_headers(Parser* self) {
   struct phr_header headers[50];
   size_t num_headers = sizeof(headers) / sizeof(struct phr_header);
 
-  result = phr_parse_request(
+  result = _phr_parse_request(
     self->buffer + self->buffer_start, self->buffer_end - self->buffer_start,
     (const char**)&method, &method_len,
     (const char**)&path, &path_len,
@@ -740,6 +745,13 @@ int
 cparser_init(void)
 #endif
 {
+    if(supports_x86_sse42()) {
+      _phr_parse_request = phr_parse_request_sse42;
+    } else {
+      printf("Warning: Host CPU doesn't support SSE 4.2, selecting slower implementation\n");
+      _phr_parse_request = phr_parse_request;
+    }
+
     malformed_headers = NULL;
     invalid_headers = NULL;
     malformed_body = NULL;
