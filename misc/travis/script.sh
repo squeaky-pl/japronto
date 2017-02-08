@@ -4,13 +4,12 @@ set -ex
 
 if [[ $JAPR_WHEEL == "1" ]]; then
   if [[ $JAPR_OS == "Linux" ]]; then
-    docker run --rm -u `id -u` -w /io -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /opt/python/cp35-cp35m/bin/python setup.py bdist_wheel
-    docker run --rm -u `id -u` -w /io -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /opt/python/cp36-cp36m/bin/python setup.py bdist_wheel
-    docker run --rm -u `id -u` -w /io -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 auditwheel repair dist/*-cp35-cp35m-linux_x86_64.whl
-    docker run --rm -u `id -u` -w /io -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 auditwheel repair dist/*-cp36-cp36m-linux_x86_64.whl
-    rm -f dist/*.whl
-    ls -lha wheelhouse
-    unzip -l wheelhouse/*.whl
+    for PYTHON_TAG in "cp35-cp35m cp36-cp36m"; do
+      docker run --rm -u `id -u` -w /io -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /opt/python/$PYTHON_TAG/bin/python setup.py bdist_wheel
+      docker run --rm -u `id -u` -w /io -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 auditwheel repair dist/*-$PYTHON_TAG-linux_x86_64.whl
+      unzip -l wheelhouse/*-$PYTHON_TAG-manylinux1_x86_64.whl
+    done
+    rm -f dist/*
     cp wheelhouse/*.whl dist
   fi
 
