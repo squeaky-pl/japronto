@@ -1,9 +1,4 @@
-language: python
-
-sudo: required
-
-services:
-  - docker
+language: objective-c
 
 env:
   global:
