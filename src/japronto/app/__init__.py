@@ -13,6 +13,11 @@ from japronto.protocol.cprotocol import Protocol
 from japronto.protocol.creaper import Reaper
 
 
+signames = {
+    int(v): v.name for k, v in signal.__dict__.items()
+    if isinstance(v, signal.Signals)}
+
+
 class Application:
     def __init__(self, *, reaper_settings=None, log_request=None,
                  protocol_factory=None, debug=False):
@@ -71,7 +76,6 @@ class Application:
         if isinstance(exception, asyncio.CancelledError):
             return request.Response(code=503, text='Service unavailable')
 
-        # FIXME traceback should be only available in debug mode
         tb = traceback.format_exception(
             None, exception, exception.__traceback__)
         tb = ''.join(tb)
@@ -228,8 +232,17 @@ class Application:
         for worker in workers:
             worker.join()
 
-            if worker.exitcode != 0:
-                print('Worker exited with code {}!'.format(worker.exitcode))
+            if worker.exitcode > 0:
+                print('Worker exited with code {}'.format(worker.exitcode))
+            elif worker.exitcode < 0:
+                try:
+                    signame = signames[-worker.exitcode]
+                except KeyError:
+                    print(
+                        'Worker crashed with unknown code {}!'
+                        .format(worker.exitcode))
+                else:
+                    print('Worker crashed on signal {}!'.format(signame))
 
     def run(self, host='0.0.0.0', port=8080, *, worker_num=None, reload=False,
             debug=False):
