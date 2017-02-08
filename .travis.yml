@@ -7,6 +7,7 @@ env:
     - VERSION=3.6.0
 
 install:
+  - env
   - source misc/terryfy/travis_tools.sh
   - source misc/terryfy/library_installers.sh
   - clean_builds
@@ -16,3 +17,12 @@ install:
 script:
   - ls -lha dist
   - unzip -l dist/*.whl
+
+deploy:
+  provider: pypi
+  user: squeaky
+  password:
+    secure: "MNk3oveVD95AFd/PXdSViwrNG6aaeDaPp4AmP9xXEiSRpXjQtPO1cjKIaydiN+DtgaXsee8/4d2HNND0B2MT3VPPYn8bxwu/m8PJwxzgh7bPE8nfPgjZ22hkQg8NsguFDsB1WOkGQR30c10Z7SoHhXO6p/j4mMyzv8llTfGlp/nynY9W6AXjS+9cM33jzD2CN9FU964GPRF6x8ivY8RRhQo8mJ406H44o8e29OKBLJZfQeo53AN9mQ0+MBua0UW3DqKEFiQ/b+rUACBY3q1n/PPHNK9GESRSvXdq1wP52sc0TL187MFnGFeOrZXDhY92WIwlivDOJr1Sbxlcml6S6h/09cOmjA22UuhfYmtAnnrTg3DZQJKoS7kWydwPHAimDnwiahbbe3zi5HeWSIF0Ln+nOEo+g9xdVeV16vkJQx5vlheLAKSxITdJhxjJV7941bOh9+ZnDSR+ITa6T4j+8wdDJKo+eekuK6cbE1tqIAblp8uxSuLtMbI6ryEd8EqcZkoAUFqmvHkiIBZoPJcd58b0X1TpTA2vHe/SPTGxFBy/ervPGwdm9B8mqBVcQF9chZkd4Ao/u/dsmafnb4x+i/Oj4RpsmCz0sGMD5a1jiQsq7PqEXxTj/haihAd0V15mTHhFO3nEqyTCwPObthwqlRLvm5kgTGJFytGtuDtjWcI="
+  distributions: "bdist_wheel"
+  on:
+    branch: travis-wheels
