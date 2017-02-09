@@ -1,4 +1,5 @@
-language: objective-c
+language:
+- objective-c
 
 env:
   global:
