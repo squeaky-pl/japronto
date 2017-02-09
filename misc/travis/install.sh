@@ -3,6 +3,7 @@
 set -ex
 
 if [[ $JAPR_OS == "Darwin" ]]; then
+  /usr/bin/clang --version
   source misc/terryfy/travis_tools.sh
   source misc/terryfy/library_installers.sh
   clean_builds
