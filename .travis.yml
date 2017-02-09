@@ -14,6 +14,6 @@ env:
 
 before_install: source misc/travis/before_install.sh
 
-install: misc/travis/install.sh
+install: source misc/travis/install.sh
 
 script: misc/travis/script.sh
