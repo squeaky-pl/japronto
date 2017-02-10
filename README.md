@@ -82,3 +82,11 @@ commercial and non-commercial work. Full text of the license is
 included in [LICENSE.txt](LICENSE.txt) file.
 
 The source distribution of this software includes a copy of picohttpparser which is distributed under MIT license as well.
+
+
+.. |Build Status| image:: https://travis-ci.org/squeaky-pl/japronto.svg?branch=master
+   :target: https://travis-ci.org/squeaky-pl/japronto
+.. |PyPI| image:: https://img.shields.io/pypi/v/japronto.svg
+   :target: https://pypi.python.org/pypi/japronto
+.. |PyPI version| image:: https://img.shields.io/pypi/pyversions/japronto.svg
+   :target: https://pypi.python.org/pypi/japronto/
