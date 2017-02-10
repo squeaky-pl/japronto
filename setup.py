@@ -26,7 +26,7 @@ setup(
     license='MIT',
     author='Paweł Piotr Przeradowski',
     author_email='przeradowski@gmail.com',
-    description='A micro-framework bundled with server ' +
+    description='A HTTP application toolkit and server bundle ' +
                 'based on uvloop and picohttpparser',
     package_dir={'': 'src'},
     packages=find_packages('src'),
