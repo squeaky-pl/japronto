@@ -1,5 +1,8 @@
 # Japronto!
 
+[![irc: #japronto](https://img.shields.io/badge/irc-%23japronto-brightgreen.svg)](https://webchat.freenode.net/?channels=japronto)
+ |Build Status| |PyPI| |PyPI version|
+
 Japronto (from Portuguese "já pronto" /ˈʒa pɾõtu/ meaning "already done") is a __screaming-fast__, __scalable__, __asynchronous__
 Python 3.5+ HTTP __toolkit__ integrated with __pipelining HTTP server__. It's targeted at speed enthusiasts, people who like
 plumbing and early adopters.
