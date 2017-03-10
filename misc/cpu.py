@@ -1,111 +1,151 @@
+"""
+CPU file
+"""
+
+
+# module imports
 import subprocess
 
-cpuprefix = '/sys/devices/system/cpu/'
+
+# cpu location
+CPU_PREFIX = '/sys/devices/system/cpu/'
 
 
 def save():
+    """
+    save function
+    """
     results = {}
-    i = 0
-    while 1:
+    cpu_number = 0
+
+    while True:
         try:
-            f = open(
-                cpuprefix + 'cpu{}/cpufreq/scaling_governor'.format(i))
+            _file = open(
+                CPU_PREFIX + 'cpu{}/cpufreq/scaling_governor'.format(cpu_number))
         except:
             break
 
-        governor = f.read().strip()
-        results.setdefault(i, {})['governor'] = governor
+        governor = _file.read().strip()
+        results.setdefault(cpu_number, {})['governor'] = governor
 
-        f.close()
+        _file.close()
 
         try:
-            f = open(
-                cpuprefix + 'cpu{}/cpufreq/scaling_cur_freq'.format(i))
+            _file = open(
+                CPU_PREFIX + 'cpu{}/cpufreq/scaling_cur_freq'.format(cpu_number))
         except:
             break
 
-        results[i]['freq'] = f.read().strip()
+        results[cpu_number]['freq'] = _file.read().strip()
 
-        f.close()
+        _file.close()
 
-        i += 1
+        cpu_number += 1
 
     return results
 
 
 def change(governor, freq=None):
-    i = 0
-    while 1:
+    """
+    change function
+    """
+    cpu_number = 0
+
+    while True:
         try:
             subprocess.check_output([
                 "sudo", "bash", "-c",
-                "echo {governor} > {cpuprefix}cpu{i}/cpufreq/scaling_governor"
-                .format(governor=governor, cpuprefix=cpuprefix, i=i)],
-                stderr=subprocess.STDOUT)
+                "echo {governor} > {CPU_PREFIX}cpu{cpu_number}/cpufreq/scaling_governor"
+                .format(governor=governor,
+                        CPU_PREFIX=CPU_PREFIX,
+                        cpu_number=cpu_number)],
+                                    stderr=subprocess.STDOUT)
         except:
             break
 
         if freq:
             subprocess.check_output([
                 "sudo", "bash", "-c",
-                "echo {freq} > {cpuprefix}cpu{i}/cpufreq/scaling_setspeed"
-                .format(freq=freq, cpuprefix=cpuprefix, i=i)],
-                stderr=subprocess.STDOUT)
+                "echo {freq} > {CPU_PREFIX}cpu{cpu_number}/cpufreq/scaling_setspeed"
+                .format(freq=freq,
+                        CPU_PREFIX=CPU_PREFIX,
+                        cpu_number=cpu_number)],
+                                    stderr=subprocess.STDOUT)
 
-        i += 1
+        cpu_number += 1
 
 
 def available_freq():
-    f = open(cpuprefix + 'cpu0/cpufreq/scaling_available_frequencies')
-    freq = [int(f) for f in f.read().strip().split()]
-    f.close()
+    """
+    function for checking available frequency
+    """
+    _file = open(CPU_PREFIX + 'cpu0/cpufreq/scaling_available_frequencies')
+
+    freq = [int(_file) for _file in _file.read().strip().split()]
+
+    _file.close()
 
     return freq
 
 
 def min_freq():
+    """
+    function for returning minimum available frequency
+    """
     return min(available_freq())
 
 
 def max_freq():
+    """
+    function for returning maximum avaliable frequency
+    """
     return max(available_freq())
 
 
 def dump():
+    """
+    dump function
+    """
+
     try:
         sensors = subprocess.check_output('sensors').decode('utf-8')
+
     except (FileNotFoundError, subprocess.CalledProcessError):
-        print('Couldnt read CPU temp')
+        print("Couldn't read CPU temp")
+
     else:
         cores = []
+
         for line in sensors.splitlines():
             if line.startswith('Core '):
                 core, rest = line.split(':')
                 temp = rest.strip().split()[0]
                 cores.append((core, temp))
+
         for core, temp in cores:
             print(core + ':', temp)
 
-    i = 0
-    while 1:
+    cpu_number = 0
+
+    while True:
         try:
-            f = open(
-                cpuprefix + 'cpu{}/cpufreq/scaling_governor'.format(i))
+            _file = open(
+                CPU_PREFIX + 'cpu{}/cpufreq/scaling_governor'.format(cpu_number))
         except:
             break
 
-        print('Core ' + str(i) + ':', f.read().strip(), end=', ')
+        print('Core ' + str(cpu_number) + ':', _file.read().strip(), end=', ')
 
-        f.close()
+        _file.close()
 
         try:
-            f = open(
-                cpuprefix + 'cpu{}/cpufreq/scaling_cur_freq'.format(i))
+            _file = open(
+                CPU_PREFIX + 'cpu{}/cpufreq/scaling_cur_freq'.format(cpu_number))
         except:
             break
 
-        freq = round(int(f.read()) / 10 ** 6, 2)
+        freq = round(int(_file.read()) / 10 ** 6, 2)
 
         print(freq, 'GHz')
 
-        i += 1
+        cpu_number += 1
