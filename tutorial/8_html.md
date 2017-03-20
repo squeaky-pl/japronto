@@ -34,7 +34,7 @@ app = Application()
 # Add routes to the app
 app.router.add_route('/', index)
 app.router.add_route('/example', example)
-app.router.add_route('jinja2', jinja)
+app.router.add_route('/jinja2', jinja)
 
 # Start the server
 app.run(debug=True)
