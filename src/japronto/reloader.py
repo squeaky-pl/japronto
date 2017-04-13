@@ -53,7 +53,7 @@ def change_detector():
         changed = False
         current_mtimes = {}
 
-        for name, module in sys.modules.items():
+        for name, module in list(sys.modules.items()):
             try:
                 filename = module.__file__
             except AttributeError:
