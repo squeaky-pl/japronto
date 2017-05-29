@@ -5,7 +5,7 @@ Serving HTML from japronto is as simple as adding a MIME type of `text/html` to 
 Copy and paste following code into a file named `html.py`:
 
 ```python
-# examples/8_html/html.py
+# examples/8_template/template.py
 from japronto import Application
 from jinja2 import Template
 
