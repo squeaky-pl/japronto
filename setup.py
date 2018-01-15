@@ -33,7 +33,7 @@ setup(
     keywords=['web', 'asyncio'],
     platforms='x86_64 Linux and MacOS X',
     install_requires=[
-        'uvloop>=0.7.2',
+        'uvloop<0.9.0',
     ],
     entry_points="""
          [console_scripts]
