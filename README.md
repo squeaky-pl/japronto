@@ -3,7 +3,7 @@
 [![irc: #japronto](https://img.shields.io/badge/irc-%23japronto-brightgreen.svg)](https://webchat.freenode.net/?channels=japronto)
 [![Gitter japronto/Lobby](https://badges.gitter.im/japronto/Lobby.svg)](https://gitter.im/japronto/Lobby) [![Build Status](https://travis-ci.org/squeaky-pl/japronto.svg?branch=master)](https://travis-ci.org/squeaky-pl/japronto) [![PyPI](https://img.shields.io/pypi/v/japronto.svg)](https://pypi.python.org/pypi/japronto) [![PyPI version](https://img.shields.io/pypi/pyversions/japronto.svg)](https://pypi.python.org/pypi/japronto/)
 
-__There is no new project development happening at the moment, but it's not abandoned either.__.
+__There is no new project development happening at the moment, but it's not abandoned either. Pull requests and new maintainers are welcome__.
 
 __If you are a novice Python programmer, you don't like plumbing yourself or you don't have basic understading of C, this project is not probably what you are looking for__.
 
