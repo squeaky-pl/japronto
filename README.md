@@ -3,6 +3,10 @@
 [![irc: #japronto](https://img.shields.io/badge/irc-%23japronto-brightgreen.svg)](https://webchat.freenode.net/?channels=japronto)
 [![Gitter japronto/Lobby](https://badges.gitter.im/japronto/Lobby.svg)](https://gitter.im/japronto/Lobby) [![Build Status](https://travis-ci.org/squeaky-pl/japronto.svg?branch=master)](https://travis-ci.org/squeaky-pl/japronto) [![PyPI](https://img.shields.io/pypi/v/japronto.svg)](https://pypi.python.org/pypi/japronto) [![PyPI version](https://img.shields.io/pypi/pyversions/japronto.svg)](https://pypi.python.org/pypi/japronto/)
 
+__There is no new project development happening at the moment, but it's not abandoned either.__.
+
+__If you are a novice Python programmer, you don't like plumbing yourself or you don't have basic understading of C, this project is not probably what you are looking for__.
+
 Japronto (from Portuguese "já pronto" /ˈʒa pɾõtu/ meaning "already done") is a __screaming-fast__, __scalable__, __asynchronous__
 Python 3.5+ HTTP __toolkit__ integrated with __pipelining HTTP server__ based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser). It's targeted at speed enthusiasts, people who like
 plumbing and early adopters.
