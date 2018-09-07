@@ -190,7 +190,9 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 #endif
 
   PyObject* get_extra_info = NULL;
-  PySocketSockObject* socket = NULL;
+  PyObject* socket = NULL;
+  PyObject* socket_fileno = NULL;
+  PyObject* fileno = NULL;
   PyObject* connections = NULL;
   self->transport = transport;
   Py_INCREF(self->transport);
@@ -198,13 +200,22 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   if(!(get_extra_info = PyObject_GetAttrString(transport, "get_extra_info")))
     goto error;
 
-  if(!(socket = (PySocketSockObject*)PyObject_CallFunctionObjArgs(
+  // NOTE: this will return a PseudoSocket object(uvloop>=0.9.0), not PySocketSockObject(socket_socket in uvloop<0.9.0)
+  if(!(socket = PyObject_CallFunctionObjArgs(
        get_extra_info, socket_str, NULL)))
     goto error;
 
+  if(!(socket_fileno = PyObject_GetAttrString(socket, "fileno")))
+    goto error;
+
+  if(!(fileno = PyObject_CallFunctionObjArgs(socket_fileno, NULL)))
+    goto error;
+
+  int sock_fd = (int)PyLong_AsLong(fileno);
   const int on = 1;
 
-  if(setsockopt(socket->sock_fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) != 0)
+  // in uvloop(>=0.9.0) TCPTransport.new, the socket have set nodelay now.
+  if(setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) != 0)
     goto error;
 
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
