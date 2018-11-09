@@ -1,5 +1,5 @@
-language:
-- objective-c
+language: generic
+os: osx
 
 env:
   global:
