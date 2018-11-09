@@ -9,7 +9,9 @@ env:
     - VERSION=3.6.0
     - VERSION=3.7.1
 
-before_install: source misc/travis/before_install.sh
+before_install:
+  - python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
+  - source misc/travis/before_install.sh
 
 install: source misc/travis/install.sh
 
