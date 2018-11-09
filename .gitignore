@@ -1,0 +1,8 @@
+__pycache__
+.hypothesis
+.test
+coverage.info
+*.egg-info
+*.build.toml
+*.so
+*.o

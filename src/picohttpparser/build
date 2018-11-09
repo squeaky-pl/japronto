@@ -2,11 +2,6 @@
 
 set -ex
 
-gcc -c picohttpparser.c -O3 -fpic -msse4.2
-gcc -shared -o libpicohttpparser.so picohttpparser.o
-if [[ `uname` == "Darwin" ]]
-then
-    strip -x libpicohttpparser.so
-else
-    strip libpicohttpparser.so
-fi
+gcc -c picohttpparser.c -O3 -fPIC -msse4.2 -o ssepicohttpparser.o
+gcc -c picohttpparser.c -O3 -fPIC -o picohttpparser.o
+gcc -fPIC -shared -o libpicohttpparser.so picohttpparser.o ssepicohttpparser.o

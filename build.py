@@ -383,7 +383,7 @@ def main():
                 'define_macros': dict(ext_module.define_macros),
                 'sources': ext_module.sources
             }
-            pytoml.dump(f, build_info)
+            pytoml.dump(build_info, f)
 
 
 if __name__ == '__main__':

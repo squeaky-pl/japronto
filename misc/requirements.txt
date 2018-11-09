@@ -1,7 +1,1 @@
-perf
-uvloop
-cffi
-pytoml
-pytest
-psutil
-hypothesis
+uvloop>=0.11.3

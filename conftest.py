@@ -74,7 +74,7 @@ def make_coverage():
 
 
 def pytest_itemcollected(item):
-    needs_build = item.get_marker('needs_build')
+    needs_build = item.get_closest_marker('needs_build')
     if needs_build:
         add_build(needs_build)
     if needs_build and needs_build.kwargs.get('coverage'):

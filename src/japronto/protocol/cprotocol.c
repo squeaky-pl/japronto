@@ -14,8 +14,6 @@ static PyObject* Parser;
 static PyObject* PyRequest;
 static PyObject* RouteNotFoundException;
 
-static PyObject* socket_str;
-
 static Request_CAPI* request_capi;
 static Matcher_CAPI* matcher_capi;
 static Response_CAPI* response_capi;
@@ -165,19 +163,6 @@ Protocol_init(Protocol* self, PyObject *args, PyObject *kw)
 }
 
 
-// copied from Modules/socketmodule.h
-// FIXME on Windows SOCKET_T is a different type
-typedef int SOCKET_T;
-typedef struct {
-    PyObject_HEAD
-    SOCKET_T sock_fd;
-    // more things here that we dont need
-} PySocketSockObject;
-
-
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-
 static PyObject*
 Protocol_connection_made(Protocol* self, PyObject* transport)
 {
@@ -189,23 +174,9 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
   self->false_cnt = Py_REFCNT(Py_False);
 #endif
 
-  PyObject* get_extra_info = NULL;
-  PySocketSockObject* socket = NULL;
   PyObject* connections = NULL;
   self->transport = transport;
   Py_INCREF(self->transport);
-
-  if(!(get_extra_info = PyObject_GetAttrString(transport, "get_extra_info")))
-    goto error;
-
-  if(!(socket = (PySocketSockObject*)PyObject_CallFunctionObjArgs(
-       get_extra_info, socket_str, NULL)))
-    goto error;
-
-  const int on = 1;
-
-  if(setsockopt(socket->sock_fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) != 0)
-    goto error;
 
   if(!(self->write = PyObject_GetAttrString(transport, "write")))
     goto error;
@@ -234,8 +205,6 @@ Protocol_connection_made(Protocol* self, PyObject* transport)
 
   finally:
   Py_XDECREF(connections);
-  Py_XDECREF(socket);
-  Py_XDECREF(get_extra_info);
   Py_RETURN_NONE;
 }
 
@@ -913,7 +882,6 @@ PyInit_cprotocol(void)
   PyObject* api_capsule = NULL;
   PyObject* crequest = NULL;
   PyObject* route = NULL;
-  socket_str = NULL;
 
   if (PyType_Ready(&ProtocolType) < 0)
     goto error;
@@ -966,9 +934,6 @@ PyInit_cprotocol(void)
 
   response_capi = import_capi("japronto.response.cresponse");
   if(!response_capi)
-    goto error;
-
-  if(!(socket_str = PyUnicode_FromString("socket")))
     goto error;
 
   Py_INCREF(&ProtocolType);

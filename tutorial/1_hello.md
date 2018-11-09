@@ -50,7 +50,7 @@ On Linux and OSX run the server with just: `python3 hello.py`.
 
 If using Docker run `docker run -p 8080:8080 -v $(pwd)/hello.py:/hello.py japronto/japronto --script /hello.py`. This will mount local `hello.py` into container as `/hello.py` which is later passed to Docker entry point.
 
-Now open the address `http://localhost:8000` in your web browser. You should see the message *Hello world!*.
+Now open the address `http://localhost:8080` in your web browser. You should see the message *Hello world!*.
 
 You now have a working Japronto server!
 

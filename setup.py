@@ -26,14 +26,14 @@ setup(
     license='MIT',
     author='Paweł Piotr Przeradowski',
     author_email='przeradowski@gmail.com',
-    description='A micro-framework bundled with server ' +
+    description='A HTTP application toolkit and server bundle ' +
                 'based on uvloop and picohttpparser',
     package_dir={'': 'src'},
     packages=find_packages('src'),
     keywords=['web', 'asyncio'],
     platforms='x86_64 Linux and MacOS X',
     install_requires=[
-        'uvloop>=0.7.2',
+        'uvloop>=0.11.3',
     ],
     entry_points="""
          [console_scripts]
@@ -49,6 +49,7 @@ setup(
         'Programming Language :: C',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Internet :: WWW/HTTP'
     ],

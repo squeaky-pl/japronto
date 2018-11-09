@@ -7,9 +7,10 @@ env:
   matrix:
     - VERSION=3.5.3
     - VERSION=3.6.0
+    - VERSION=3.7.1
 
 before_install: source misc/travis/before_install.sh
 
-install: misc/travis/install.sh
+install: source misc/travis/install.sh
 
 script: misc/travis/script.sh

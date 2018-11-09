@@ -1,0 +1,7 @@
+-r requirements.txt
+hypothesis==3.80.0
+psutil==5.4.7
+pytest==3.9.2
+pytoml==0.1.20
+perf==1.5.1
+cffi==1.11.5

@@ -1,8 +1,15 @@
 # Japronto!
 
+[![irc: #japronto](https://img.shields.io/badge/irc-%23japronto-brightgreen.svg)](https://webchat.freenode.net/?channels=japronto)
+[![Gitter japronto/Lobby](https://badges.gitter.im/japronto/Lobby.svg)](https://gitter.im/japronto/Lobby) [![Build Status](https://travis-ci.org/squeaky-pl/japronto.svg?branch=master)](https://travis-ci.org/squeaky-pl/japronto) [![PyPI](https://img.shields.io/pypi/v/japronto.svg)](https://pypi.python.org/pypi/japronto) [![PyPI version](https://img.shields.io/pypi/pyversions/japronto.svg)](https://pypi.python.org/pypi/japronto/)
+
+__There is no new project development happening at the moment, but it's not abandoned either. Pull requests and new maintainers are welcome__.
+
+__If you are a novice Python programmer, you don't like plumbing yourself or you don't have basic understanding of C, this project is not probably what you are looking for__.
+
 Japronto (from Portuguese "já pronto" /ˈʒa pɾõtu/ meaning "already done") is a __screaming-fast__, __scalable__, __asynchronous__
-Python 3.5+ web __micro-framework__ integrated with __pipelining HTTP server__
-based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser).
+Python 3.5+ HTTP __toolkit__ integrated with __pipelining HTTP server__ based on [uvloop](https://github.com/MagicStack/uvloop) and [picohttpparser](https://github.com/h2o/picohttpparser). It's targeted at speed enthusiasts, people who like
+plumbing and early adopters.
 
 You can read more in the [release announcement on medium](https://medium.com/@squeaky_pl/million-requests-per-second-with-python-95c137af319)
 
@@ -73,7 +80,7 @@ Features
 License
 -------
 
-This software is distributed under [MIT License](https://en.wikipedia.org/wiki/MIT_License). This is a very permissive license that let's you use this software for any
+This software is distributed under [MIT License](https://en.wikipedia.org/wiki/MIT_License). This is a very permissive license that lets you use this software for any
 commercial and non-commercial work. Full text of the license is
 included in [LICENSE.txt](LICENSE.txt) file.
 

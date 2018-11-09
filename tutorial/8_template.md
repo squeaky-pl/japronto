@@ -5,7 +5,7 @@ Serving HTML from japronto is as simple as adding a MIME type of `text/html` to 
 Copy and paste following code into a file named `html.py`:
 
 ```python
-# examples/8_html/html.py
+# examples/8_template/template.py
 from japronto import Application
 from jinja2 import Template
 
@@ -34,7 +34,7 @@ app = Application()
 # Add routes to the app
 app.router.add_route('/', index)
 app.router.add_route('/example', example)
-app.router.add_route('jinja2', jinja)
+app.router.add_route('/jinja2', jinja)
 
 # Start the server
 app.run(debug=True)
