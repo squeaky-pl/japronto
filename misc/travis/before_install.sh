@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+python -c "import fcntl; fcntl.fcntl(1, fcntl.F_SETFL, 0)"
 export JAPR_MSG=`git show -s --format=%B | xargs`
 export JAPR_WHEEL=`[[ $JAPR_MSG == *"[travis-wheel]"* ]] && echo 1 || echo 0`
 export JAPR_OS=`uname`
