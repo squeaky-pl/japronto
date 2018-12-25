@@ -10,6 +10,8 @@ class RouteNotFoundException(Exception):
 
 
 class Route:
+    __slots__ = ('pattern', 'handler', 'methods', 'segments', 'placeholder_cnt')
+
     def __init__(self, pattern, handler, methods):
         self.pattern = pattern
         self.handler = handler
@@ -31,7 +33,6 @@ class Route:
 
 
 def parse(pattern):
-    names = set()
     result = []
 
     rest = pattern
@@ -58,10 +59,10 @@ def parse(pattern):
         if rest and rest[0] != '/':
             raise ValueError(
                 '"}" must be followed by "/" or appear at the end')
-        if name in names:
+        name_val = ('placeholder', name)
+        if name_val in result:
             raise ValueError('Duplicate name "{}" in pattern'.format(name))
-        names.add(name)
-        result.append(('placeholder', name))
+        result.append(name_val)
 
     return result
 

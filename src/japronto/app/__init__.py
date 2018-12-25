@@ -16,7 +16,8 @@ from japronto.protocol.creaper import Reaper
 
 signames = {
     int(v): v.name for k, v in signal.__dict__.items()
-    if isinstance(v, signal.Signals)}
+    if isinstance(v, signal.Signals)
+}
 
 
 class Application:
@@ -252,12 +253,12 @@ class Application:
             return
 
         reloader_pid = None
-        if reload:
-            if '_JAPR_RELOADER' not in os.environ:
-                from japronto.reloader import exec_reloader
-                exec_reloader(host=host, port=port, worker_num=worker_num)
-            else:
-                reloader_pid = int(os.environ['_JAPR_RELOADER'])
+        jarp_var = os.environ.get('_JAPR_RELOADER')
+        if reload and jarp_var:
+            reloader_pid = int(jarp_var)
+        elif reload:
+            from japronto.reloader import exec_reloader
+            exec_reloader(host=host, port=port, worker_num=worker_num)
 
         self._run(
             host=host, port=port, worker_num=worker_num,
