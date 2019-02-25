@@ -256,7 +256,8 @@ class custom_build_ext(build_ext):
                     ext.extra_compiler_args = []
                 extra_compile_args = ['-std=c99', '-UNDEBUG', '-D_GNU_SOURCE']
                 if self.compiler.compiler_so[0].startswith('gcc'):
-                    extra_compile_args.append('-frecord-gcc-switches')
+                    #extra_compile_args.append('-frecord-gcc-switches')
+                    extra_compile_args.append('') #mac build not frecord-gcc-switches
                 ext.extra_compile_args.extend(extra_compile_args)
         compile_c(
             self.compiler,
