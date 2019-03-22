@@ -66,7 +66,7 @@ class Application:
         return ''.join(response).encode('utf-8') + error
 
     def default_request_logger(self, request):
-        print(request.remote_addr, request.method, request.path)
+        pass
 
     def add_error_handler(self, typ, handler):
         self._error_handlers.append((typ, handler))
