@@ -1,6 +1,9 @@
+#ifndef _MSC_VER
 #include <strings.h>
 #include <sys/param.h>
+#endif
 
+#include "common.h"
 #include "cparser.h"
 #include "cpu_features.h"
 

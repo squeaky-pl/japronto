@@ -258,24 +258,31 @@ class custom_build_ext(build_ext):
                 if self.compiler.compiler_so[0].startswith('gcc') and sys.platform != 'darwin':
                     extra_compile_args.append('-frecord-gcc-switches')
                 ext.extra_compile_args.extend(extra_compile_args)
+        elif self.compiler.compiler_type == 'msvc':
+            extra_compile_args = ['/D__clang__']
+
         compile_c(
             self.compiler,
             'src/picohttpparser/picohttpparser.c',
             'src/picohttpparser/ssepicohttpparser.o',
-            options={'unix': ['-msse4.2']})
+            options={'unix': ['-msse4.2'], 'msvc': ['/arch:SSE2', '/D__SSE4_2__']}
+        )
         compile_c(
             self.compiler,
             'src/picohttpparser/picohttpparser.c',
-            'src/picohttpparser/picohttpparser.o')
+            'src/picohttpparser/picohttpparser.o',
+        )
         build_ext.build_extensions(self)
 
 
 def compile_c(compiler, cfile, ofile, *, options=None):
-    if not options:
-        options = {}
+    options = options or {}
 
     options = options.get(compiler.compiler_type, [])
-    cmd = [*compiler.compiler_so, *options, '-c', '-o', ofile, cfile]
+    if sys.platform == 'win32':
+        cmd = ['cl', *options, '/c', '/TC', cfile, '/Fo{}'.format(ofile)]
+    else:
+        cmd = [*compiler.compiler_so, *options, '-c', '-o', ofile, cfile]
     print("building '{}'".format(ofile))
     print(' '.join(cmd))
     subprocess.check_call(cmd)

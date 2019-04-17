@@ -785,6 +785,7 @@ static PyMethodDef Protocol_methods[] = {
   {"connection_lost", (PyCFunction)Protocol_connection_lost, METH_VARARGS, ""},
   {"data_received", (PyCFunction)Protocol_data_received, METH_O, ""},
   {"pipeline_cancel", (PyCFunction)Protocol_pipeline_cancel, METH_NOARGS, ""},
+  {"eof_received", (PyCFunction)Protocol_eof_received, METH_NOARGS, ""},
 #ifdef PARSER_STANDALONE
   {"on_headers", (PyCFunction)Protocol_on_headers, METH_VARARGS, ""},
   {"on_body", (PyCFunction)Protocol_on_body, METH_VARARGS, ""},
@@ -798,6 +799,15 @@ static PyObject*
 Protocol_get_pipeline_empty(Protocol* self)
 {
   if(PIPELINE_EMPTY(&self->pipeline))
+    Py_RETURN_TRUE;
+
+  Py_RETURN_FALSE;
+}
+
+Protocol*
+Protocol_eof_received(Protocol* self)
+{
+  if(self->closed)
     Py_RETURN_TRUE;
 
   Py_RETURN_FALSE;

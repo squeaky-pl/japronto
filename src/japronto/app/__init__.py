@@ -7,7 +7,11 @@ import sys
 import multiprocessing
 import faulthandler
 
-import uvloop
+try:
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+except Exception:
+    pass
 
 from japronto.router import Router, RouteNotFoundException
 from japronto.protocol.cprotocol import Protocol
@@ -35,7 +39,7 @@ class Application:
     @property
     def loop(self):
         if not self._loop:
-            self._loop = uvloop.new_event_loop()
+            self._loop = asyncio.new_event_loop()
 
         return self._loop
 
@@ -168,8 +172,9 @@ class Application:
 
         server = loop.run_until_complete(server_coro)
 
-        loop.add_signal_handler(signal.SIGTERM, loop.stop)
-        loop.add_signal_handler(signal.SIGINT, loop.stop)
+        if sys.platform != 'win32':
+            loop.add_signal_handler(signal.SIGTERM, loop.stop)
+            loop.add_signal_handler(signal.SIGINT, loop.stop)
 
         if reloader_pid:
             from japronto.reloader import ChangeDetector
@@ -199,7 +204,8 @@ class Application:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((host, port))
-        os.set_inheritable(sock.fileno(), True)
+        if sys.platform != 'win32':
+            os.set_inheritable(sock.fileno(), True)
 
         workers = set()
 
@@ -217,15 +223,19 @@ class Application:
 
         signal.signal(signal.SIGINT, stop)
         signal.signal(signal.SIGTERM, stop)
-        signal.signal(signal.SIGHUP, stop)
+        if sys.platform != 'win32':
+            signal.signal(signal.SIGHUP, stop)
 
         for _ in range(worker_num or 1):
             worker = multiprocessing.Process(
                 target=self.serve,
                 kwargs=dict(sock=sock, host=host, port=port,
                             reloader_pid=reloader_pid))
-            worker.daemon = True
-            worker.start()
+            if sys.platform == 'win32':
+                worker.run()
+            else:
+                worker.daemon = True
+                worker.start()
             workers.add(worker)
 
         # prevent further operations on socket in parent

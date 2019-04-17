@@ -1,6 +1,9 @@
 #include <Python.h>
+#ifndef _MSC_VER
 #include <sys/param.h>
+#endif
 
+#include "common.h"
 #include "cresponse.h"
 #include "capsule.h"
 #include "reasons.h"

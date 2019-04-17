@@ -1,8 +1,13 @@
 #include <stddef.h>
+
+#ifndef _MSC_VER
 #include <sys/param.h>
 #include <strings.h>
+#endif
+
 #include <string.h>
 
+#include "common.h"
 #include "crequest.h"
 
 #include "cresponse.h"

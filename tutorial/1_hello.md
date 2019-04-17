@@ -8,8 +8,8 @@ Japronto with [Docker](https://docs.docker.com/engine/installation/#/on-macos-an
 Installing
 ----------
 
-On Linux and OSX install Japronto with `python3 -m pip install japronto`.
-On Windows or if you simply prefer Docker pull Japronto image with `docker pull japronto/japronto`.
+On Linux and OSX and Windows install Japronto with `python3 -m pip install japronto`.
+If you simply prefer Docker pull Japronto image with `docker pull japronto/japronto`.
 
 Creating your Hello world app
 -----------------------------
@@ -46,7 +46,7 @@ The source code for all the examples can be found in [examples directory](https:
 Run it
 ------
 
-On Linux and OSX run the server with just: `python3 hello.py`.
+On Linux and OSX and Windows run the server with just: `python3 hello.py`.
 
 If using Docker run `docker run -p 8080:8080 -v $(pwd)/hello.py:/hello.py japronto/japronto --script /hello.py`. This will mount local `hello.py` into container as `/hello.py` which is later passed to Docker entry point.
 

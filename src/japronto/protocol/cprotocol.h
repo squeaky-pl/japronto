@@ -61,6 +61,7 @@ Protocol* Protocol_on_headers(Protocol*, char* method, size_t method_len,
                               void* headers, size_t num_headers);
 Protocol* Protocol_on_body(Protocol*, char* body, size_t body_len, size_t tail_len);
 Protocol* Protocol_on_error(Protocol*, PyObject*);
+Protocol* Protocol_eof_received(Protocol*);
 #endif
 
 typedef struct {

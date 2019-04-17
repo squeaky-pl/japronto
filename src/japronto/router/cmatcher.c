@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <stdbool.h>
 
+#include "common.h"
 #include "cmatcher.h"
 #include "crequest.h"
 #include "capsule.h"

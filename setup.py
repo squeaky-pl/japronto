@@ -4,6 +4,7 @@ Japronto
 import codecs
 import os
 import re
+import sys
 
 from setuptools import setup, find_packages
 
@@ -31,10 +32,8 @@ setup(
     package_dir={'': 'src'},
     packages=find_packages('src'),
     keywords=['web', 'asyncio'],
-    platforms='x86_64 Linux and MacOS X',
-    install_requires=[
-        'uvloop>=0.11.3',
-    ],
+    platforms='x86_64 Linux and MacOS X and x86_64 Windows',
+    install_requires=['uvloop>=0.11.3',] if sys.platform != 'win32' else [],
     entry_points="""
          [console_scripts]
          japronto = japronto.__main__:main
@@ -44,6 +43,7 @@ setup(
         'Intended Audience :: Developers',
         'Environment :: Web Environment',
         'License :: OSI Approved :: MIT License',
+        'Operating System :: Windows :: Windows',
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: C',
