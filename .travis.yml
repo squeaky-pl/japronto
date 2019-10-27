@@ -8,11 +8,17 @@ services:
 env:
   global:
     - secure: "HO3zCuv0FtNFTQ7kkBpIqKYAZW8sYZPfc1ROk6+ChoxufXcu529CTKNAr3KklfZCbMHiZKc3W83N7x9B/L2rtSuBQvJPPgVtIlaVKRyWWnY4nqrpwKEoOLUd3RjpAMfCB09sXQ2aTfQV8Ds5Zk+cF7R2toI6s2s4vymXvCLvfugrtO4sd91frSDv/fzjEEKOIeey8KXtPAPPFv6v64OScksPt1oCsVOPDtkZ7q0KSIzS9JN6BvM9oafPt9MaFPH84ITtdPMTjgQOQ+YFe8YBwgjkV/cX9rNs+vzSP6Bm2NQ9/xxd8XTDj6ukuEYD5HQi26IS6ddRyVGsn6/WRZx6/kQboJKh5r5pa4OAHPWnPirRWPQW46HI2iknAGTFWh8ARX2R208mK1vbQ66J+9zQDnkjMXGgX67gWyWQWfxwVHFsPyQEiSHHh2vEBkhs1+tqtvp7Ktnc+uCxXn0v/Humu3OvFSBxSXfyjvE9uUOGyB2zDwqmxLQQ5ftKAcGfLOaSqauJ1vQy1CWc5bROCn8aoch5iRf/tcX85TUDirAgAp3OUdt3VwcRNY+Fci7IU50gn2rghJWFzB5Zz9p1ShnZxIaD5GEPE45ju4UIpwYbs8iSqh+/RS8sR2Ffzx4M+6QJjj1BJABdtVPS9Jn5OkbuSdBW0K+MuLtmtbg4WLXv6+E="
-  matrix:
-    - VERSION=3.5.3
-    - VERSION=3.6.0
-    - VERSION=3.7.1
-    - VERSION=3.8.0
+
+jobs:
+  include:
+    - python: 3.5
+      env: VERSION=3.5.3
+    - python: 3.6
+      env: VERSION=3.6.0
+    - python: 3.7
+      env: VERSION=3.7.1
+    - python: 3.8
+      env: VERSION=3.8.0
 
 before_install: source misc/travis/before_install.sh
 
