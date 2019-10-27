@@ -12,6 +12,7 @@ env:
     - VERSION=3.5.3
     - VERSION=3.6.0
     - VERSION=3.7.1
+    - VERSION=3.8.0
 
 before_install: source misc/travis/before_install.sh
 
