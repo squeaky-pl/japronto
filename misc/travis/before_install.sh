@@ -10,6 +10,8 @@ elif [[ $VERSION == "3.6."* ]]; then
   export PYTHON_TAG=cp36-cp36m
 elif [[ $VERSION == "3.7."* ]]; then
   export PYTHON_TAG=cp37-cp37m
+elif [[ $VERSION == "3.8."* ]]; then
+  export PYTHON_TAG=cp38-cp38m
 fi
 
 env | grep "^JAPR_"
