@@ -12,7 +12,7 @@ import uvloop
 from japronto.router import Router, RouteNotFoundException
 from japronto.protocol.cprotocol import Protocol
 from japronto.protocol.creaper import Reaper
-
+from japronto import helpers
 
 signames = {
     int(v): v.name for k, v in signal.__dict__.items()
@@ -31,6 +31,8 @@ class Application:
         self._request_extensions = {}
         self._protocol_factory = protocol_factory or Protocol
         self._debug = debug
+        self._on_startup = []
+        self._on_cleanup = []
 
     @property
     def loop(self):
@@ -45,6 +47,14 @@ class Application:
             self._router = Router()
 
         return self._router
+
+    @property
+    def on_startup(self):
+        return self._on_startup
+
+    @property
+    def on_cleanup(self):
+        return self._on_cleanup
 
     def __finalize(self):
         self.loop
@@ -163,28 +173,39 @@ class Application:
         loop = self.loop
         asyncio.set_event_loop(loop)
 
-        server_coro = loop.create_server(
-            lambda: self._protocol_factory(self), sock=sock)
+        for prepare in self.on_startup:
+            loop.run_until_complete(prepare())
 
-        server = loop.run_until_complete(server_coro)
+        async def start_serving():
+            try:
+                server = await loop.create_server(
+                    lambda: self._protocol_factory(self), sock=sock)
+                print('Accepting connections on http://{}:{}'.format(host, port))
+                while True:
+                    await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                server.close()
+                await server.wait_closed()
 
-        loop.add_signal_handler(signal.SIGTERM, loop.stop)
-        loop.add_signal_handler(signal.SIGINT, loop.stop)
+        def stop_serving():
+            for task in helpers.all_tasks(loop):
+                task.cancel()
+
+        loop.add_signal_handler(signal.SIGTERM, stop_serving)
+        loop.add_signal_handler(signal.SIGINT, stop_serving)
 
         if reloader_pid:
             from japronto.reloader import ChangeDetector
             detector = ChangeDetector(loop)
             detector.start()
 
-        print('Accepting connections on http://{}:{}'.format(host, port))
-
         try:
-            loop.run_forever()
+            loop.run_until_complete(start_serving())
         finally:
-            server.close()
-            loop.run_until_complete(server.wait_closed())
             loop.run_until_complete(self.drain())
             self._reaper.stop()
+            for finalize in self.on_cleanup:
+                loop.run_until_complete(finalize())
             loop.close()
 
             # break reference and cleanup matcher buffer
