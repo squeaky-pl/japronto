@@ -53,6 +53,36 @@ class Application:
         self._reaper = Reaper(self, **self._reaper_settings)
         self._matcher = self._router.get_matcher()
 
+    def route(self, path, methods=["GET"]):
+        '''
+        Shorthand route decorator. Avoids need to register
+        handlers to the router directly with `app.router.add_route()`.
+        '''
+        def decorator(handler):
+            def wrapper(*args, **kwargs):
+                return handler(*args, **kwargs)
+            self.router.add_route(path, wrapper, methods=methods)
+            return wrapper
+        return decorator
+
+    def get(self, path):
+        return self.route(path, methods=["GET"])
+
+    def post(self, path):
+        return self.route(path, methods=["POST"])
+
+    def put(self, path):
+        return self.route(path, methods=["PUT"])
+
+    def patch(self, path):
+        return self.route(path, methods=["PATCH"])
+
+    def options(self, path):
+        return self.route(path, methods=["OPTIONS"])
+
+    def delete(self, path):
+        return self.route(path, methods=["DELETE"])
+
     def protocol_error_handler(self, error):
         print(error)
 
