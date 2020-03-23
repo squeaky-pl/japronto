@@ -21,6 +21,7 @@ def make_class(flavor):
     from japronto.parser import cparser
 
     class HttpProtocol(asyncio.Protocol):
+        __slots__ = ('parser', 'loop', 'response', 'transport', 'queue')
         def __init__(self, loop, handler):
             self.parser = cparser.HttpRequestParser(
                 self.on_headers, self.on_body, self.on_error)
