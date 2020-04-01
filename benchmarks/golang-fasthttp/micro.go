@@ -3,9 +3,8 @@ package main
 import "github.com/valyala/fasthttp"
 
 func hello(ctx *fasthttp.RequestCtx) {
-	if string(ctx.Path()) != "/" {
-		ctx.SetStatusCode(404)
-		ctx.WriteString("Not Found")
+	if len(ctx.Path()) != 1 {
+		ctx.Error("Not Found", fasthttp.StatusNotFound)
 		return
 	}
 	ctx.WriteString("Hello world!")

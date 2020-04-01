@@ -8,9 +8,8 @@ var (
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(notFoundResp)
+	if len(r.URL.Path) != 1 {
+		http.NotFound(w, r)
 		return
 	}
 	w.Write(helloResp)
