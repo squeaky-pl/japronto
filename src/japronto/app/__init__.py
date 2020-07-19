@@ -193,7 +193,7 @@ class Application:
     def _run(self, *, host, port, worker_num=None, reloader_pid=None,
              debug=None):
         self._debug = debug or self._debug
-        if self._debug and not self._log_request:
+        if self._debug and self._log_request is None:
             self._log_request = self._debug
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
