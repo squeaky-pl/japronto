@@ -174,7 +174,7 @@ class Application:
         asyncio.set_event_loop(loop)
 
         for prepare in self.on_startup:
-            loop.run_until_complete(prepare())
+            loop.run_until_complete(prepare(self))
 
         async def start_serving():
             try:
@@ -205,7 +205,7 @@ class Application:
             loop.run_until_complete(self.drain())
             self._reaper.stop()
             for finalize in self.on_cleanup:
-                loop.run_until_complete(finalize())
+                loop.run_until_complete(finalize(self))
             loop.close()
 
             # break reference and cleanup matcher buffer
